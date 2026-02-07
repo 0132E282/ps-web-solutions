@@ -13,7 +13,7 @@ class ECommerceServiceProvider extends ServiceProvider
     {
         // Merge config
         $this->mergeConfigFrom(
-            __DIR__ . '/../../config/e-commerce.php',
+            __DIR__.'/../../config/e-commerce.php',
             'e-commerce'
         );
     }
@@ -24,20 +24,20 @@ class ECommerceServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Load routes
-        $this->loadRoutesFrom(__DIR__ . '/../../routes/e-commerce.php');
+        $this->loadRoutesFrom(__DIR__.'/../../routes/web.php');
 
         // Load migrations
-        $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
+        $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
 
         // Publish config
         if ($this->app->runningInConsole()) {
             $this->publishes([
-                __DIR__ . '/../../config/e-commerce.php' => config_path('e-commerce.php'),
+                __DIR__.'/../../config/e-commerce.php' => config_path('e-commerce.php'),
             ], 'e-commerce-config');
 
             // Publish migrations
             $this->publishes([
-                __DIR__ . '/../../database/migrations' => database_path('migrations'),
+                __DIR__.'/../../database/migrations' => database_path('migrations'),
             ], 'e-commerce-migrations');
         }
     }

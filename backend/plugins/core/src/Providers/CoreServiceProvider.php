@@ -3,14 +3,13 @@
 namespace PS0132E282\Core\Providers;
 
 use Illuminate\Database\Migrations\Migrator;
-use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use PS0132E282\Core\Base\PluginManager;
-use PS0132E282\Core\Traits\AutoReginPlugin;
 use PS0132E282\Core\Middleware\PermissionMiddleware;
 use PS0132E282\Core\Middleware\RoleMiddleware;
+use PS0132E282\Core\Traits\AutoReginPlugin;
 
 class CoreServiceProvider extends ServiceProvider
 {
@@ -33,6 +32,8 @@ class CoreServiceProvider extends ServiceProvider
         if (file_exists(__DIR__ . '/../../config/plugins.php')) {
             $this->mergeConfigFrom(__DIR__ . '/../../config/plugins.php', 'core.plugins');
         }
+
+        $this->bindPluginOverrides();
     }
 
     public function boot(): void
@@ -50,7 +51,7 @@ class CoreServiceProvider extends ServiceProvider
     {
         $pluginPaths = PluginManager::getPluginMigrationPaths();
 
-        if (!empty($pluginPaths)) {
+        if (! empty($pluginPaths)) {
             $this->app->afterResolving('migrator', function (Migrator $migrator) use ($pluginPaths) {
                 foreach ($pluginPaths as $path) {
                     $migrator->path($path);
@@ -74,8 +75,16 @@ class CoreServiceProvider extends ServiceProvider
         Inertia::share('locale', fn() => app()->getLocale());
         Inertia::share('locales', fn() => $this->getLocales());
         Inertia::share('auth', fn() => [
-            'user' => auth()->user()
+            'user' => auth()->user(),
         ]);
+        Inertia::share('flash', function () {
+            return [
+                'success' => session()->get('success'),
+                'error' => session()->get('error'),
+                'info' => session()->get('info'),
+                'warning' => session()->get('warning'),
+            ];
+        });
         Inertia::share('ziggy', fn() => [
             ...(new \Tighten\Ziggy\Ziggy)->toArray(),
             'location' => request()->url(),
@@ -84,75 +93,84 @@ class CoreServiceProvider extends ServiceProvider
 
     protected function getLocales(): array
     {
-        $langPath = public_path('lang');
-        if (!is_dir($langPath)) {
-            return [app()->getLocale()];
-        }
+        $locales = ['en', 'vi']; // Fallback/Default
+        $langPath = __DIR__ . '/../../resources/lang';
 
-        $locales = [];
-        foreach (scandir($langPath) as $file) {
-            if ($file === '.' || $file === '..') {
-                continue;
-            }
-
-            $filePath = "$langPath/$file";
-            if (is_file($filePath) && pathinfo($file, PATHINFO_EXTENSION) === 'json') {
-                $locale = pathinfo($file, PATHINFO_FILENAME);
-                if (preg_match('/^[a-z]{2}(_[A-Z]{2})?$/', $locale)) {
-                    $locales[] = $locale;
-                }
+        if (is_dir($langPath)) {
+            $dirs = array_filter(scandir($langPath), function ($item) use ($langPath) {
+                return $item !== '.' && $item !== '..' && is_dir($langPath . '/' . $item);
+            });
+            if (! empty($dirs)) {
+                $locales = array_values($dirs);
             }
         }
 
-        return !empty($locales) ? array_values($locales) : [app()->getLocale()];
+        return $locales;
     }
 
     protected function getTranslations(): array
     {
         $translations = [];
         foreach ($this->getLocales() as $locale) {
-            $translations[$locale] = $this->loadJsonTranslations($locale);
+            $translations[$locale] = $this->loadTranslations($locale);
         }
+
         return $translations;
     }
 
-    protected function loadJsonTranslations(string $locale): array
+    protected function loadTranslations(string $locale): array
     {
-        $jsonPath = public_path("lang/{$locale}.json");
-        if (!file_exists($jsonPath)) {
-            return [];
+        $data = [];
+        $langPath = __DIR__ . '/../../resources/lang/' . $locale;
+
+        if (is_dir($langPath)) {
+            foreach (scandir($langPath) as $file) {
+                if ($file === '.' || $file === '..') {
+                    continue;
+                }
+
+                $filePath = "$langPath/$file";
+                $name = pathinfo($file, PATHINFO_FILENAME);
+
+                if (is_file($filePath)) {
+                    if (pathinfo($file, PATHINFO_EXTENSION) === 'php') {
+                        $data[$name] = include $filePath;
+                    } elseif (pathinfo($file, PATHINFO_EXTENSION) === 'json') {
+                        $content = file_get_contents($filePath);
+                        $data[$name] = $content ? json_decode($content, true) : [];
+                    }
+                }
+            }
         }
 
-        try {
+        // Also check root public/lang for overrides
+        $jsonPath = public_path("lang/{$locale}.json");
+        if (file_exists($jsonPath)) {
             $content = file_get_contents($jsonPath);
-            $translations = $content ? json_decode($content, true) : null;
-            return (is_array($translations) && json_last_error() === JSON_ERROR_NONE) ? $translations : [];
-        } catch (\Exception $e) {
-            return [];
+            $overrides = $content ? json_decode($content, true) : null;
+            if (is_array($overrides)) {
+                $data = array_replace_recursive($data, $overrides);
+            }
         }
+
+        return $data;
     }
 
     protected function getSidebarData(): array
     {
-        $sidebarConfig = config('admin.sidebar') ?? config('sidebar') ?? [];
+        $sidebarConfig = config('admin.sidebar') ?? config('cms.admin.sidebar') ?? [];
         $accountConfig = $sidebarConfig['account'] ?? [];
 
-        // Process top items
         $topItems = $this->processSidebarItems($sidebarConfig['top'] ?? []);
 
-        // If account.sidebar exists, add it to bottom of top items
         if (isset($accountConfig['sidebar'])) {
             $topItems[] = $this->processSidebarItem($accountConfig['sidebar']);
         }
 
-        // Process account items for user dropdown
-        // Support both direct array format and nested 'user' format
         $accountUserItems = [];
         if (isset($accountConfig['user']) && is_array($accountConfig['user'])) {
-            // Nested format: account.user
             $accountUserItems = $this->processSidebarItems($accountConfig['user']);
-        } elseif (is_array($accountConfig) && !isset($accountConfig['sidebar'])) {
-            // Direct array format: account directly contains menu items
+        } elseif (is_array($accountConfig) && ! isset($accountConfig['sidebar'])) {
             $accountUserItems = $this->processSidebarItems($accountConfig);
         }
 

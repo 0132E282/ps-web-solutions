@@ -35,57 +35,57 @@ trait FieldTrait
             if (str_contains($field, '.')) {
                 $parts = explode('.', $field);
                 $firstPart = $parts[0];
-                
+
                 // Check if first part is a JSON column (not a relationship)
                 $isJsonColumn = false;
                 if ($modelInstance) {
                     $tableName = $modelInstance->getTable();
                     $isColumn = Schema::hasColumn($tableName, $firstPart);
-                    
+
                     if ($isColumn) {
                         // Check if it's a JSON cast
                         $casts = $modelInstance->getCasts();
-                        if (isset($casts[$firstPart]) && 
+                        if (isset($casts[$firstPart]) &&
                             (in_array($casts[$firstPart], ['array', 'json', 'object', 'collection']) ||
                              class_exists($casts[$firstPart]))) {
                             $isJsonColumn = true;
                         }
                     }
                 }
-                
+
                 if ($isJsonColumn) {
                     // This is a JSON column access, add base column only
-                    if (!in_array($firstPart, $columns)) {
+                    if (! in_array($firstPart, $columns)) {
                         $columns[] = $firstPart;
                     }
                 } else {
                     // This is a relationship access
-                $relationshipPath = array_slice($parts, 0, -1);
-                $column = end($parts);
+                    $relationshipPath = array_slice($parts, 0, -1);
+                    $column = end($parts);
 
-                // Build relationship path (e.g., "user.profile" -> ["user", "profile"])
-                $relationshipKey = implode('.', $relationshipPath);
-                
-                if (!isset($relationships[$relationshipKey])) {
-                    $relationships[$relationshipKey] = [];
-                }
+                    // Build relationship path (e.g., "user.profile" -> ["user", "profile"])
+                    $relationshipKey = implode('.', $relationshipPath);
 
-                // Add column to relationship if not already added
-                if (!in_array($column, $relationships[$relationshipKey])) {
-                    $relationships[$relationshipKey][] = $column;
+                    if (! isset($relationships[$relationshipKey])) {
+                        $relationships[$relationshipKey] = [];
+                    }
+
+                    // Add column to relationship if not already added
+                    if (! in_array($column, $relationships[$relationshipKey])) {
+                        $relationships[$relationshipKey][] = $column;
                     }
                 }
             } else {
                 // Check if field is a relationship (not a database column)
                 $isRelationship = false;
-                
+
                 if ($modelInstance) {
                     // Check if field exists as a column in the database
                     $tableName = $modelInstance->getTable();
                     $isColumn = Schema::hasColumn($tableName, $field);
-                    
+
                     // If not a column, check if it's a relationship method
-                    if (!$isColumn && method_exists($modelInstance, $field)) {
+                    if (! $isColumn && method_exists($modelInstance, $field)) {
                         try {
                             // Use reflection to check if method exists and is public
                             $reflection = new \ReflectionMethod($modelInstance, $field);
@@ -95,7 +95,7 @@ trait FieldTrait
                                 if ($relation instanceof \Illuminate\Database\Eloquent\Relations\Relation) {
                                     $isRelationship = true;
                                     // Add as relationship to eager load (without specific columns)
-                                    if (!isset($relationships[$field])) {
+                                    if (! isset($relationships[$field])) {
                                         $relationships[$field] = [];
                                     }
                                 }
@@ -109,9 +109,9 @@ trait FieldTrait
                         }
                     }
                 }
-                
+
                 // Only add to columns if it's not a relationship
-                if (!$isRelationship) {
+                if (! $isRelationship) {
                     // Direct column - but double check it's actually a column
                     if ($modelInstance) {
                         $tableName = $modelInstance->getTable();
@@ -141,10 +141,8 @@ trait FieldTrait
 
     /**
      * Get columns for main model
-     * 
-     * @param string|null $fieldsString
-     * @param string|null $modelClass Optional model class to check for relationships
-     * @return array
+     *
+     * @param  string|null  $modelClass  Optional model class to check for relationships
      */
     protected function getColumns(?string $fieldsString = null, ?string $modelClass = null): array
     {
@@ -153,10 +151,8 @@ trait FieldTrait
 
     /**
      * Get relationships to eager load
-     * 
-     * @param string|null $fieldsString
-     * @param string|null $modelClass Optional model class to check for relationships
-     * @return array
+     *
+     * @param  string|null  $modelClass  Optional model class to check for relationships
      */
     protected function getRelationships(?string $fieldsString = null, ?string $modelClass = null): array
     {
@@ -167,7 +163,7 @@ trait FieldTrait
         // e.g., "user.profile" -> ["user" => ["profile" => ["columns"]]]
         foreach ($parsed['relationships'] as $path => $columns) {
             $parts = explode('.', $path);
-            
+
             if (count($parts) === 1) {
                 if (empty($columns)) {
                     $relationships[$path] = function ($query) {
@@ -182,8 +178,8 @@ trait FieldTrait
                 // Nested relationship: "user.profile"
                 $firstRelation = array_shift($parts);
                 $nestedPath = implode('.', $parts);
-                
-                if (!isset($relationships[$firstRelation])) {
+
+                if (! isset($relationships[$firstRelation])) {
                     $relationships[$firstRelation] = function ($query) use ($nestedPath, $columns) {
                         $query->with([$nestedPath => function ($q) use ($columns) {
                             if (empty($columns)) {
@@ -215,23 +211,19 @@ trait FieldTrait
 
     /**
      * Apply fields to query builder
-     * 
-     * @param Builder $query
-     * @param string|null $fieldsString
-     * @return Builder
      */
     protected function applyFields(Builder $query, ?string $fieldsString = null): Builder
     {
         // Get model class from query
         $modelClass = get_class($query->getModel());
         $parsed = $this->parseFields($fieldsString, $modelClass);
-        
+
         // Select columns
         $query->select($parsed['columns']);
 
         // Build nested relationship structure
         $relationshipStructure = [];
-        
+
         foreach ($parsed['relationships'] as $path => $columns) {
             $parts = explode('.', $path);
             $this->buildRelationshipStructure($relationshipStructure, $parts, $columns);
@@ -245,11 +237,6 @@ trait FieldTrait
 
     /**
      * Build nested relationship structure
-     * 
-     * @param array $structure
-     * @param array $parts
-     * @param array $columns
-     * @return void
      */
     protected function buildRelationshipStructure(array &$structure, array $parts, array $columns): void
     {
@@ -258,8 +245,8 @@ trait FieldTrait
         }
 
         $relation = array_shift($parts);
-        
-        if (!isset($structure[$relation])) {
+
+        if (! isset($structure[$relation])) {
             $structure[$relation] = [
                 'columns' => [],
                 'nested' => [],
@@ -273,7 +260,7 @@ trait FieldTrait
             );
         } else {
             // Nested relationship
-            if (!isset($structure[$relation]['nested'])) {
+            if (! isset($structure[$relation]['nested'])) {
                 $structure[$relation]['nested'] = [];
             }
             $this->buildRelationshipStructure($structure[$relation]['nested'], $parts, $columns);
@@ -282,10 +269,6 @@ trait FieldTrait
 
     /**
      * Apply relationship structure to query
-     * 
-     * @param Builder $query
-     * @param array $structure
-     * @return void
      */
     protected function applyRelationshipStructure(Builder $query, array $structure): void
     {
@@ -294,29 +277,27 @@ trait FieldTrait
         foreach ($structure as $relation => $config) {
             $withClosures[$relation] = function ($q) use ($config) {
                 // Select columns for this relationship only if specified
-                if (!empty($config['columns'])) {
+                if (! empty($config['columns'])) {
                     $q->select(array_merge(['id'], $config['columns']));
                 }
                 // If no columns specified, load all columns (default behavior)
 
                 // Apply nested relationships recursively
-                if (!empty($config['nested'])) {
+                if (! empty($config['nested'])) {
                     $this->applyNestedRelationships($q, $config['nested']);
                 }
             };
         }
 
-        if (!empty($withClosures)) {
+        if (! empty($withClosures)) {
             $query->with($withClosures);
         }
     }
 
     /**
      * Apply nested relationships recursively
-     * 
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param array $nestedStructure
-     * @return void
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      */
     protected function applyNestedRelationships($query, array $nestedStructure): void
     {
@@ -325,70 +306,64 @@ trait FieldTrait
         foreach ($nestedStructure as $nestedRelation => $nestedConfig) {
             $nestedWith[$nestedRelation] = function ($nestedQ) use ($nestedConfig) {
                 // Select columns for this nested relationship
-                if (!empty($nestedConfig['columns'])) {
+                if (! empty($nestedConfig['columns'])) {
                     $nestedQ->select(array_merge(['id'], $nestedConfig['columns']));
                 }
 
                 // Recursively apply deeper nested relationships
-                if (!empty($nestedConfig['nested'])) {
+                if (! empty($nestedConfig['nested'])) {
                     $this->applyNestedRelationships($nestedQ, $nestedConfig['nested']);
                 }
             };
         }
 
-        if (!empty($nestedWith)) {
+        if (! empty($nestedWith)) {
             $query->with($nestedWith);
         }
     }
 
     /**
      * Get fields from request
-     * 
-     * @param \Illuminate\Http\Request|null $request
-     * @return string|null
      */
     protected function getFieldsFromRequest(?\Illuminate\Http\Request $request = null): ?string
     {
         $request = $request ?? request();
         $fields = $request->input('fields');
-        
+
         if ($fields === null) {
             return null;
         }
-        
+
         // Convert array to comma-separated string if needed
         if (is_array($fields)) {
             return implode(',', $fields);
         }
-        
+
         // Return as string
         return (string) $fields;
     }
 
     /**
      * Apply fields from request to query
-     * 
-     * @param Builder $query
-     * @param \Illuminate\Http\Request|null $request
-     * @return Builder
      */
     protected function applyFieldsFromRequest(Builder $query, ?\Illuminate\Http\Request $request = null): Builder
     {
         $fieldsString = $this->getFieldsFromRequest($request);
+
         return $this->applyFields($query, $fieldsString);
     }
 
     /**
      * Get nested value from model (supports JSON columns)
-     * 
-     * @param mixed $model
-     * @param string $field Field with dot notation (e.g., "property.type", "user.profile.name")
-     * @param mixed $default
+     *
+     * @param  mixed  $model
+     * @param  string  $field  Field with dot notation (e.g., "property.type", "user.profile.name")
+     * @param  mixed  $default
      * @return mixed
      */
     protected function getNestedFieldValue($model, string $field, $default = null)
     {
-        if (!str_contains($field, '.')) {
+        if (! str_contains($field, '.')) {
             // Simple field access
             return data_get($model, $field, $default);
         }
@@ -399,7 +374,7 @@ trait FieldTrait
         // Check if first part is a JSON column
         if (is_object($model) && method_exists($model, 'getCasts')) {
             $casts = $model->getCasts();
-            $isJsonColumn = isset($casts[$firstPart]) && 
+            $isJsonColumn = isset($casts[$firstPart]) &&
                 (in_array($casts[$firstPart], ['array', 'json', 'object', 'collection']) ||
                  class_exists($casts[$firstPart]));
 
@@ -407,6 +382,7 @@ trait FieldTrait
                 // Access JSON column value
                 $jsonData = $model->$firstPart ?? [];
                 $nestedKey = implode('.', array_slice($parts, 1));
+
                 return data_get($jsonData, $nestedKey, $default);
             }
         }

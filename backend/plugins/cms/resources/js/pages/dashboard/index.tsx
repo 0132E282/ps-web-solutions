@@ -2,9 +2,9 @@ import AppLayout from "@core/layouts/app-layout";
 import { ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@core/components/ui/card";
 import { Button } from "@core/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@core/components/ui/alert";
-import { Activity, Users, Eye, Clock, ArrowUpRight, ArrowDownRight, BarChart3, TrendingUp, Info, ShoppingBag, FolderTree, FileText } from "lucide-react";
-import { Link, usePage } from "@inertiajs/react";
+import { Activity, Users, Eye, ArrowUpRight, ArrowDownRight, TrendingUp, BarChart3, Search } from "lucide-react";
+import { usePage, Link } from "@inertiajs/react";
+import { route } from "ziggy-js";
 
 interface AnalyticsData {
     totalVisitors: number;
@@ -13,61 +13,90 @@ interface AnalyticsData {
     avgSessionDuration: number;
 }
 
-interface WebsiteData {
-    totalProducts: number;
-    totalCategories: number;
-    totalPosts: number;
+interface EcommerceData {
+    totalSales: number;
+    totalOrders: number;
+    recentOrders: Array<{
+        id: number;
+        order_number: string;
+        customer_name: string;
+        email: string;
+        total: number;
+        status: string;
+        created_at: string;
+    }>;
+    salesChart: Array<{
+        date: string;
+        formatted_date: string;
+        sales: number;
+        orders: number;
+    }>;
 }
 
 interface PageProps {
     analyticsConfigured: boolean;
+    adsConfigured: boolean;
+    searchConsoleConfigured: boolean;
     analyticsData: AnalyticsData;
-    websiteData: WebsiteData;
+    ecommerceData: EcommerceData;
     [key: string]: unknown;
 }
 
-// Mock data for fallback
-const mockStats = [
-    {
-        title: "Total Page Views",
-        value: "24,532",
-        change: "+12.5%",
-        trend: "up",
-        icon: Eye,
-    },
-    {
-        title: "Unique Visitors",
-        value: "8,245",
-        change: "+18.2%",
-        trend: "up",
-        icon: Users,
-    },
-    {
-        title: "Avg. Time on Page",
-        value: "2m 14s",
-        change: "-3.1%",
-        trend: "down",
-        icon: Clock,
-    },
-    {
-        title: "Bounce Rate",
-        value: "42.3%",
-        change: "-5.4%",
-        trend: "down",
-        icon: Activity,
-    },
-];
+const ServiceConnectionCard = ({
+    title,
+    description,
+    icon: Icon,
+    isConnected,
+    href,
+    colorClass
+}: {
+    title: string;
+    description: string;
+    icon: any;
+    isConnected: boolean;
+    href: string;
+    colorClass: string;
+}) => (
+    <Card className="flex flex-col h-full hover:shadow-lg transition-all duration-300 border-l-4" style={{ borderLeftColor: isConnected ? '#22c55e' : 'transparent' }}>
+        <CardHeader>
+            <div className={`p-3 rounded-xl w-fit mb-4 ${colorClass} bg-opacity-10 dark:bg-opacity-20`}>
+                <Icon className={`h-8 w-8 ${colorClass.replace('bg-', 'text-')}`} />
+            </div>
+            <CardTitle className="text-xl">{title}</CardTitle>
+            <CardDescription className="text-sm mt-2 min-h-[40px]">
+                {description}
+            </CardDescription>
+        </CardHeader>
+        <CardContent className="mt-auto pt-0">
+            <div className="flex items-center justify-between mt-4">
+                <span className={`text-sm font-medium flex items-center gap-2 ${isConnected ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                    <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    {isConnected ? 'Active & Syncing' : 'Not Connected'}
+                </span>
+                <Link href={href}>
+                    <Button
+                        variant={isConnected ? "outline" : "default"}
+                        size="sm"
+                        className={!isConnected ? "bg-black hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200" : ""}
+                    >
+                        {isConnected ? 'View Report' : 'Connect'}
+                    </Button>
+                </Link>
+            </div>
+        </CardContent>
+    </Card>
+);
 
 const DashboardPage = () => {
     const { props } = usePage<PageProps>();
-    const { analyticsConfigured, analyticsData, websiteData } = props;
+    const { analyticsConfigured, adsConfigured, searchConsoleConfigured, analyticsData, ecommerceData } = props;
 
-    // Use real data if configured, otherwise mock
+    // Derived stats for the summary view if Analytics is connected
     const stats = analyticsConfigured ? [
         {
             title: "Total Page Views",
             value: analyticsData.pageViews.toLocaleString(),
-            change: "+0%", // Needs comparison data
+            change: "+0%",
             trend: "neutral",
             icon: Eye,
         },
@@ -79,133 +108,90 @@ const DashboardPage = () => {
             icon: Users,
         },
         {
-            title: "Avg. Session Duration",
-            value: `${Math.floor(analyticsData.avgSessionDuration / 60)}m ${Math.round(analyticsData.avgSessionDuration % 60)}s`,
+            title: "Total Sales",
+            value: `$${ecommerceData.totalSales.toLocaleString()}`,
             change: "+0%",
             trend: "neutral",
-            icon: Clock,
+            icon: TrendingUp,
         },
         {
-            title: "Bounce Rate",
-            value: `${analyticsData.bounceRate.toFixed(1)}%`,
+            title: "Total Orders",
+            value: ecommerceData.totalOrders.toLocaleString(),
             change: "+0%",
             trend: "neutral",
             icon: Activity,
         },
-    ] : mockStats;
+    ] : [];
 
     return (
-        <div className="space-y-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-8 max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-center justify-end gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-                    <p className="text-muted-foreground mt-1">Welcome back to your comprehensive analytics overview.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="text-sm text-muted-foreground bg-secondary/50 px-3 py-1 rounded-md hidden md:block">
-                        Last updated: Just now
-                    </div>
-                    <Button variant="outline" size="sm">
-                        Export
-                    </Button>
-                    <Button size="sm" variant={analyticsConfigured ? "outline" : "default"}>
-                        <TrendingUp className="mr-2 h-4 w-4" />
-                        {analyticsConfigured ? "Analytics Connected" : "Connect Analytics"}
-                    </Button>
+                    <h2 className="text-3xl font-bold tracking-tight">Dashboard Overview</h2>
+                    <p className="text-muted-foreground mt-1">
+                        Connect and manage your Google services to get a complete picture of your performance.
+                    </p>
                 </div>
             </div>
 
-            {!analyticsConfigured && (
-                <Alert className="bg-blue-50/50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
-                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <AlertTitle className="ml-2">Analytics Setup Required</AlertTitle>
-                    <AlertDescription className="ml-2 mt-1">
-                        Your dashboard is currently showing demonstration data. To see real-time insights from your website, please connect your Google Analytics 4 property in <Link href="/admin/settings" className="underline font-medium hover:text-blue-900 dark:hover:text-blue-200">Settings</Link>.
-                    </AlertDescription>
-                </Alert>
+            {/* Service Connection Hub */}
+            <div className="grid gap-6 md:grid-cols-3">
+                <ServiceConnectionCard
+                    title="Google Analytics 4"
+                    description="Track website traffic, user behavior, and engagement metrics."
+                    icon={BarChart3}
+                    colorClass="bg-orange-500 text-orange-500"
+                    isConnected={analyticsConfigured}
+                    href={route('admin.site.analytics')}
+                />
+                <ServiceConnectionCard
+                    title="Google Ads"
+                    description="Monitor ad campaigns, conversion rates, and ROI."
+                    icon={TrendingUp}
+                    colorClass="bg-blue-500 text-blue-500"
+                    isConnected={adsConfigured}
+                    href={route('admin.site.ads')}
+                />
+                <ServiceConnectionCard
+                    title="Google Search Console"
+                    description="Analyze search performance and fix indexing issues."
+                    icon={Search}
+                    colorClass="bg-indigo-500 text-indigo-500"
+                    isConnected={searchConsoleConfigured}
+                    href={route('admin.site.search-console')}
+                />
+            </div>
+
+            {/* Configured Stats Summary (Only if Analytics Connected) */}
+            {analyticsConfigured && (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-8">
+                    {stats.map((stat, i) => (
+                        <Card key={i} className="hover:shadow-md transition-shadow">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">
+                                    {stat.title}
+                                </CardTitle>
+                                <div className="p-2 bg-primary/10 rounded-full">
+                                    <stat.icon className="h-4 w-4 text-primary" />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{stat.value}</div>
+                                <p className={`text-xs mt-1 flex items-center font-medium ${stat.trend === 'up' ? 'text-green-600 dark:text-green-400' : (stat.trend === 'down' ? 'text-red-600 dark:text-red-400' : 'text-gray-500')}`}>
+                                    {stat.trend !== 'neutral' && (
+                                        stat.trend === 'up' ? (
+                                            <ArrowUpRight className="h-3 w-3 mr-1" />
+                                        ) : (
+                                            <ArrowDownRight className="h-3 w-3 mr-1" />
+                                        )
+                                    )}
+                                    {stat.change} <span className="text-muted-foreground font-normal ml-1">from last month</span>
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
             )}
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat, i) => (
-                    <Card key={i} className="hover:shadow-md transition-shadow">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                {stat.title}
-                            </CardTitle>
-                            <div className="p-2 bg-primary/10 rounded-full">
-                                <stat.icon className="h-4 w-4 text-primary" />
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{stat.value}</div>
-                            <p className={`text-xs mt-1 flex items-center font-medium ${stat.trend === 'up' ? 'text-green-600 dark:text-green-400' : (stat.trend === 'down' ? 'text-red-600 dark:text-red-400' : 'text-gray-500')}`}>
-                                {stat.trend !== 'neutral' && (
-                                    stat.trend === 'up' ? (
-                                        <ArrowUpRight className="h-3 w-3 mr-1" />
-                                    ) : (
-                                        <ArrowDownRight className="h-3 w-3 mr-1" />
-                                    )
-                                )}
-                                {stat.change} <span className="text-muted-foreground font-normal ml-1">from last month</span>
-                            </p>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-
-            <div className="space-y-4">
-                <h3 className="text-xl font-semibold tracking-tight">Website Content</h3>
-                <div className="grid gap-4 md:grid-cols-3">
-                    <Card className="hover:shadow-md transition-all border-l-4 border-l-blue-500">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Total Products</CardTitle>
-                            <ShoppingBag className="h-4 w-4 text-blue-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{websiteData.totalProducts.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground mt-1">Manage items in your store</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="hover:shadow-md transition-all border-l-4 border-l-purple-500">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Categories</CardTitle>
-                            <FolderTree className="h-4 w-4 text-purple-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{websiteData.totalCategories.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground mt-1">Organize your content structure</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="hover:shadow-md transition-all border-l-4 border-l-orange-500">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Blog Posts</CardTitle>
-                            <FileText className="h-4 w-4 text-orange-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{websiteData.totalPosts.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground mt-1">Articles and news updates</p>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-1">
-                <Card className="col-span-full">
-                    <CardHeader>
-                        <CardTitle>Traffic Overview</CardTitle>
-                        <CardDescription>
-                            Daily unique visitors over the last 30 days.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pl-2">
-                        <div className="h-[400px] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-lg mx-2">
-                            <BarChart3 className="h-10 w-10 text-slate-300 mb-2" />
-                            <span className="text-sm text-muted-foreground font-medium">Chart Visualization Placeholder</span>
-                            <span className="text-xs text-muted-foreground mt-1">Install a chart library (e.g. Recharts) to enable</span>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
         </div>
     );
 };

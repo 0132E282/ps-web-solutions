@@ -1,630 +1,406 @@
-import { ColumnDef, CellContext, Column, Row, HeaderContext } from "@tanstack/react-table";
+import Toolbar from "@core/components/toolbar/index";
 import { Badge } from "@core/components/ui/badge";
 import { Button } from "@core/components/ui/button";
 import { Checkbox } from "@core/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@core/components/ui/select";
-import { ArrowUpDown } from "lucide-react";
-import * as React from "react";
-import { route, getCurrentRouteName } from "@core/lib/route";
-import { Link, router } from "@inertiajs/react";
 import { tt } from "@core/lib/i18n";
-import axios from "axios";
-import Toolbar from "@core/components/toolbar/index";
-
-// Import types from centralized location
-import type { ColumnMeta } from "@tanstack/react-table";
-import type { Admin, BadgeConfig } from "@core/types/table";
-// Module augmentation is in types/table.ts (defines ImageConfig, NumberConfig, etc.)
+import { getCurrentRouteName, route } from "@core/lib/route";
+import type { Admin } from "@core/types/table";
 import "@core/types/table";
+import { Link, router } from "@inertiajs/react";
+import type { CellContext, Column, ColumnDef, Row, ColumnMeta } from "@tanstack/react-table";
+import axios from "axios";
+import { ArrowUpDown, Image } from "lucide-react";
+import * as React from "react";
 
-// ============================================================================
-// CONSTANTS & HELPERS
-// ============================================================================
-
+/**
+ * Constants & Types
+ */
 const EMPTY_CELL = <span className="text-sm text-muted-foreground">-</span>;
 
-/** Convert index route to update route */
-const convertIndexToShowRoute = (routeName: string | null): string | null => {
-    return routeName?.endsWith('.index') ? routeName.replace(/\.index$/, '.update') : routeName;
+const MEDIA_SIZES = {
+    sm: "h-10 w-10",
+    md: "h-12 w-12",
+    lg: "h-16 w-16",
+} as const;
+
+type BaseData = Record<string, unknown>;
+type CellRenderer<TData extends BaseData = BaseData> = (props: CellContext<TData, unknown>) => React.ReactNode;
+type RendererFactory = (key?: string, cfg?: unknown, extra?: unknown) => CellRenderer<BaseData>;
+
+type ExtendedColumnDef<TData extends BaseData = BaseData> = ColumnDef<TData> & {
+    accessorKey?: string;
+    sort?: boolean;
+    sortAccessorKey?: string;
+    icon?: React.ReactNode;
+    iconPosition?: 'left' | 'right';
+    ui?: string;
+    type?: string;
+    primary?: boolean;
+    link?: boolean | string;
+    linkIdKey?: string;
+    size?: number | string;
+    imageConfig?: ColumnMeta['imageConfig'];
+    checkboxConfig?: ColumnMeta['checkboxConfig'];
+    numberConfig?: ColumnMeta['numberConfig'];
+    options?: Array<{ label: string; value: string | number }>;
 };
 
-/** Get link route from meta configuration */
-const getLinkRoute = (link: boolean | string | undefined): string | null => {
-    if (!link) return null;
-    const currentRoute = link === true ? getCurrentRouteName() : link;
-    return typeof currentRoute === "string" ? convertIndexToShowRoute(currentRoute) : currentRoute;
-};
+/**
+ * Private Helpers
+ */
 
-/** Get value from row using accessorKey */
-const getValue = <TData extends Record<string, unknown>>(
-    row: Row<TData>,
-    col: Column<TData>,
-    accessorKey: string | undefined
-) => {
-    const key = col.id || accessorKey;
-    if (!key) return undefined;
-
+const getCellValue = <TData extends BaseData>(row: Row<TData>, columnId?: string): unknown => {
+    if (!columnId) return undefined;
     try {
-        const value = row.getValue(key);
-        if (value !== undefined) return value;
-    } catch {
-        // Fallback to direct access
-    }
-
-    const rowData = row.original || row;
-    return (rowData && typeof rowData === 'object') ? rowData[key] : undefined;
+        const val = row.getValue(columnId);
+        if (val !== undefined) return val;
+    } catch { /* Fallback */ }
+    return (row.original as BaseData)[columnId];
 };
 
-/** Get display value from unknown value (object or primitive) */
-const getDisplayValue = (value: unknown): string => {
-    if (value === null || value === undefined) return "";
-    if (typeof value !== "object") return String(value);
-
-    const obj = value as Record<string, unknown>;
-    const candidates = ['name', 'title', 'label', 'full_name', 'email', 'id'];
-
-    for (const key of candidates) {
-        if (obj[key] !== undefined && obj[key] !== null) {
-            return String(obj[key]);
-        }
-    }
-
-    return String(value);
+const formatDisplayValue = (val: unknown): string => {
+    if (val == null) return "";
+    if (typeof val !== "object") return String(val);
+    const obj = val as BaseData;
+    const priorityKeys = ['name', 'title', 'label', 'full_name', 'email', 'id'];
+    const foundKey = priorityKeys.find(k => obj[k] != null);
+    return foundKey ? String(obj[foundKey]) : JSON.stringify(val);
 };
 
-/** Get translated field label */
-const getFieldLabel = (accessorKey: string | undefined, resourceName: string | null): string => {
-    if (!accessorKey) return '';
-    if (!resourceName) {
-        return accessorKey.charAt(0).toUpperCase() + accessorKey.slice(1);
-    }
-    const fieldKey = `fields.${resourceName}.${accessorKey}`;
-    const translated = tt(fieldKey);
-    const label = translated !== fieldKey ? translated : accessorKey;
-    return label.charAt(0).toUpperCase() + label.slice(1);
+const resolveFieldLabel = (key?: string, resource?: string | null): string => {
+    if (!key) return '';
+    const langKey = resource ? `fields.${resource}.${key}` : `fields.${key}`;
+    const translated = tt(langKey);
+    const final = translated === langKey ? key : translated;
+    return final.charAt(0).toUpperCase() + final.slice(1);
 };
 
-// ============================================================================
-// CELL RENDERERS
-// ============================================================================
-const createNumberCell = <TData extends Record<string, unknown>>(accessorKey: string | undefined, config: ColumnMeta['numberConfig']) =>
-    ({ row, column: col }: CellContext<TData, unknown>) => {
-        const value = getValue(row, col, accessorKey);
-        if (value == null || value === '') return EMPTY_CELL;
+const getEffectiveRoute = (link: boolean | string | undefined): string | null => {
+    if (!link) return null;
+    const name = link === true ? getCurrentRouteName() : link;
+    if (typeof name !== 'string') return null;
+    return name.endsWith('.index') ? name.replace(/\.index$/, '.update') : name;
+};
 
-        try {
-            const num = Number(value);
-            if (isNaN(num)) return <span className="text-sm">{String(value)}</span>;
+/**
+ * Cell Components
+ */
 
-            const locale = config?.locale || 'vi-VN';
-            const options: Intl.NumberFormatOptions = {
-                style: config?.format === 'currency' ? 'currency' : (config?.format === 'percent' ? 'percent' : 'decimal'),
-                maximumFractionDigits: config?.decimals ?? 2,
-            };
+const MediaCell: React.FC<{ urls: unknown[], size: keyof typeof MEDIA_SIZES, className?: string }> = ({ urls, size, className }) => {
+    const cls = `${MEDIA_SIZES[size] || MEDIA_SIZES.md} rounded border bg-muted overflow-hidden relative group flex-shrink-0 ${className || ""}`;
+    const IconFallback = <div className={`${cls} flex items-center justify-center text-muted-foreground/40`}><Image className="h-1/2 w-1/2" /></div>;
 
-            if (config?.format === 'currency') {
-                options.currency = config.currency || 'VND';
-            }
+    if (!urls.length) return IconFallback;
 
-            const formatter = new Intl.NumberFormat(locale, options);
-            return <span className="text-sm font-mono">{formatter.format(num)}</span>;
-        } catch {
-            return <span className="text-sm">{String(value)}</span>;
-        }
-    };
+    return (
+        <div className={cls}>
+            <img
+                src={String(urls[0])}
+                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                onError={e => {
+                    const el = e.currentTarget;
+                    const p = el.parentElement;
+                    if (!p) return;
+                    el.remove();
+                    p.innerHTML = `<div class="absolute inset-0 flex items-center justify-center bg-muted text-muted-foreground/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-1/2 w-1/2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                    </div>`;
+                }}
+            />
+            {urls.length > 1 && (
+                <div className="absolute bottom-0 right-0 bg-black/60 text-white text-[9px] px-1 font-bold rounded-tl">
+                    +{urls.length - 1}
+                </div>
+            )}
+        </div>
+    );
+};
 
-const createDateCell = <TData extends Record<string, unknown>>(accessorKey: string | undefined) =>
-    ({ row, column: col }: CellContext<TData, unknown>) => {
-        const value = getValue(row, col, accessorKey);
-        if (value == null) return EMPTY_CELL;
-        try {
-            const date = new Date(value as string | number | Date);
-            if (isNaN(date.getTime())) return EMPTY_CELL;
+/**
+ * Cell Render Factories
+ */
 
-            const d = String(date.getDate()).padStart(2, '0');
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const y = date.getFullYear();
-            const H = String(date.getHours()).padStart(2, '0');
-            const M = String(date.getMinutes()).padStart(2, '0');
-
+const RENDERERS: Record<string, RendererFactory> = {
+    number: (key, cfg) => {
+        const config = cfg as ColumnMeta['numberConfig'];
+        return ({ row }) => {
+            const val = getCellValue(row, key);
+            if (val == null || val === '') return EMPTY_CELL;
+            const num = Number(val);
+            if (isNaN(num)) return <span className="text-sm">{String(val)}</span>;
             return (
-                <span className="text-sm text-muted-foreground">
-                    {`${d}-${m}-${y} : ${H}:${M}`}
+                <span className="text-sm font-mono">
+                    {new Intl.NumberFormat(config?.locale || 'vi-VN', {
+                        style: config?.format === 'currency' ? 'currency' : (config?.format === 'percent' ? 'percent' : 'decimal'),
+                        currency: config?.currency || 'VND',
+                        maximumFractionDigits: config?.decimals ?? 2,
+                    }).format(num)}
                 </span>
             );
-        } catch {
-            return EMPTY_CELL;
-        }
-    };
+        };
+    },
 
-const createImageCell = <TData extends Record<string, unknown>>(accessorKey: string | undefined, config: ColumnMeta['imageConfig']) =>
-    ({ row, column: col }: CellContext<TData, unknown>) => {
-        let value = getValue(row, col, accessorKey);
-        const sizeClasses = { sm: "h-12 w-12", md: "h-14 w-14", lg: "h-18 w-18" };
-        const size = sizeClasses[config?.size || "md"];
-        const fallback = config?.fallback || "N/A";
+    date: (key) => ({ row }) => {
+        const val = getCellValue(row, key);
+        if (!val) return EMPTY_CELL;
+        const d = new Date(val as string | number | Date);
+        if (isNaN(d.getTime())) return EMPTY_CELL;
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const formatted = `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} : ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        return <span className="text-sm text-muted-foreground">{formatted}</span>;
+    },
 
-        // Extract URL from FileMetadata object if needed
-        if (value && typeof value === 'object' && !Array.isArray(value)) {
-            const obj = value as Record<string, unknown>;
-            value = obj.url || obj.path || obj.src || null;
-        }
+    media: (key, cfg) => {
+        const config = cfg as ColumnMeta['imageConfig'];
+        return ({ row }) => {
+            const raw = getCellValue(row, key);
+            const urls = (Array.isArray(raw) ? raw : [raw]).map(v => (v && typeof v === 'object' ? (v as BaseData).url || (v as BaseData).path || (v as BaseData).src : v)).filter(Boolean);
+            return <MediaCell urls={urls} size={config?.size || 'md'} className={config?.className} />;
+        };
+    },
 
-        // Handle array of images (attachments)
-        if (Array.isArray(value)) {
-            if (value.length === 0) {
-                return (
-                    <div className={`${size} rounded bg-muted flex items-center justify-center`}>
-                        <span className="text-xs text-muted-foreground">{fallback}</span>
-                    </div>
-                );
-            }
-
-            // Show first image for arrays
-            const firstImage = value[0];
-            const imgUrl = typeof firstImage === 'object'
-                ? (firstImage as Record<string, unknown>).url || (firstImage as Record<string, unknown>).path || (firstImage as Record<string, unknown>).src
-                : String(firstImage);
-
-            return (
-                <div className={`${size} rounded overflow-hidden ${config?.className || ""} relative`}>
-                    <img
-                        src={String(imgUrl)}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            if (target.parentElement) {
-                                target.style.display = "none";
-                                const fallbackEl = document.createElement("span");
-                                fallbackEl.className = "text-xs text-muted-foreground";
-                                fallbackEl.textContent = fallback;
-                                target.parentElement.appendChild(fallbackEl);
-                            }
-                        }}
-                    />
-                    {value.length > 1 && (
-                        <div className="absolute bottom-0 right-0 bg-black/60 text-white text-xs px-1 rounded-tl">
-                            +{value.length - 1}
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        // Handle empty or invalid value
-        if (!value || (typeof value === "string" && !value.trim())) {
-            return (
-                <div className={`${size} rounded bg-muted flex items-center justify-center`}>
-                    <span className="text-xs text-muted-foreground">{fallback}</span>
-                </div>
-            );
-        }
-
-        // Render single image
-        return (
-            <div className={`${size} rounded overflow-hidden ${config?.className || ""}`}>
-                <img
-                    src={String(value)}
-                    alt=""
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (config?.fallback && target.parentElement) {
-                            target.style.display = "none";
-                            const fallbackEl = document.createElement("span");
-                            fallbackEl.className = "text-xs text-muted-foreground";
-                            fallbackEl.textContent = config.fallback;
-                            target.parentElement.appendChild(fallbackEl);
-                        }
-                    }}
-                />
-            </div>
-        );
-    };
-
-const createCheckboxCell = <TData extends Record<string, unknown>>(accessorKey: string | undefined, config: ColumnMeta['checkboxConfig']) =>
-    ({ row }: CellContext<TData, unknown>) => {
-        const value = getValue(row, { id: accessorKey } as Column<TData>, accessorKey);
-        const checked = Boolean(value);
-        const disabled = typeof config?.disabled === "function"
-            ? config.disabled(row.original)
-            : config?.disabled || false;
-
-        return (
+    checkbox: (key, cfg) => {
+        const config = cfg as ColumnMeta['checkboxConfig'];
+        return ({ row }) => (
             <Checkbox
-                checked={checked}
-                disabled={disabled}
-                onCheckedChange={(newChecked) => config?.onCheckedChange?.(!!newChecked, row.original)}
-                aria-label="Select"
+                checked={Boolean(getCellValue(row, key))}
+                disabled={typeof config?.disabled === 'function' ? config.disabled(row.original) : !!config?.disabled}
+                onCheckedChange={v => config?.onCheckedChange?.(!!v, row.original)}
             />
         );
-    };
+    },
 
-const createSelectCell = <TData extends Record<string, unknown>>(
-    accessorKey: string | undefined,
-    options?: Array<{ label: string; value: string | number }>,
-    routeName?: string | null
-) => {
-    const SelectCell = ({ row, column: col }: CellContext<TData, unknown>) => {
-        const [isUpdating, setIsUpdating] = React.useState(false);
-        const value = getValue(row, col, accessorKey);
-        const rowData = row.original as Record<string, unknown>;
-        const rowId = rowData.id;
+    select: (key, options, routeName) => {
+        const opts = (options as Array<{ label: string; value: string | number }>) || [];
+        const rName = routeName as string | null | undefined;
+        return ({ row }) => {
+            const [updating, setUpdating] = React.useState(false);
+            const val = getCellValue(row, key);
+            const id = (row.original as BaseData).id;
 
-        if (!options || options.length === 0) {
-            return value == null || value === '' ? EMPTY_CELL : <span className="text-sm">{String(value)}</span>;
-        }
+            if (!opts.length) return val == null || val === '' ? EMPTY_CELL : <span className="text-sm">{String(val)}</span>;
+            if (!rName || !id) {
+                const label = opts.find(o => String(o.value) === String(val))?.label || String(val);
+                return <Badge variant="secondary" className="text-sm">{label}</Badge>;
+            }
 
-        // If no routeName or rowId, show as read-only badge
-        if (!routeName || !rowId) {
-            const option = options.find(opt => opt.value === value || String(opt.value) === String(value));
-            const label = option?.label || String(value);
+            const handleChange = async (newVal: string) => {
+                if (!key || !id) return;
+                setUpdating(true);
+                try {
+                    const updateRoute = rName.split('.').slice(0, -1).join('.') + '.update';
+                    await axios.patch(route(updateRoute, { id: String(id) }), { [key]: newVal });
+                    router.reload({ only: ['items', 'data'] });
+                } finally {
+                    setUpdating(false);
+                }
+            };
+
             return (
-                <Badge variant="secondary" className="text-sm">
-                    {label}
+                <Select value={String(val ?? '')} onValueChange={handleChange} disabled={updating}>
+                    <SelectTrigger className="h-8 w-[140px] text-sm">
+                        <SelectValue placeholder="Chọn..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {opts.map(o => (
+                            <SelectItem key={String(o.value)} value={String(o.value)}>{o.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            );
+        };
+    },
+
+    badge: (key, cfg) => {
+        const meta = cfg as ColumnMeta;
+        const config = meta?.badgeConfig || {};
+        return ({ row }) => {
+            const val = getCellValue(row, key);
+            if (Array.isArray(val)) {
+                return val.length ? (
+                    <div className="flex flex-wrap gap-1">
+                        {val.map((item, i) => (
+                            <Badge key={i} variant={config.trueVariant || "default"} className={config.className}>
+                                {formatDisplayValue(item)}
+                            </Badge>
+                        ))}
+                    </div>
+                ) : <span className="text-sm text-muted-foreground">{config.falseLabel || "Chưa có"}</span>;
+            }
+            const active = !!val;
+            return (
+                <Badge variant={active ? (config.trueVariant || "default") : (config.falseVariant || "secondary")} className={config.className}>
+                    {active ? (config.trueLabel || "Đã xác thực") : (config.falseLabel || "Chưa xác thực")}
                 </Badge>
             );
-        }
-
-        const handleValueChange = async (newValue: string) => {
-            if (!accessorKey || !rowId || !routeName) return;
-
-            setIsUpdating(true);
-            try {
-                const routeParts = routeName.split('.');
-                routeParts[routeParts.length - 1] = 'update';
-                const updateRouteName = routeParts.join('.');
-
-                await axios.patch(route(updateRouteName, { id: rowId }), { [accessorKey]: newValue });
-                router.reload({ only: ['items', 'data'] });
-            } catch (error) {
-                console.error('Error updating field:', error);
-            } finally {
-                setIsUpdating(false);
-            }
         };
-
-        const currentValue = value != null ? String(value) : '';
-        const hasValidValue = options.some(opt => String(opt.value) === currentValue);
-
-        return (
-            <Select
-                value={hasValidValue ? currentValue : ''}
-                onValueChange={handleValueChange}
-                disabled={isUpdating}
-            >
-                <SelectTrigger className="h-8 w-[140px] text-sm">
-                    <SelectValue placeholder="Chọn..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {options.map((option) => (
-                        <SelectItem key={String(option.value)} value={String(option.value)}>
-                            {option.label}
-                        </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        );
-    };
-
-    return SelectCell;
+    }
 };
 
-const createBadgeCell = <TData extends Record<string, unknown>>(accessorKey: string | undefined, meta: ColumnMeta) =>
-    ({ row, column: col }: CellContext<TData, unknown>) => {
-        const value = getValue(row, col, accessorKey);
-        const config: BadgeConfig = meta.badgeConfig || {};
-        const isMultiple = meta.multiple === true;
+/**
+ * Wrappers & Modifiers
+ */
 
-        if (Array.isArray(value)) {
-            if (value.length === 0) {
-                return <span className="text-sm text-muted-foreground">{config.falseLabel || "Chưa có"}</span>;
-            }
-            return isMultiple ? (
-                <div className="flex flex-wrap gap-1">
-                    {value.map((item, i) => (
-                        <Badge key={i} variant={config.trueVariant || "default"} className={config.className}>{getDisplayValue(item)}</Badge>
-                    ))}
-                </div>
-            ) : (
-                <Badge variant={config.trueVariant || "default"} className={config.className}>{getDisplayValue(value[0])}</Badge>
-            );
-        }
-
-        if (value == null) {
-            return <Badge variant={config.falseVariant || "secondary"} className={config.className}>{config.falseLabel || "Chưa xác thực"}</Badge>;
-        }
-
-        const isTruthy = typeof value === "boolean" ? value : (typeof value === "string" && value);
-        return (
-            <Badge variant={isTruthy ? (config.trueVariant || "default") : (config.falseVariant || "secondary")} className={config.className}>
-                {isTruthy ? (config.trueLabel || "Đã xác thực") : (config.falseLabel || "Chưa xác thực")}
-            </Badge>
-        );
-    };
-
-const wrapWithLink = <TData extends Record<string, unknown>>(
+const withLink = <TData extends BaseData>(
     cell: ColumnDef<TData>['cell'],
-    linkRoute: string | null,
+    routeName: string | null,
     idKey: string
 ): ColumnDef<TData>['cell'] => {
-    if (!linkRoute || typeof cell !== "function") return cell;
+    if (!routeName || typeof cell !== 'function') return cell;
 
-    return ({ row, ...rest }: CellContext<TData, unknown>) => {
-        const rowData = row.original as Record<string, unknown>;
-        const cellContent = cell({ row, ...rest } as CellContext<TData, unknown>);
+    return (props: CellContext<TData, unknown>) => {
+        const content = cell(props);
+        const id = (props.row.original as BaseData)[idKey];
+        if (!id) return content;
 
-        if (!rowData[idKey]) return cellContent;
-
-        if (React.isValidElement(cellContent)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            if ((cellContent.type as any) === Link || cellContent.type === 'a' || (cellContent.props as { href?: string })?.href) {
-                return cellContent;
-            }
+        if (React.isValidElement(content)) {
+            const type = content.type as string | React.ComponentType | { displayName?: string };
+            const isLink = (typeof type === 'function' && 'displayName' in (type as object) && (type as { displayName: string }).displayName === 'Link') ||
+                          (typeof type === 'object' && type !== null && 'displayName' in type && type.displayName === 'Link');
+            if (isLink || (content.props as { href?: string }).href) return content;
         }
 
         return (
-            <Link href={route(linkRoute, { [idKey]: rowData[idKey] })} className="tesxt-sm hover:text-primary ">
-                {cellContent}
+            <Link href={route(routeName, { [idKey]: String(id) })} className="hover:text-primary transition-colors">
+                {content}
             </Link>
         );
     };
 };
 
-
-
-export function fieldsToColumns<TData extends Record<string, unknown>>(fields: (Record<string, unknown> | string)[], resourceName?: string | null): ColumnDef<TData>[] {
-    const columns = fields.map((field) => {
-        // Normalize field to object format
-        const fieldConfig = typeof field === 'string' ? { name: field } : field;
-
-        // Extract accessor key from various possible property names
-        const accessor = (fieldConfig.name || fieldConfig.accessorKey || fieldConfig.key || fieldConfig.field) as string;
-        if (!accessor) return null;
-
-        // Destructure to separate known properties from custom ones
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { name, key, accessorKey: _accessor, field: _field, sortable, header, id, ...restProps } = fieldConfig;
-
-        // Map sortable to sort for backward compatibility
-        if (sortable !== undefined) {
-            restProps.sort = sortable;
-        }
-
-        // Determine column ID and header
-        const columnId = id ? String(id) : accessor;
-        const columnHeader = header
-            ? (typeof header === 'string' ? header : String(header))
-            : getFieldLabel(accessor, resourceName || null);
-
-        return {
-            accessorKey: accessor,
-            id: columnId,
-            header: columnHeader,
-            ...restProps
-        } as ColumnDef<TData>;
-    }).filter(Boolean) as ColumnDef<TData>[];
-
-    // Priority 1: Check for explicit primary: true
-    const getCol = (col: ColumnDef<TData>) => col as unknown as Record<string, unknown>;
-    let hasPrimary = columns.some(col => getCol(col).primary);
-
-    // Priority 2: If no explicit primary, check for 'title' or 'name'
-    if (!hasPrimary) {
-        const titleCol = columns.find(col => {
-            const key = getCol(col).accessorKey;
-            return key === 'title' || key === 'name';
-        });
-
-        if (titleCol) {
-            (titleCol as unknown as Record<string, unknown>).primary = true;
-            hasPrimary = true;
-        }
-    }
-
-    // Priority 3: If no primary found, set the first column as primary
-    if (!hasPrimary && columns.length > 0) {
-        const firstCol = columns[0];
-        if (firstCol) {
-            (firstCol as unknown as Record<string, unknown>).primary = true;
-        }
-    }
-
-    // Process columns to add cell renderers, sorting, etc.
-    return processColumns(columns, resourceName, null);
-}
-
-export function processColumns<TData extends Record<string, unknown>>(
-    columns: ColumnDef<TData>[],
-    resourceName?: string | null,
-    routeName?: string | null
-): ColumnDef<TData>[] {
-    return columns.map((column) => {
-        // Access column properties through generic record type
-        const columnProps = column as unknown as Record<string, unknown>;
-        const accessor = columnProps.accessorKey as string | undefined;
-        let processed: ColumnDef<TData> = { ...column };
-
-        // Auto-translate header if needed
-        if (accessor && resourceName) {
-            if (!column.header || (typeof column.header === "string" && column.header === accessor)) {
-                processed.header = getFieldLabel(accessor, resourceName);
-            }
-        }
-
-        // Apply size configuration for both TanStack Table and DOM rendering
-        if (columnProps.size !== undefined) {
-            const sizeValue = typeof columnProps.size === 'number'
-                ? columnProps.size
-                : parseInt(String(columnProps.size), 10);
-
-            processed.size = sizeValue;
-            processed.meta = {
-                ...(processed.meta || {}),
-                width: sizeValue
-            } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
-        }
-
-        // Handle sortable columns
-        if (columnProps.sort) {
-            const sortAccessor = (columnProps.sortAccessorKey || accessor) as string;
-            const headerText = typeof column.header === "string" ? column.header
-                : typeof processed.header === "string" ? processed.header
-                : resourceName ? getFieldLabel(sortAccessor, resourceName) : sortAccessor || '';
-            const iconPosition = columnProps.iconPosition || "left";
-            const headerIcon = columnProps.icon as React.ReactNode;
-
-            const sortableColumn: Partial<ColumnDef<TData>> = {
-                ...processed,
-                enableSorting: true,
-                header: ({ column: c }) => (
-                    <Button variant="ghost" onClick={() => c.toggleSorting(c.getIsSorted() === "asc")} className="h-8 px-2 lg:px-3">
-                        {iconPosition === "left" && headerIcon && <span className="mr-2">{headerIcon}</span>}
-                        {headerText}
-                        {iconPosition === "right" && headerIcon && <span className="ml-2">{headerIcon}</span>}
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                ),
-            };
-
-            processed = (columnProps.sortAccessorKey
-                ? { ...sortableColumn, accessorFn: (row: TData) => (row as Record<string, unknown>)[columnProps.sortAccessorKey as string] as unknown }
-                : { ...sortableColumn, accessorKey: accessor as string }
-            ) as ColumnDef<TData>;
-        }
-        // Handle columns with icon but no sorting
-        else if (columnProps.icon && typeof column.header === "string") {
-            const iconPosition = columnProps.iconPosition || "left";
-            const headerIcon = columnProps.icon as React.ReactNode;
-            const headerText = (column.header === accessor && resourceName)
-                ? getFieldLabel(accessor as string, resourceName)
-                : column.header;
-
-            processed = {
-                ...processed,
-                header: () => (
-                    <div className="flex items-center gap-2">
-                        {iconPosition === "left" && headerIcon}
-                        {headerText}
-                        {iconPosition === "right" && headerIcon}
-                    </div>
-                ),
-            } as ColumnDef<TData>;
-        }
-
-        // Handle custom sort accessor without sort property
-        if (columnProps.sortAccessorKey && !columnProps.sort && !(processed as unknown as Record<string, unknown>).accessorFn) {
-            processed = {
-                ...processed,
-                accessorFn: (row: TData) => (row as Record<string, unknown>)[columnProps.sortAccessorKey as string] as unknown,
-                enableSorting: processed.enableSorting !== false,
-            };
-        }
-
-        // Map of cell renderer creators by type
-        const cellRenderers: Record<string, () => ColumnDef<TData>['cell']> = {
-            date: () => createDateCell(accessor),
-            attachment: () => createImageCell(accessor, columnProps.imageConfig as ColumnMeta['imageConfig']),
-            attachments: () => createImageCell(accessor, columnProps.imageConfig as ColumnMeta['imageConfig']),
-            checkbox: () => createCheckboxCell(accessor, columnProps.checkboxConfig as ColumnMeta['checkboxConfig']),
-            badge: () => createBadgeCell(accessor, columnProps as unknown as ColumnMeta),
-            select: () => createSelectCell(accessor, columnProps.options as Array<{label: string; value: string | number}>, routeName),
-            number: () => createNumberCell(accessor, columnProps.numberConfig as ColumnMeta['numberConfig']),
-        };
-
-        // Apply cell renderer based on ui then type or use default
-        const cellType = (columnProps.ui || columnProps.type) as string | undefined;
-        if (cellType && cellRenderers[cellType]) {
-            processed.cell = cellRenderers[cellType]();
-        } else if (!processed.cell) {
-            // Default cell renderer for text values with 2-line truncation
-            processed.cell = ({ row, column: c }) => {
-                const value = getValue(row, c, accessor);
-                return value == null || value === ''
-                    ? EMPTY_CELL
-                    : <span className="text-sm line-clamp-2">{getDisplayValue(value)}</span>;
-            };
-        }
-
-        // Auto-enable link for primary columns
-        if (columnProps.primary && !columnProps.link) {
-            (columnProps as Record<string, unknown>).link = true;
-        }
-
-        // Wrap cell content with link if configured
-        if (columnProps.link) {
-            const linkIdKey = (columnProps.linkIdKey as string) || "id";
-            processed.cell = wrapWithLink(
-                processed.cell,
-                getLinkRoute(columnProps.link as string | boolean | undefined),
-                linkIdKey
-            );
-        }
-
-        return processed;
-    });
-}
-
-// ============================================================================
-// BASE COLUMNS
-// ============================================================================
+/**
+ * Public Exported Collections
+ */
 
 export const baseColumns: ColumnDef<Admin>[] = [
     {
-        id: "id",
-        accessorKey: "id",
-        size: 120,
-        header: ({ table }: HeaderContext<Admin, unknown>) => {
+        id: "select",
+        size: 80,
+        header: ({ table }) => {
+            const rows = table.getRowModel().rows;
+            const isAll = rows.length > 0 && rows.every(r => r.getIsSelected());
+            const isSome = !isAll && rows.some(r => r.getIsSelected());
             return (
-                <div className="group/header" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                        checked={
-                            table.getIsAllPageRowsSelected() ||
-                            (table.getIsSomePageRowsSelected() && "indeterminate")
-                        }
-                        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                        aria-label="Select all"
-                        className="border-muted-foreground"
-                    />
-                </div>
+                <Checkbox
+                    checked={isAll ? true : (isSome ? "indeterminate" : false)}
+                    onCheckedChange={v => table.toggleAllPageRowsSelected(!!v)}
+                    aria-label="Select all"
+                />
             );
         },
-        cell: ({ row }) => {
-            const isSelected = row.getIsSelected();
-            return (
-                <div className="flex items-center gap-2 group/id-cell">
-                    <div className="relative w-5 h-5 flex items-center justify-center">
-                        <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={(value) => row.toggleSelected(!!value)}
-                            aria-label="Select row"
-                            className={`absolute transition-opacity duration-200 ${
-                                isSelected
-                                    ? "opacity-100"
-                                    : "opacity-0 group-hover/row:opacity-100"
-                            }`}
-                        />
-                        <span
-                            className={`font-mono text-sm transition-opacity duration-200 ${
-                                isSelected
-                                    ? "opacity-0"
-                                    : "opacity-100 group-hover/row:opacity-0"
-                            }`}
-                        >
-                            #
-                        </span>
-                    </div>
-                    <span className="font-mono text-sm">{row.getValue("id")}</span>
-                </div>
-            );
-        },
-        enableHiding: false,
+        cell: ({ row }) => (
+            <div className="flex items-center gap-2">
+                <Checkbox
+                    checked={row.getIsSelected()}
+                    onCheckedChange={v => row.toggleSelected(!!v)}
+                />
+                <span className="text-sm font-medium">{(row.original as unknown as BaseData).id as string | number}</span>
+            </div>
+        ),
+        enableSorting: false,
     },
     {
         id: "actions",
-        header: () => "",
-        enableHiding: false,
-        cell: ({ row }) => <Toolbar form="row" props={{ row: row.original as unknown as Record<string, unknown> & { id?: number | string } }} />,
+        enableSorting: false,
+        cell: ({ row }) => <Toolbar form="row" props={{ row: row.original as unknown as Record<string, unknown> }} />,
     },
 ];
+
+/**
+ * Main Entry Points
+ */
+
+export function processColumns<TData extends BaseData>(
+    columns: ColumnDef<TData>[],
+    resource?: string | null,
+    routeName?: string | null
+): ColumnDef<TData>[] {
+    return columns.map(col => {
+        const p = col as ExtendedColumnDef<TData>;
+        const key = p.accessorKey;
+        const result = { ...col } as unknown as ExtendedColumnDef<TData> & Record<string, unknown>;
+
+        if (key && resource && (!col.header || col.header === key)) {
+            result.header = resolveFieldLabel(key, resource);
+        }
+
+        if (p.size) {
+            result.size = Number(p.size);
+            result.meta = { ...((result.meta as Record<string, unknown>) || {}), width: Number(p.size) };
+        }
+
+        if (p.sort) {
+            const sortKey = p.sortAccessorKey || key;
+            const title = typeof result.header === 'string' ? result.header : resolveFieldLabel(sortKey, resource);
+            result.enableSorting = true;
+            result.header = (({ column: c }: { column: Column<TData, unknown> }) => (
+                <Button variant="ghost" onClick={() => c.toggleSorting(c.getIsSorted() === "asc")} className="h-8 px-2 lg:px-3">
+                    {p.iconPosition !== 'right' && p.icon && <span className="mr-2">{p.icon}</span>}
+                    {title}
+                    {p.iconPosition === 'right' && p.icon && <span className="ml-2">{p.icon}</span>}
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+            )) as ColumnDef<TData>['header'];
+            if (p.sortAccessorKey) result.accessorFn = (r: TData) => (r as BaseData)[p.sortAccessorKey as string];
+        } else if (p.icon && typeof result.header === 'string') {
+            const h = result.header as string;
+            result.header = () => (
+                <div className="flex items-center gap-2">
+                    {p.iconPosition !== 'right' && p.icon}
+                    {h}
+                    {p.iconPosition === 'right' && p.icon}
+                </div>
+            );
+        }
+
+        const rawType = (p.ui || p.type) as string;
+        const typeMapping: Record<string, string> = { attachment: 'media', attachments: 'media', image: 'media' };
+        const type = typeMapping[rawType] || rawType;
+        const factory = RENDERERS[type];
+
+        if (factory) {
+            const config = p.imageConfig || p.checkboxConfig || p.numberConfig || p.options || p;
+            result.cell = factory(key, config, routeName) as ColumnDef<TData>['cell'];
+        } else if (!result.cell) {
+            result.cell = (({ row }) => {
+                const v = getCellValue(row, key);
+                return v == null || v === '' ? EMPTY_CELL : <span className="text-sm line-clamp-2">{formatDisplayValue(v)}</span>;
+            }) as ColumnDef<TData>['cell'];
+        }
+
+        if (p.primary && !p.link) p.link = true;
+        if (p.link) {
+            result.cell = withLink(result.cell, getEffectiveRoute(p.link), p.linkIdKey || "id");
+        }
+
+        return result;
+    });
+}
+
+export function fieldsToColumns<TData extends BaseData>(
+    fields: (Record<string, unknown> | string)[],
+    resource?: string | null
+): ColumnDef<TData>[] {
+    const rawCols = fields.map(f => {
+        const cfg = typeof f === 'string' ? { name: f } : (f as Record<string, unknown>);
+        const accessor = (cfg.name || cfg.accessorKey || cfg.key || cfg.field) as string;
+        if (!accessor) return null;
+        const { sortable, header, id, ...rest } = cfg;
+        return {
+            accessorKey: accessor,
+            id: (id as string) || accessor,
+            header: (header as string) || resolveFieldLabel(accessor, resource),
+            sort: sortable as boolean | undefined,
+            ...rest
+        } as ExtendedColumnDef<TData>;
+    }).filter((f): f is ExtendedColumnDef<TData> => f !== null);
+
+    if (rawCols.length) {
+        let primary = rawCols.find(c => c.primary);
+        if (!primary) primary = rawCols.find(c => ['title', 'name'].includes(c.accessorKey || '')) || rawCols[0];
+        if (primary) primary.primary = true;
+    }
+
+    return processColumns(rawCols as ColumnDef<TData>[], resource, null);
+}

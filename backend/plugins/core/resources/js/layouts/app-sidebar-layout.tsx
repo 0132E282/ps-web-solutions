@@ -21,13 +21,13 @@ export default function AppSidebarLayout({
     breadcrumbs: providedBreadcrumbs,
     toolbar,
 }: AppSidebarLayoutProps) {
-    const { props } = usePage<BasePageProps>();
+    const { props } = usePage<BasePageProps & { item?: Record<string, unknown> }>();
     const currentRouteName = props.ziggy?.route?.name || getCurrentRouteName() || null;
+    const item = props.item || null;
 
-    // Get breadcrumbs from config or generate from route
     const breadcrumbs = useMemo(() => {
-        return getBreadcrumbs(providedBreadcrumbs, currentRouteName);
-    }, [providedBreadcrumbs, currentRouteName]);
+        return getBreadcrumbs(providedBreadcrumbs, currentRouteName, item?.id as string | number, item);
+    }, [providedBreadcrumbs, currentRouteName, item]);
 
     return (
         <AppShell variant="sidebar">

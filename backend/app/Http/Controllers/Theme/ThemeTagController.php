@@ -15,7 +15,6 @@ class ThemeTagController extends BaseController
       'description' => 'Manage tags list',
       'fields' => [
         ['name' => 'name', 'primary' => true],
-        ['name' => 'slug'],
         ['name' => 'status'],
         ['name' => 'created_at'],
       ],

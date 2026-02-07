@@ -5,34 +5,31 @@ namespace PS0132E282\Cms\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use PS0132E282\Core\Base\BaseModel;
-use PS0132E282\Core\Traits\CanImport;
-use PS0132E282\Core\Traits\CanExport;
-use PS0132E282\Core\Traits\HasSeo;
+use PS0132E282\Core\Cats\FileMedia;
 use PS0132E282\Core\Cats\Localization;
 use PS0132E282\Core\Cats\SlugField;
-use PS0132E282\Core\Cats\FileMedia;
-use PS0132E282\Core\Models\Seo;
+use PS0132E282\Core\Traits\CanExport;
+use PS0132E282\Core\Traits\CanImport;
+use PS0132E282\Core\Traits\HasSeo;
 
 class Post extends BaseModel
 {
-    use HasFactory, HasSeo, CanImport, CanExport;
+    use CanExport, CanImport, HasFactory, HasSeo;
 
     protected $table = 'posts';
 
-    /**
-     * Get field configurations for the post form
-     */
     public function configs(): array
     {
         return [
             'title' => ['ui' => 'text', 'config' => ['validation' => 'required|max:255']],
             'content' => ['ui' => 'editor', 'config' => ['validation' => 'required']],
+            'slug' => ['ui' => 'slug', 'config' => ['validation' => 'required|max:255']],
             'description' => ['ui' => 'textarea', 'config' => ['validation' => 'required|max:255']],
             'position' => ['ui' => 'text', 'config' => ['validation' => 'required|max:255']],
-            'status' => ['ui' => 'button-radio', 'config' => ['options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft'], ['label' => 'Archived', 'value' => 'archived']], 'validation' => 'required|in:published,draft,archived']],
-            'slug' => ['ui' => 'slug', 'config' => ['validation' => 'required|max:255']],
+            'status' => ['ui' => 'button-radio', 'config' => ['layout' => 'horizontal', 'options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft'], ['label' => 'Archived', 'value' => 'archived']], 'validation' => 'required|in:published,draft,archived']],
             'image' => ['ui' => 'attachment', 'config' => ['validation' => 'required|exists:media,id']],
             'related_posts' => ['ui' => 'multiple-selects', 'config' => ['source' => ['route' => 'admin.posts.index', 'params' => ['fields' => ['id', 'title']], 'valueKey' => 'id', 'labelKey' => 'title']], 'validation' => 'required|exists:posts,id'],
+            'categories' => ['ui' => 'multiple-selects', 'config' => ['source' => ['route' => 'admin.categories.index', 'params' => ['fields' => ['id', 'title']], 'valueKey' => 'id', 'labelKey' => 'title']], 'validation' => 'required|exists:taxonomies,id'],
             'published_at' => ['ui' => 'date', 'config' => ['validation' => 'required|date']],
             'attribute_data' => ['ui' => 'array', 'config' => ['validation' => 'required']],
             'seo' => $this->seo::configsSingleCondition(),
@@ -67,9 +64,9 @@ class Post extends BaseModel
         return $this->belongsToMany(Post::class, 'post_ref_related_posts', 'post_id', 'related_post_id');
     }
 
-    public function categories(): BelongsToMany
+    public function categories()
     {
-        return $this->belongsToMany(PostCategory::class, 'post_ref_categories', 'post_id', 'category_id');
+        return $this->morphToMany(PostCategory::class, 'taxonomable', 'taxonomables', 'taxonomable_id', 'taxonomy_id');
     }
 
     // public function tags(): BelongsToMany

@@ -59,7 +59,7 @@ class Order extends Model
         parent::boot();
 
         static::creating(function ($order) {
-            if (!$order->order_number) {
+            if (! $order->order_number) {
                 $order->order_number = static::generateOrderNumber();
             }
         });
@@ -71,9 +71,9 @@ class Order extends Model
     public static function generateOrderNumber(): string
     {
         $prefix = config('e-commerce.order.prefix', 'ORD-');
-        
+
         do {
-            $number = $prefix . strtoupper(uniqid());
+            $number = $prefix.strtoupper(uniqid());
         } while (static::where('order_number', $number)->exists());
 
         return $number;
@@ -140,6 +140,6 @@ class Order extends Model
 
     public function getCustomerFullName(): string
     {
-        return trim($this->customer_first_name . ' ' . $this->customer_last_name);
+        return trim($this->customer_first_name.' '.$this->customer_last_name);
     }
 }

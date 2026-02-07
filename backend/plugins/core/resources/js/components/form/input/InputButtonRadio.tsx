@@ -13,6 +13,7 @@ export interface InputButtonRadioProps {
   required?: boolean;
   readOnly?: boolean;
   description?: string;
+  layout?: 'vertical' | 'horizontal';
 }
 
 const InputButtonRadio: React.FC<InputButtonRadioProps> = ({
@@ -20,11 +21,12 @@ const InputButtonRadio: React.FC<InputButtonRadioProps> = ({
   name,
   options = [],
   disabled = false,
-  readOnly = false
+  readOnly = false,
+  layout = 'vertical'
 }) => {
   const currentValue = field?.value;
   const fieldOnChange = field?.onChange;
-  
+
   React.useEffect(() => {
     if (fieldOnChange && (currentValue === undefined || currentValue === null || currentValue === '') && options.length > 0 && !readOnly) {
       const firstOption = options[0];
@@ -36,22 +38,25 @@ const InputButtonRadio: React.FC<InputButtonRadioProps> = ({
 
   // Normalize value: convert null to empty string
   const normalizedValue = currentValue == null ? '' : String(currentValue);
-  
+
   return (
     <RadioGroup
       value={normalizedValue}
       onValueChange={readOnly ? undefined : fieldOnChange}
       disabled={disabled || readOnly}
+      className={cn(
+        layout === 'horizontal' ? "flex flex-wrap items-center gap-4" : "grid gap-2"
+      )}
     >
       {options.map((option) => (
         <div key={option.value} className="flex items-center gap-3">
-          <RadioGroupItem 
-            value={option.value} 
+          <RadioGroupItem
+            value={option.value}
             id={`${name}-${option.value}`}
             disabled={disabled || readOnly}
           />
-          <Label 
-            htmlFor={`${name}-${option.value}`} 
+          <Label
+            htmlFor={`${name}-${option.value}`}
             className={cn(
               "font-medium",
               (disabled || readOnly) ? "cursor-not-allowed opacity-50" : "cursor-pointer"

@@ -14,10 +14,10 @@ class ProductCategoryController extends BaseController
             'title' => 'Product Categories',
             'description' => 'Manage product categories',
             'fields' => [
-                ['name' => 'name', 'config' => ['primary' => true]], 
+                ['name' => 'name', 'config' => ['primary' => true]],
                 'sort_order',
                 'status',
-                'created_at'
+                'created_at',
             ],
         ],
         'form' => [

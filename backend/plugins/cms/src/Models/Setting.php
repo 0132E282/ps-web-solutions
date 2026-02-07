@@ -14,8 +14,3 @@ class Setting extends Model
         'description',
     ];
 }
-
-
-
-
-

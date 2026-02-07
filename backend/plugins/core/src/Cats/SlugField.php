@@ -10,12 +10,6 @@ class SlugField implements CastsAttributes
 {
     /**
      * Transform the attribute from the underlying model values.
-     *
-     * @param  Model  $model
-     * @param  string  $key
-     * @param  mixed  $value
-     * @param  array  $attributes
-     * @return string|array|null
      */
     public function get(Model $model, string $key, mixed $value, array $attributes): string|array|null
     {
@@ -29,6 +23,7 @@ class SlugField implements CastsAttributes
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                 return $decoded;
             }
+
             return $value;
         }
 
@@ -45,12 +40,6 @@ class SlugField implements CastsAttributes
      * Tự động tạo slug từ title hoặc name nếu slug trống.
      * Slug sẽ đa ngữ nếu title/name dùng Localization cast.
      * Nếu slug trùng thì thêm số đằng sau.
-     *
-     * @param  Model  $model
-     * @param  string  $key
-     * @param  mixed  $value
-     * @param  array  $attributes
-     * @return string
      */
     public function set(Model $model, string $key, mixed $value, array $attributes): string
     {
@@ -58,7 +47,7 @@ class SlugField implements CastsAttributes
         $isMultilingual = $this->isSourceMultilingual($model);
 
         // Nếu đã có slug và không rỗng
-        if (!empty($value)) {
+        if (! empty($value)) {
             // Nếu là string không rỗng hoặc array không rỗng
             if (is_string($value) && trim($value) !== '') {
                 if ($isMultilingual) {
@@ -68,14 +57,14 @@ class SlugField implements CastsAttributes
                     return $this->ensureUnique($model, $key, $value, $attributes);
                 }
             }
-            
-            if (is_array($value) && !empty($value)) {
+
+            if (is_array($value) && ! empty($value)) {
                 if ($isMultilingual) {
                     return $this->handleMultilingualSlug($model, $key, $value, $attributes);
                 } else {
                     // Nếu là array nhưng không phải multilingual, lấy giá trị đầu tiên
                     $firstValue = reset($value);
-                    if (!empty($firstValue) && is_string($firstValue)) {
+                    if (! empty($firstValue) && is_string($firstValue)) {
                         return $this->ensureUnique($model, $key, $firstValue, $attributes);
                     }
                 }
@@ -85,10 +74,12 @@ class SlugField implements CastsAttributes
         // Nếu slug trống hoặc null, tự động generate từ title hoặc name
         if ($isMultilingual) {
             $generated = $this->generateMultilingualSlug($model, $key, $attributes);
+
             // Nếu không generate được, trả về empty JSON object
             return $generated !== '{}' ? $generated : '{}';
         } else {
             $generated = $this->generateSimpleSlug($model, $key, $attributes);
+
             // Nếu không generate được, trả về empty string (sẽ được set default trong migration)
             return $generated ?: '';
         }
@@ -96,111 +87,96 @@ class SlugField implements CastsAttributes
 
     /**
      * Kiểm tra xem source field (title/name) có dùng Localization cast không.
-     *
-     * @param  Model  $model
-     * @return bool
      */
     protected function isSourceMultilingual(Model $model): bool
     {
         $casts = $model->getCasts();
-        
+
         // Kiểm tra title hoặc name có dùng Localization không
         if (isset($casts['title']) && $casts['title'] === Localization::class) {
             return true;
         }
-        
+
         if (isset($casts['name']) && $casts['name'] === Localization::class) {
             return true;
         }
-        
+
         return false;
     }
 
     /**
      * Lấy source field name (title hoặc name) từ model casts.
-     *
-     * @param  Model  $model
-     * @return string
      */
     protected function getSourceFieldName(Model $model): string
     {
         $casts = $model->getCasts();
-        
+
         // Ưu tiên title, sau đó name
         if (isset($casts['title'])) {
             return 'title';
         }
-        
+
         if (isset($casts['name'])) {
             return 'name';
         }
-        
+
         return 'title'; // Default
     }
 
     /**
      * Tạo slug đơn ngữ (string).
-     *
-     * @param  Model  $model
-     * @param  string  $key
-     * @param  array  $attributes
-     * @return string
      */
     protected function generateSimpleSlug(Model $model, string $key, array $attributes): string
     {
         $sourceField = $this->getSourceFieldName($model);
-        
+
         // Lấy từ attributes parameter trước, sau đó từ model
         $sourceValue = $this->extractSimpleValue($attributes, $sourceField);
-        
+
         if (empty($sourceValue)) {
             // Thử lấy từ model attributes
             $modelValue = $model->getAttribute($sourceField);
-            if (!empty($modelValue) && is_string($modelValue)) {
+            if (! empty($modelValue) && is_string($modelValue)) {
                 $sourceValue = $modelValue;
             }
         }
-        
+
         if (empty($sourceValue)) {
             // Thử field còn lại nếu field đầu không có
             $otherField = $sourceField === 'title' ? 'name' : 'title';
             $sourceValue = $this->extractSimpleValue($attributes, $otherField);
-            
+
             if (empty($sourceValue)) {
                 $modelValue = $model->getAttribute($otherField);
-                if (!empty($modelValue) && is_string($modelValue)) {
+                if (! empty($modelValue) && is_string($modelValue)) {
                     $sourceValue = $modelValue;
                 }
             }
         }
-        
+
         if (empty($sourceValue)) {
             return $attributes[$key] ?? '';
         }
 
         $slug = Str::slug($sourceValue);
+
         return $this->ensureUnique($model, $key, $slug, $attributes);
     }
 
     /**
      * Tạo slug đa ngữ (JSON format).
-     *
-     * @param  Model  $model
-     * @param  string  $key
-     * @param  array  $attributes
-     * @return string
      */
     protected function generateMultilingualSlug(Model $model, string $key, array $attributes): string
     {
         $sourceField = $this->getSourceFieldName($model);
-        
+
         // Lấy từ attributes parameter trước, sau đó từ model
         $sourceData = $this->extractMultilingualValue($attributes, $sourceField);
-        
+
         if (empty($sourceData)) {
             // Thử lấy từ model attributes
             $modelValue = $model->getAttribute($sourceField);
-            if (!empty($modelValue)) {
+            if (! empty($modelValue)) {
                 if (is_string($modelValue)) {
                     $decoded = json_decode($modelValue, true);
                     if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
@@ -211,15 +187,15 @@ class SlugField implements CastsAttributes
                 }
             }
         }
-        
+
         if (empty($sourceData)) {
             // Thử field còn lại nếu field đầu không có
             $otherField = $sourceField === 'title' ? 'name' : 'title';
             $sourceData = $this->extractMultilingualValue($attributes, $otherField);
-            
+
             if (empty($sourceData)) {
                 $modelValue = $model->getAttribute($otherField);
-                if (!empty($modelValue)) {
+                if (! empty($modelValue)) {
                     if (is_string($modelValue)) {
                         $decoded = json_decode($modelValue, true);
                         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
@@ -231,7 +207,7 @@ class SlugField implements CastsAttributes
                 }
             }
         }
-        
+
         if (empty($sourceData)) {
             return $attributes[$key] ?? '{}';
         }
@@ -239,7 +215,7 @@ class SlugField implements CastsAttributes
         // Tạo slug cho từng locale
         $slugs = [];
         foreach ($sourceData as $locale => $value) {
-            if (!empty($value) && is_string($value)) {
+            if (! empty($value) && is_string($value)) {
                 $slug = Str::slug($value);
                 // Đảm bảo unique cho từng locale
                 $slugs[$locale] = $this->ensureUniqueMultilingual($model, $key, $slug, $locale, $attributes);
@@ -251,12 +227,6 @@ class SlugField implements CastsAttributes
 
     /**
      * Xử lý slug đa ngữ khi đã có giá trị.
-     *
-     * @param  Model  $model
-     * @param  string  $key
-     * @param  mixed  $value
-     * @param  array  $attributes
-     * @return string
      */
     protected function handleMultilingualSlug(Model $model, string $key, mixed $value, array $attributes): string
     {
@@ -275,10 +245,11 @@ class SlugField implements CastsAttributes
         if (is_array($value)) {
             $slugs = [];
             foreach ($value as $locale => $slug) {
-                if (!empty($slug) && is_string($slug)) {
+                if (! empty($slug) && is_string($slug)) {
                     $slugs[$locale] = $this->ensureUniqueMultilingual($model, $key, $slug, $locale, $attributes);
                 }
             }
+
             return $this->encodeJson($slugs);
         }
 
@@ -287,14 +258,10 @@ class SlugField implements CastsAttributes
 
     /**
      * Extract giá trị đơn ngữ từ attributes.
-     *
-     * @param  array  $attributes
-     * @param  string  $key
-     * @return string
      */
     protected function extractSimpleValue(array $attributes, string $key): string
     {
-        if (!isset($attributes[$key])) {
+        if (! isset($attributes[$key])) {
             return '';
         }
 
@@ -309,14 +276,10 @@ class SlugField implements CastsAttributes
 
     /**
      * Extract giá trị đa ngữ từ attributes (Localization format).
-     *
-     * @param  array  $attributes
-     * @param  string  $key
-     * @return array
      */
     protected function extractMultilingualValue(array $attributes, string $key): array
     {
-        if (!isset($attributes[$key])) {
+        if (! isset($attributes[$key])) {
             return [];
         }
 
@@ -328,6 +291,7 @@ class SlugField implements CastsAttributes
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                 return $decoded;
             }
+
             return [];
         }
 
@@ -341,12 +305,6 @@ class SlugField implements CastsAttributes
 
     /**
      * Đảm bảo slug đơn ngữ là unique, nếu trùng thì thêm số đằng sau.
-     *
-     * @param  Model  $model
-     * @param  string  $key
-     * @param  string  $slug
-     * @param  array  $attributes
-     * @return string
      */
     protected function ensureUnique(Model $model, string $key, string $slug, array $attributes): string
     {
@@ -360,7 +318,7 @@ class SlugField implements CastsAttributes
 
         // Query builder để check unique
         $query = $model->newQuery()->where($key, $slug);
-        
+
         // Loại trừ chính record hiện tại nếu đang update
         if ($modelId) {
             $query->where('id', '!=', $modelId);
@@ -368,9 +326,9 @@ class SlugField implements CastsAttributes
 
         // Nếu slug đã tồn tại, thêm số đằng sau
         while ($query->exists()) {
-            $slug = $originalSlug . '-' . $counter;
+            $slug = $originalSlug.'-'.$counter;
             $counter++;
-            
+
             $query = $model->newQuery()->where($key, $slug);
             if ($modelId) {
                 $query->where('id', '!=', $modelId);
@@ -382,13 +340,6 @@ class SlugField implements CastsAttributes
 
     /**
      * Đảm bảo slug đa ngữ là unique cho từng locale.
-     *
-     * @param  Model  $model
-     * @param  string  $key
-     * @param  string  $slug
-     * @param  string  $locale
-     * @param  array  $attributes
-     * @return string
      */
     protected function ensureUniqueMultilingual(Model $model, string $key, string $slug, string $locale, array $attributes): string
     {
@@ -403,7 +354,7 @@ class SlugField implements CastsAttributes
         // Lấy tất cả records có slug field, decode và check trong PHP
         // Cách này an toàn hơn với mọi database
         $query = $model->newQuery();
-        
+
         // Loại trừ chính record hiện tại nếu đang update
         if ($modelId) {
             $query->where('id', '!=', $modelId);
@@ -411,10 +362,10 @@ class SlugField implements CastsAttributes
 
         // Lấy tất cả records và check trong PHP
         $existingRecords = $query->get([$key, 'id']);
-        
+
         // Kiểm tra xem slug đã tồn tại chưa
         while ($this->slugExistsInRecords($existingRecords, $key, $slug, $locale)) {
-            $slug = $originalSlug . '-' . $counter;
+            $slug = $originalSlug.'-'.$counter;
             $counter++;
         }
 
@@ -425,16 +376,12 @@ class SlugField implements CastsAttributes
      * Kiểm tra xem slug có tồn tại trong records không.
      *
      * @param  \Illuminate\Database\Eloquent\Collection  $records
-     * @param  string  $key
-     * @param  string  $slug
-     * @param  string  $locale
-     * @return bool
      */
     protected function slugExistsInRecords($records, string $key, string $slug, string $locale): bool
     {
         foreach ($records as $record) {
             $value = $record->getAttribute($key);
-            
+
             if (empty($value)) {
                 continue;
             }
@@ -460,9 +407,6 @@ class SlugField implements CastsAttributes
 
     /**
      * Encode array to JSON string (tương tự Localization).
-     *
-     * @param  array  $value
-     * @return string
      */
     protected function encodeJson(array $value): string
     {

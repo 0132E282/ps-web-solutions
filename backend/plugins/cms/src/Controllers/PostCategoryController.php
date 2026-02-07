@@ -2,8 +2,8 @@
 
 namespace PS0132E282\Cms\Controllers;
 
-use PS0132E282\Core\Base\BaseController;
 use PS0132E282\Cms\Models\PostCategory;
+use PS0132E282\Core\Base\BaseController;
 
 class PostCategoryController extends BaseController
 {

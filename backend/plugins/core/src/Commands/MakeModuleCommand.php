@@ -25,8 +25,9 @@ class MakeModuleCommand extends Command
         // Nếu có --plugin, override path
         if ($plugin) {
             $pluginPath = base_path("plugins/{$plugin}");
-            if (!is_dir($pluginPath)) {
+            if (! is_dir($pluginPath)) {
                 $this->error("Plugin '{$plugin}' not found at: {$pluginPath}");
+
                 return Command::FAILURE;
             }
             $path = "plugins/{$plugin}";
@@ -41,38 +42,38 @@ class MakeModuleCommand extends Command
         $skipped = 0;
 
         // Create Migration
-        if (!in_array('migration', $skip)) {
+        if (! in_array('migration', $skip)) {
             if ($this->createMigration($name, $plugin)) {
                 $created++;
             } else {
                 $skipped++;
             }
         } else {
-            $this->line("  <fg=yellow>⏭ Skipped</> migration (--skip=migration)");
+            $this->line('  <fg=yellow>⏭ Skipped</> migration (--skip=migration)');
             $skipped++;
         }
 
         // Create Model
-        if (!in_array('model', $skip)) {
+        if (! in_array('model', $skip)) {
             if ($this->createModel($name, $path)) {
                 $created++;
             } else {
                 $skipped++;
             }
         } else {
-            $this->line("  <fg=yellow>⏭ Skipped</> model (--skip=model)");
+            $this->line('  <fg=yellow>⏭ Skipped</> model (--skip=model)');
             $skipped++;
         }
 
         // Create Controller
-        if (!in_array('controller', $skip)) {
+        if (! in_array('controller', $skip)) {
             if ($this->createController($name, $path)) {
                 $created++;
             } else {
                 $skipped++;
             }
         } else {
-            $this->line("  <fg=yellow>⏭ Skipped</> controller (--skip=controller)");
+            $this->line('  <fg=yellow>⏭ Skipped</> controller (--skip=controller)');
             $skipped++;
         }
 
@@ -85,25 +86,25 @@ class MakeModuleCommand extends Command
     protected function createMigration(string $name, ?string $plugin = null): bool
     {
         $tableName = Str::plural(Str::snake($name));
-        $className = 'Create' . Str::plural(Str::studly($name)) . 'Table';
-        $fileName = date('Y_m_d_His') . '_create_' . $tableName . '_table.php';
-        
+        $className = 'Create'.Str::plural(Str::studly($name)).'Table';
+        $fileName = date('Y_m_d_His').'_create_'.$tableName.'_table.php';
+
         if ($plugin) {
             $migrationsDir = base_path("plugins/{$plugin}/database/migrations");
             $filePath = "{$migrationsDir}/{$fileName}";
         } else {
-            $migrationsDir = database_path("migrations");
+            $migrationsDir = database_path('migrations');
             $filePath = "{$migrationsDir}/{$fileName}";
         }
 
         if (file_exists($filePath)) {
-            if (!$this->confirm("Migration {$fileName} already exists. Overwrite?", false)) {
+            if (! $this->confirm("Migration {$fileName} already exists. Overwrite?", false)) {
                 return false;
             }
         }
 
         // Đảm bảo thư mục migrations tồn tại
-        if (!is_dir($migrationsDir)) {
+        if (! is_dir($migrationsDir)) {
             File::makeDirectory($migrationsDir, 0755, true);
         }
 
@@ -111,6 +112,7 @@ class MakeModuleCommand extends Command
         File::put($filePath, $stub);
 
         $this->line("  <fg=green>✓ Created</> migration: {$fileName}");
+
         return true;
     }
 
@@ -119,7 +121,7 @@ class MakeModuleCommand extends Command
         $className = Str::studly($name);
         $plugin = $this->option('plugin');
         $namespace = $this->getNamespace($path, $plugin, 'model');
-        
+
         if ($plugin) {
             $filePath = base_path("plugins/{$plugin}/src/Models/{$className}.php");
         } else {
@@ -127,7 +129,7 @@ class MakeModuleCommand extends Command
         }
 
         if (file_exists($filePath)) {
-            if (!$this->confirm("Model {$className} already exists. Overwrite?", false)) {
+            if (! $this->confirm("Model {$className} already exists. Overwrite?", false)) {
                 return false;
             }
         }
@@ -136,23 +138,24 @@ class MakeModuleCommand extends Command
         $stub = $this->getModelStub($className, $namespace, $tableName);
 
         $dir = dirname($filePath);
-        if (!is_dir($dir)) {
+        if (! is_dir($dir)) {
             File::makeDirectory($dir, 0755, true);
         }
 
         File::put($filePath, $stub);
 
         $this->line("  <fg=green>✓ Created</> model: {$className}");
+
         return true;
     }
 
     protected function createController(string $name, string $path): bool
     {
-        $className = Str::studly($name) . 'Controller';
+        $className = Str::studly($name).'Controller';
         $plugin = $this->option('plugin');
         $namespace = $this->getNamespace($path, $plugin);
         $modelClass = $this->getModelClass($path, $name, $plugin);
-        
+
         if ($plugin) {
             $filePath = base_path("plugins/{$plugin}/src/Controllers/{$className}.php");
         } else {
@@ -160,7 +163,7 @@ class MakeModuleCommand extends Command
         }
 
         if (file_exists($filePath)) {
-            if (!$this->confirm("Controller {$className} already exists. Overwrite?", false)) {
+            if (! $this->confirm("Controller {$className} already exists. Overwrite?", false)) {
                 return false;
             }
         }
@@ -168,13 +171,14 @@ class MakeModuleCommand extends Command
         $stub = $this->getControllerStub($className, $namespace, $modelClass, $name);
 
         $dir = dirname($filePath);
-        if (!is_dir($dir)) {
+        if (! is_dir($dir)) {
             File::makeDirectory($dir, 0755, true);
         }
 
         File::put($filePath, $stub);
 
         $this->line("  <fg=green>✓ Created</> controller: {$className}");
+
         return true;
     }
 
@@ -245,14 +249,14 @@ PHP;
         $pagePath = Str::kebab($name);
         $modelName = class_basename($modelClass);
         $plugin = $this->option('plugin');
-        
+
         // Nếu tạo trong plugin, namespace là Controllers, không phải Http\Controllers
         if ($plugin) {
             $controllerNamespace = "{$namespace}\\Controllers";
         } else {
             $controllerNamespace = "{$namespace}\\Http\\Controllers";
         }
-        
+
         return <<<PHP
 <?php
 
@@ -278,12 +282,12 @@ PHP;
         if ($plugin) {
             $pluginName = Str::studly($plugin);
             $baseNamespace = "PS0132E282\\{$pluginName}";
-            
+
             // Nếu là model, thêm Models vào namespace
             if ($type === 'model') {
                 return "{$baseNamespace}\\Models";
             }
-            
+
             return $baseNamespace;
         }
 
@@ -297,8 +301,8 @@ PHP;
         $namespace = 'App';
 
         foreach ($parts as $part) {
-            if (!empty($part) && $part !== 'app') {
-                $namespace .= '\\' . Str::studly($part);
+            if (! empty($part) && $part !== 'app') {
+                $namespace .= '\\'.Str::studly($part);
             }
         }
 
@@ -318,8 +322,7 @@ PHP;
     {
         $namespace = $this->getNamespace($path, $plugin, 'model');
         $className = Str::studly($name);
-        
+
         return "{$namespace}\\{$className}";
     }
 }
-

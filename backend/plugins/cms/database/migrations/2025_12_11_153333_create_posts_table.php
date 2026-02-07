@@ -25,7 +25,6 @@ return new class extends Migration
             $table->timestamps();
         });
 
-
         Schema::create('post_ref_related_posts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('post_id')->constrained('posts')->onDelete('cascade');

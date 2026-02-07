@@ -28,6 +28,11 @@ interface ApplicationKey {
     user?: { id: number; name: string };
 }
 
+interface PageProps {
+    permissions: Record<string, Permission[]>;
+    applicationKeys: ApplicationKey[];
+}
+
 const formatPermissionName = (name: string): string => {
     return name.split('.').pop()?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || '';
 };
@@ -83,7 +88,7 @@ const PermissionTable = ({
     isGroupFullyChecked
 }: PermissionTableProps) => (
     <div className="space-y-4">
-        {Object.entries(filteredPermissions).map(([groupName, groupPermissions]) => (
+        {Object.entries(filteredPermissions || {}).map(([groupName, groupPermissions]) => (
             <Card key={groupName}>
                 <CardHeader>
                     <div className="flex items-center justify-between px-4">
@@ -230,6 +235,7 @@ const Index = () => {
     const [checkedPermissions, setCheckedPermissions] = useState<Set<number>>(new Set());
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedRole, setSelectedRole] = useState<ApplicationKey | null>(applicationKeys?.[0] || null);
+
     const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
     const [editingRole, setEditingRole] = useState<ApplicationKey | null>(null);
     const [isLoading, setIsLoading] = useState(false);

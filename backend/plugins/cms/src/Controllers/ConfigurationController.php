@@ -11,7 +11,7 @@ class ConfigurationController extends Controller
     {
         $config = config('core.admin.configs', []);
 
-        return Inertia::render('cms/settings/index', [
+        return Inertia::render('cms/settings/main', [
             'sections' => $config['sections'] ?? [],
         ]);
     }

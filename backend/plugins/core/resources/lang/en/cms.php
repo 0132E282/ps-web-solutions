@@ -6,7 +6,7 @@ return [
         'edit' => 'Edit Admin',
         'create' => 'Create Admin',
         'index' => 'Admin List',
-        'fields' => [   
+        'fields' => [
             'name' => 'Name',
             'email' => 'Email',
             'password' => 'Password',
@@ -28,5 +28,5 @@ return [
             'roles' => 'Roles',
             'role' => 'Role',
         ],
-    ],  
+    ],
 ];

@@ -15,7 +15,6 @@ class SocialAuthController extends Controller
     /**
      * Redirect to OAuth provider
      *
-     * @param string $provider
      * @return \Illuminate\Http\RedirectResponse
      */
     public function redirectToProvider(string $provider)
@@ -26,7 +25,6 @@ class SocialAuthController extends Controller
     /**
      * Handle OAuth provider callback
      *
-     * @param string $provider
      * @return \Illuminate\Http\RedirectResponse
      */
     public function handleProviderCallback(string $provider)
@@ -37,7 +35,7 @@ class SocialAuthController extends Controller
             // Find user by email
             $user = User::where('email', $socialUser->getEmail())->first();
 
-            if (!$user) {
+            if (! $user) {
                 // Create new user if doesn't exist
                 $user = User::create([
                     'name' => $socialUser->getName(),
@@ -53,7 +51,7 @@ class SocialAuthController extends Controller
                 ->where('provider', $provider)
                 ->first();
 
-            if (!$socialAccount) {
+            if (! $socialAccount) {
                 DB::table('social_accounts')->insert([
                     'account_id' => $user->id,
                     'provider' => $provider,

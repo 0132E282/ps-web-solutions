@@ -19,7 +19,7 @@ class OrderController extends BaseController
                 'total',
                 'status',
                 'payment_status',
-                'created_at'
+                'created_at',
             ],
         ],
         'form' => [

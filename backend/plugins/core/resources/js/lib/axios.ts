@@ -1,4 +1,5 @@
-import axiosLib, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import axiosLib from 'axios';
+import type { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 
 /**
  * Default headers cho tất cả requests
@@ -6,6 +7,7 @@ import axiosLib, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig
 const defaultHeaders = {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
 };
 
 /**
@@ -13,6 +15,7 @@ const defaultHeaders = {
  */
 const axiosInstance: AxiosInstance = axiosLib.create({
     headers: defaultHeaders,
+    withCredentials: true,
 });
 
 /**
@@ -44,7 +47,7 @@ axiosInstance.interceptors.response.use(
 
 /**
  * Update default headers cho axios instance
- * 
+ *
  * @param headers - Headers mới để merge với defaults
  */
 export function updateDefaultHeaders(headers: Record<string, string>): void {
@@ -55,7 +58,7 @@ export function updateDefaultHeaders(headers: Record<string, string>): void {
 
 /**
  * Update default config cho axios instance
- * 
+ *
  * @param config - Config mới để merge với defaults
  */
 export function updateDefaultConfig(config: AxiosRequestConfig): void {

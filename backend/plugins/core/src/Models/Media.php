@@ -33,8 +33,6 @@ class Media extends Model
 
     /**
      * Default disk for storing files.
-     *
-     * @var string
      */
     protected string $defaultDisk = 'public';
 
@@ -47,16 +45,16 @@ class Media extends Model
             $diskConfig = config("filesystems.disks.{$disk}", []);
 
             if (isset($diskConfig['url'])) {
-                return rtrim($diskConfig['url'], '/') . '/' . ltrim($path, '/');
+                return rtrim($diskConfig['url'], '/').'/'.ltrim($path, '/');
             }
 
             if ($disk === 'public') {
                 $baseUrl = config('app.url', '');
                 if ($baseUrl) {
-                    return rtrim($baseUrl, '/') . '/storage/' . ltrim($path, '/');
+                    return rtrim($baseUrl, '/').'/storage/'.ltrim($path, '/');
                 }
 
-                return asset('storage/' . ltrim($path, '/'));
+                return asset('storage/'.ltrim($path, '/'));
             }
 
             return asset($path);
@@ -85,7 +83,7 @@ class Media extends Model
 
         $originalName = $file->getClientOriginalName();
         $extension = $file->getClientOriginalExtension();
-        $fileName = Str::slug(pathinfo($originalName, PATHINFO_FILENAME)) . '_' . time() . '.' . $extension;
+        $fileName = Str::slug(pathinfo($originalName, PATHINFO_FILENAME)).'_'.time().'.'.$extension;
 
         $folderPath = '';
         if ($parentId) {
@@ -94,13 +92,13 @@ class Media extends Model
                 $folderPath = rtrim($parent->path, '/');
             }
         }
-        $filePath = $folderPath ? $folderPath . '/' . $fileName : $fileName;
+        $filePath = $folderPath ? $folderPath.'/'.$fileName : $fileName;
 
         $storedPath = $storage->putFileAs($folderPath ?: '', $file, $fileName);
 
         $fileHash = hash_file('sha256', $file->getRealPath());
 
-        $media = new self();
+        $media = new self;
         $absoluteUrl = $media->buildUrl($storedPath, $disk);
 
         $media = new self([
@@ -182,15 +180,15 @@ class Media extends Model
                 $folderPath = rtrim($parent->path, '/');
             }
         }
-        $fullPath = $folderPath ? $folderPath . '/' . $folderName : $folderName;
+        $fullPath = $folderPath ? $folderPath.'/'.$folderName : $folderName;
 
         if (method_exists($storage, 'makeDirectory')) {
             $storage->makeDirectory($fullPath);
         } else {
-            $storage->put($fullPath . '/.gitkeep', '');
+            $storage->put($fullPath.'/.gitkeep', '');
         }
 
-        $media = new self();
+        $media = new self;
         $absoluteUrl = $media->buildUrl($fullPath, $disk);
 
         $media = new self([
@@ -213,7 +211,7 @@ class Media extends Model
 
     public function rename(string $newName): bool
     {
-        if (!$this->path) {
+        if (! $this->path) {
             return false;
         }
 
@@ -223,14 +221,14 @@ class Media extends Model
             if ($this->type === 'folder') {
                 $directory = dirname($this->path);
                 $newPath = $directory !== '.'
-                    ? $directory . '/' . $newName
+                    ? $directory.'/'.$newName
                     : $newName;
 
                 if ($storage->exists($this->path)) {
                     $files = $storage->allFiles($this->path);
                     foreach ($files as $file) {
-                        $relativePath = str_replace($this->path . '/', '', $file);
-                        $newFilePath = $newPath . '/' . $relativePath;
+                        $relativePath = str_replace($this->path.'/', '', $file);
+                        $newFilePath = $newPath.'/'.$relativePath;
                         $storage->move($file, $newFilePath);
 
                         $child = static::where('path', $file)->first();
@@ -256,12 +254,12 @@ class Media extends Model
             $directory = dirname($this->path);
             $extension = $this->extension;
 
-            if (!pathinfo($newName, PATHINFO_EXTENSION) && $extension) {
-                $newName .= '.' . $extension;
+            if (! pathinfo($newName, PATHINFO_EXTENSION) && $extension) {
+                $newName .= '.'.$extension;
             }
 
             $newPath = $directory !== '.'
-                ? $directory . '/' . $newName
+                ? $directory.'/'.$newName
                 : $newName;
 
             if ($storage->exists($this->path)) {
@@ -283,7 +281,7 @@ class Media extends Model
 
     public function move(?int $newParentId = null): bool
     {
-        if (!$this->path) {
+        if (! $this->path) {
             return false;
         }
 
@@ -299,14 +297,14 @@ class Media extends Model
             }
 
             $fileName = basename($this->path);
-            $newPath = $newParentPath ? $newParentPath . '/' . $fileName : $fileName;
+            $newPath = $newParentPath ? $newParentPath.'/'.$fileName : $fileName;
 
             if ($this->type === 'folder') {
                 if ($storage->exists($this->path)) {
                     $files = $storage->allFiles($this->path);
                     foreach ($files as $file) {
-                        $relativePath = str_replace($this->path . '/', '', $file);
-                        $newFilePath = $newPath . '/' . $relativePath;
+                        $relativePath = str_replace($this->path.'/', '', $file);
+                        $newFilePath = $newPath.'/'.$relativePath;
                         $storage->move($file, $newFilePath);
 
                         $child = static::where('path', $file)->first();
@@ -377,14 +375,14 @@ class Media extends Model
                 }
             }
 
-            $newPath = $targetParentPath ? $targetParentPath . '/' . $newName : $newName;
+            $newPath = $targetParentPath ? $targetParentPath.'/'.$newName : $newName;
 
             if ($this->type === 'folder') {
                 if ($storage->exists($this->path)) {
                     $files = $storage->allFiles($this->path);
                     foreach ($files as $file) {
-                        $relativePath = str_replace($this->path . '/', '', $file);
-                        $newFilePath = $newPath . '/' . $relativePath;
+                        $relativePath = str_replace($this->path.'/', '', $file);
+                        $newFilePath = $newPath.'/'.$relativePath;
                         $storage->copy($file, $newFilePath);
                     }
                 }
@@ -449,7 +447,7 @@ class Media extends Model
             $bytes /= 1024;
         }
 
-        return round($bytes, 2) . ' ' . $units[$i];
+        return round($bytes, 2).' '.$units[$i];
     }
 
     public function toArray(): array
@@ -468,8 +466,3 @@ class Media extends Model
         ];
     }
 }
-
-
-
-
-

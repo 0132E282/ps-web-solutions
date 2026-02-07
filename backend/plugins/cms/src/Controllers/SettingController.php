@@ -13,7 +13,7 @@ class SettingController extends Controller
     {
         // Load settings data from database
         $settingData = $this->loadSettingData($key);
-        
+
         $configData = $this->getViewFromConfig($key);
         if ($configData !== null) {
             return $this->renderView(
@@ -36,10 +36,6 @@ class SettingController extends Controller
 
     /**
      * Render Inertia view với data
-     *
-     * @param string $view
-     * @param array $data
-     * @return \Inertia\Response
      */
     protected function renderView(string $view, array $data = []): \Inertia\Response
     {
@@ -49,19 +45,18 @@ class SettingController extends Controller
     /**
      * Lấy view và data từ config plugins.php
      *
-     * @param string $key
      * @return array{view: string, data?: array}|null
      */
     protected function getViewFromConfig(string $key): ?array
     {
         $plugins = config('plugins', []);
 
-        foreach ($plugins as $plugin) {
-            if (!isset($plugin['enabled']) || !$plugin['enabled']) {
+        foreach ($plugins as $name => $plugin) {
+            if (! isset($plugin['enabled']) || ! $plugin['enabled']) {
                 continue;
             }
 
-            if (!isset($plugin['settings']) || !is_array($plugin['settings'])) {
+            if (! isset($plugin['settings']) || ! is_array($plugin['settings'])) {
                 continue;
             }
 
@@ -99,26 +94,23 @@ class SettingController extends Controller
 
     /**
      * Tìm settings page trong tất cả plugins
-     *
-     * @param string $key
-     * @return string|null
      */
     protected function findInPlugins(string $key): ?string
     {
         $plugins = config('plugins', []);
 
         // Sắp xếp plugins: enabled trước, sau đó theo thứ tự trong config
-        $enabledPlugins = array_filter($plugins, fn($plugin) => $plugin['enabled'] ?? true);
-        $disabledPlugins = array_filter($plugins, fn($plugin) => !($plugin['enabled'] ?? true));
+        $enabledPlugins = array_filter($plugins, fn ($plugin) => $plugin['enabled'] ?? true);
+        $disabledPlugins = array_filter($plugins, fn ($plugin) => ! ($plugin['enabled'] ?? true));
         $sortedPlugins = array_merge($enabledPlugins, $disabledPlugins);
 
-        foreach ($sortedPlugins as $plugin) {
-            if (!isset($plugin['enabled']) || !$plugin['enabled']) {
+        foreach ($sortedPlugins as $name => $plugin) {
+            if (! isset($plugin['enabled']) || ! $plugin['enabled']) {
                 continue;
             }
 
-            $pluginName = $plugin['name'] ?? null;
-            if (!$pluginName) {
+            $pluginName = $plugin['name'] ?? (is_string($name) ? $name : null);
+            if (! $pluginName) {
                 continue;
             }
 
@@ -134,33 +126,29 @@ class SettingController extends Controller
 
     /**
      * Load settings data from database
-     *
-     * @param string $key
-     * @return array|null
      */
     protected function loadSettingData(string $key): ?array
     {
         $setting = \PS0132E282\Cms\Models\Setting::where('key', $key)->first();
-        
+
         if ($setting && $setting->value) {
             $decoded = json_decode($setting->value, true);
+
             return is_array($decoded) ? $decoded : null;
         }
-        
+
         return null;
     }
 
     /**
      * Save settings data
      *
-     * @param string $key
-     * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function save(string $key, \Illuminate\Http\Request $request)
     {
         $data = $request->except(['_token', '_method']);
-        
+
         // Store settings in database
         $setting = \PS0132E282\Cms\Models\Setting::firstOrCreate(['key' => $key]);
         $setting->value = json_encode($data);

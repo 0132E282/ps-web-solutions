@@ -1,374 +1,236 @@
+import type { ActionCreatorWithPayload, PayloadAction } from '@reduxjs/toolkit';
 import { call, put, select, takeEvery, takeLatest } from 'redux-saga/effects';
 import { axios } from '@core/lib/axios';
-import i18n from '@core/lib/i18n';
+import i18n, { tt } from '@core/lib/i18n';
 import { route } from '@core/lib/route';
-import {
-    fetchResourceRequest, fetchResourceSuccess, fetchResourceFailure,
-    updateResourceRequest, updateResourceSuccess, updateResourceFailure,
-    createResourceRequest, createResourceSuccess, createResourceFailure,
-    deleteResourceRequest, deleteResourceSuccess, deleteResourceFailure,
-    fetchItemRequest, fetchItemSuccess, fetchItemFailure,
-    duplicateResourceRequest, duplicateResourceSuccess, duplicateResourceFailure,
-    restoreResourceRequest, restoreResourceSuccess, restoreResourceFailure,
-    forceDeleteResourceRequest, forceDeleteResourceSuccess, forceDeleteResourceFailure,
-    bulkDeleteResourceRequest, bulkDeleteResourceSuccess, bulkDeleteResourceFailure,
-    bulkDuplicateResourceRequest, bulkDuplicateResourceSuccess, bulkDuplicateResourceFailure,
-    bulkRestoreResourceRequest, bulkRestoreResourceSuccess, bulkRestoreResourceFailure,
-    bulkForceDeleteResourceRequest, bulkForceDeleteResourceSuccess, bulkForceDeleteResourceFailure,
-    importResourceRequest, importResourceSuccess, importResourceFailure,
-    exportResourceRequest, exportResourceSuccess, exportResourceFailure
-} from '../slices/resourceSlice';
-import { PayloadAction } from '@reduxjs/toolkit';
+import { toast } from '@core/lib/toast';
+import type { ApiResponse } from '../../types/api';
+import type { ResourcePagination } from '../../types/resource';
+import * as actions from '../slices/resourceSlice';
 
-// Define expected item shape matching slice
+// --- Types ---
+type ResourceId = string | number;
+
 interface ResourceItem {
-    id: string | number;
+    id: ResourceId;
     [key: string]: unknown;
 }
 
-// API Functions
-// Helper to determine if input is a route name or direct path
-const getUrl = (resource: string, params?: Record<string, unknown>) => {
-    // If it looks like a route name (contains dots), use route helper
-    // Otherwise append to base
-    return resource.includes('.') ? route(resource, params as Record<string, string | number | boolean | null | undefined>) : `/${resource}`;
+interface CommonPayload {
+    resource: string;
+}
+
+interface IdPayload extends CommonPayload {
+    id: ResourceId;
+    params?: Record<string, unknown>;
+}
+
+interface DataPayload extends CommonPayload {
+    data: Record<string, unknown>;
+}
+
+interface IdDataPayload extends IdPayload {
+    data: Record<string, unknown>;
+}
+
+interface IdsPayload extends CommonPayload {
+    ids: ResourceId[];
+}
+
+interface ParamsPayload extends CommonPayload {
+    params?: Record<string, unknown>;
+}
+
+interface FormDataPayload extends CommonPayload {
+    formData: FormData;
+}
+
+const getLocaleParams = (): { locale: string } => ({ locale: i18n.language });
+
+// --- API Helpers ---
+const resolveUrl = (resource: string, action?: string, id?: ResourceId, params?: Record<string, unknown>): string => {
+    const isNamed = resource.includes('.');
+    if (isNamed) {
+        const base = resource.replace(/\.index$/, '').replace(/\.?$/, '');
+        const routeName = action ? `${base}.${action}` : resource;
+        return route(routeName, { id, ...getLocaleParams(), ...params });
+    }
+    let url = `/${resource}`;
+    if (id) url += `/${id}`;
+    if (action && !['show', 'update', 'destroy'].includes(action)) {
+        url += `/${action}`;
+    }
+    return url;
 };
 
-const getCommonParams = () => ({
-    locale: i18n.language,
-});
-
 const api = {
-    fetch: (resource: string, params?: Record<string, unknown>) => {
-        const finalParams = { ...params, ...getCommonParams() };
-        return axios.get(getUrl(resource, finalParams), resource.includes('.') ? undefined : { params: finalParams });
+    fetch: (res: string, params?: Record<string, unknown>) => {
+        const isNamed = res.includes('.');
+        const url = resolveUrl(res, undefined, undefined, isNamed ? params : undefined);
+        return axios.get(url, isNamed ? undefined : { params: { ...params, ...getLocaleParams() } });
     },
-    fetchOne: (resource: string, id: string | number) => {
-        const finalParams = getCommonParams();
-        const url = resource.includes('.')
-            ? route(resource.replace(/\.index$/, '').replace(/\.?$/, '.show'), { id, ...finalParams })
-            : `/${resource}/${id}`;
-        return axios.get(url, resource.includes('.') ? undefined : { params: finalParams });
+    fetchOne: (res: string, id: ResourceId, params?: Record<string, unknown>) => {
+        const isNamed = res.includes('.');
+        const url = resolveUrl(res, 'show', id, isNamed ? params : undefined);
+        return axios.get(url, isNamed ? undefined : { params: { ...params, ...getLocaleParams() } });
     },
-    create: (resource: string, data: Record<string, unknown>) => {
-        const finalParams = getCommonParams();
-        const url = resource.includes('.')
-            ? route(resource.replace(/\.index$/, '').replace(/\.?$/, '.store'), finalParams)
-            : `/${resource}/store`;
-        return axios.post(url, data, { params: finalParams });
+    create: (res: string, data: Record<string, unknown>) => {
+        const isNamed = res.includes('.');
+        const url = isNamed ? resolveUrl(res, 'store') : `${resolveUrl(res)}/store`;
+        return axios.post(url, data, isNamed ? undefined : { params: getLocaleParams() });
     },
-    update: (resource: string, id: string | number, data: Record<string, unknown>) => {
-        const finalParams = getCommonParams();
-        const url = resource.includes('.')
-            ? route(resource.replace(/\.index$/, '').replace(/\.?$/, '.update'), { id, ...finalParams })
-            : `/${resource}/${id}`;
-        return axios.put(url, data, { params: finalParams });
+    update: (res: string, id: ResourceId, data: Record<string, unknown>) => {
+        const isNamed = res.includes('.');
+        return axios.put(resolveUrl(res, 'update', id), data, isNamed ? undefined : { params: getLocaleParams() });
     },
-    delete: (resource: string, id: string | number) => {
-        const finalParams = getCommonParams();
-        const url = resource.includes('.')
-            ? route(resource.replace(/\.index$/, '').replace(/\.?$/, '.destroy'), { id, ...finalParams })
-            : `/${resource}/${id}`;
-        return axios.delete(url, { params: finalParams });
+    delete: (res: string, id: ResourceId) => {
+        const isNamed = res.includes('.');
+        return axios.delete(resolveUrl(res, 'destroy', id), isNamed ? undefined : { params: getLocaleParams() });
     },
-    duplicate: (resource: string, id: string | number) => {
-        const finalParams = getCommonParams();
-        const url = resource.includes('.')
-            ? route(resource.replace(/\.index$/, '').replace(/\.?$/, '.duplicate'), { id, ...finalParams })
-            : `/${resource}/${id}/duplicate`;
-        return axios.post(url, undefined, { params: finalParams });
+    action: (res: string, id: ResourceId, act: string, method: 'post' | 'delete' = 'post') => {
+        const isNamed = res.includes('.');
+        return axios[method](resolveUrl(res, act, id), undefined, isNamed ? undefined : { params: getLocaleParams() });
     },
-    restore: (resource: string, id: string | number) => {
-        const finalParams = getCommonParams();
-        const url = resource.includes('.')
-            ? route(resource.replace(/\.index$/, '').replace(/\.?$/, '.restore'), { id, ...finalParams })
-            : `/${resource}/${id}/restore`;
-        return axios.post(url, undefined, { params: finalParams });
+    bulk: (res: string, ids: ResourceId[], act?: string, method: 'post' | 'delete' = 'post') => {
+        const isNamed = res.includes('.');
+        const url = resolveUrl(res, act);
+        const config = { data: { ids }, params: isNamed ? undefined : getLocaleParams() };
+        return method === 'delete'
+            ? axios.delete(url, config)
+            : axios.post(url, { ids }, isNamed ? undefined : { params: getLocaleParams() });
     },
-    forceDelete: (resource: string, id: string | number) => {
-        const finalParams = getCommonParams();
-        const url = resource.includes('.')
-            ? route(resource.replace(/\.index$/, '').replace(/\.?$/, '.force-delete'), { id, ...finalParams })
-            : `/${resource}/${id}/force-delete`;
-        return axios.delete(url, { params: finalParams });
-    },
-    bulkDelete: (resource: string, ids: (string | number)[]) => {
-        const finalParams = getCommonParams();
-        const url = getUrl(resource, finalParams);
-        return axios.delete(url, { data: { ids }, params: finalParams });
-    },
-    bulkDuplicate: (resource: string, ids: (string | number)[]) => {
-        const finalParams = getCommonParams();
-        const url = getUrl(resource, finalParams) + '/duplicate';
-        return axios.post(url, { ids }, { params: finalParams });
-    },
-    bulkRestore: (resource: string, ids: (string | number)[]) => {
-        const finalParams = getCommonParams();
-        const url = getUrl(resource, finalParams) + '/restore';
-        return axios.post(url, { ids }, { params: finalParams });
-    },
-    bulkForceDelete: (resource: string, ids: (string | number)[]) => {
-        const finalParams = getCommonParams();
-        const url = getUrl(resource, finalParams) + '/force-delete';
-        return axios.delete(url, { data: { ids }, params: finalParams });
-    },
-    import: (resource: string, formData: FormData) => {
-        const finalParams = getCommonParams();
-        const url = getUrl(resource, finalParams) + '/import';
+    import: (res: string, formData: FormData) => {
+        const isNamed = res.includes('.');
+        const url = resolveUrl(res, 'import');
         return axios.post(url, formData, {
-            params: finalParams,
+            params: isNamed ? undefined : getLocaleParams(),
             headers: { 'Content-Type': 'multipart/form-data' }
         });
     },
-    export: (resource: string, params: Record<string, unknown>) => {
-        const finalParams = { ...params, ...getCommonParams() };
-        const url = getUrl(resource, finalParams) + '/export';
-        return axios.get(url, { params: finalParams, responseType: 'blob' });
+    export: (res: string, params: Record<string, unknown>) => {
+        const isNamed = res.includes('.');
+        const url = resolveUrl(res, 'export', undefined, isNamed ? params : undefined);
+        return axios.get(url, {
+            params: isNamed ? undefined : { ...params, ...getLocaleParams() },
+            responseType: 'blob'
+        });
     }
 };
 
-interface ApiResponse<T = unknown> {
-    data: {
-        data: T;
-        meta?: unknown;
-        links?: unknown;
-        items?: T;
-    };
+// --- Saga Utilities ---
+const selectLastParams = (res: string) =>
+    (state: { resource: Record<string, { lastParams?: Record<string, unknown> }> }) => state.resource[res]?.lastParams;
+
+function* reFetch(resource: string): Generator {
+    const params = (yield select(selectLastParams(resource))) as Record<string, unknown> | undefined;
+    yield put(actions.fetchResourceRequest({ resource, params }));
 }
 
-// Selector helper
-const selectLastParams = (resource: string) => (state: { resource: Record<string, any> }) => state.resource[resource]?.lastParams;
-
-// Re-fetch helper saga
-function* reFetchResource(resource: string) {
-    const lastParams: Record<string, unknown> | null = yield select(selectLastParams(resource));
-    yield put(fetchResourceRequest({ resource, params: lastParams || undefined }));
+interface RunSagaOptions {
+    msg?: string;
+    refetch?: boolean;
+    args?: unknown[];
 }
 
-function* handleFetchResource(action: PayloadAction<{ resource: string; params?: Record<string, unknown> }>) {
+function* runSaga<P extends CommonPayload, S>(
+    action: PayloadAction<P>,
+    apiFn: (...args: unknown[]) => Promise<unknown>,
+    success: ActionCreatorWithPayload<S>,
+    failure: ActionCreatorWithPayload<{ resource: string; error: string }>,
+    options: RunSagaOptions = {}
+): Generator {
+    const { resource, ...payload } = action.payload;
+    try {
+        const apiArgs = options.args || [resource, ...Object.values(payload)];
+        const resp = (yield call(apiFn as (...args: unknown[]) => unknown, ...apiArgs)) as {
+            data: Record<string, unknown> & { data?: unknown; item?: unknown }
+        };
+        const data = resp.data?.data ?? resp.data?.item ?? resp.data;
+
+        yield put(success({ resource, data, ...payload } as unknown as S));
+        if (options.msg) toast(tt(options.msg), 'success');
+        if (options.refetch) yield call(reFetch, resource);
+    } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } }; message?: string };
+        const msg = error.response?.data?.message || error.message || 'Unknown error';
+        yield put(failure({ resource, error: msg }));
+        toast(msg, 'error');
+    }
+}
+
+// --- Specific Handlers ---
+function* handleFetch(action: PayloadAction<ParamsPayload>): Generator {
     const { resource, params } = action.payload;
     try {
-        const response: ApiResponse<ResourceItem[]> = yield call(api.fetch, resource, params);
-        // Normalize response
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rawData = response.data as any;
-        const data = (rawData?.data || rawData?.items || response.data) as ResourceItem[];
-
-        const pagination = (rawData?.meta || rawData?.links) ? rawData : null;
-
-        yield put(fetchResourceSuccess({ resource, data, pagination }));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        yield put(fetchResourceFailure({ resource, error: error.response?.data?.message || error.message }));
+        const resp = (yield call(api.fetch as (...args: unknown[]) => unknown, resource, params)) as { data: ApiResponse<ResourceItem> };
+        const { data, items, meta, links } = resp.data;
+        yield put(actions.fetchResourceSuccess({
+            resource,
+            data: (data || items) as ResourceItem[],
+            pagination: (meta || links) ? (resp.data as unknown as ResourcePagination) : undefined
+        }));
+    } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } }; message?: string };
+        const msg = error.response?.data?.message || error.message || 'Unknown error';
+        yield put(actions.fetchResourceFailure({ resource, error: msg }));
     }
 }
 
-function* handleFetchItem(action: PayloadAction<{ resource: string; id: string | number }>) {
-    const { resource, id } = action.payload;
-    try {
-        const response: ApiResponse = yield call(api.fetchOne, resource, id);
-        const data = (response.data?.data || response.data) as ResourceItem;
-        yield put(fetchItemSuccess({ resource, data }));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        yield put(fetchItemFailure({ resource, error: error.response?.data?.message || error.message }));
-    }
-}
-
-function* handleCreateResource(action: PayloadAction<{ resource: string; data: Record<string, unknown> }>) {
-    const { resource, data } = action.payload;
-    try {
-        const response: ApiResponse = yield call(api.create, resource, data);
-        const newData = (response.data?.data || response.data) as ResourceItem;
-        yield put(createResourceSuccess({ resource, data: newData }));
-        yield call(reFetchResource, resource);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        yield put(createResourceFailure({ resource, error: error.response?.data?.message || error.message }));
-    }
-}
-
-function* handleUpdateResource(action: PayloadAction<{ resource: string; id: string | number; data: Record<string, unknown> }>) {
-    const { resource, id, data } = action.payload;
-    try {
-        const response: ApiResponse = yield call(api.update, resource, id, data);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rawData = response.data as any;
-        // Fix: Ensure we extract the data correctly, handling wrapped or direct responses
-        const updatedData = (rawData?.data || response.data) as ResourceItem;
-        yield put(updateResourceSuccess({ resource, data: updatedData }));
-        yield call(reFetchResource, resource);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        yield put(updateResourceFailure({ resource, error: error.response?.data?.message || error.message }));
-    }
-}
-
-function* handleDeleteResource(action: PayloadAction<{ resource: string; id: string | number }>) {
-    const { resource, id } = action.payload;
-    try {
-        yield call(api.delete, resource, id);
-        yield put(deleteResourceSuccess({ resource, id }));
-        yield call(reFetchResource, resource);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-        yield put(deleteResourceFailure({ resource, error: error.response?.data?.message || error.message }));
-    }
-}
-
-function* handleDuplicateResource(action: PayloadAction<{ resource: string; id: string | number }>) {
-    const { resource, id } = action.payload;
-    try {
-        const response: ApiResponse = yield call(api.duplicate, resource, id);
-        const data = (response.data?.data || response.data) as ResourceItem;
-        yield put(duplicateResourceSuccess({ resource, data }));
-        yield call(reFetchResource, resource);
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        const responseData = (error as { response?: { data?: { message?: string } } }).response?.data;
-        yield put(duplicateResourceFailure({ resource, error: responseData?.message || message }));
-    }
-}
-
-function* handleRestoreResource(action: PayloadAction<{ resource: string; id: string | number }>) {
-    const { resource, id } = action.payload;
-    try {
-        yield call(api.restore, resource, id);
-        yield put(restoreResourceSuccess({ resource, id }));
-        yield call(reFetchResource, resource);
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        const responseData = (error as { response?: { data?: { message?: string } } }).response?.data;
-        yield put(restoreResourceFailure({ resource, error: responseData?.message || message }));
-    }
-}
-
-function* handleForceDeleteResource(action: PayloadAction<{ resource: string; id: string | number }>) {
-    const { resource, id } = action.payload;
-    try {
-        yield call(api.forceDelete, resource, id);
-        yield put(forceDeleteResourceSuccess({ resource, id }));
-        yield call(reFetchResource, resource);
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        const responseData = (error as { response?: { data?: { message?: string } } }).response?.data;
-        yield put(forceDeleteResourceFailure({ resource, error: responseData?.message || message }));
-    }
-}
-
-function* handleBulkDeleteResource(action: PayloadAction<{ resource: string; ids: (string | number)[] }>) {
-    const { resource, ids } = action.payload;
-    try {
-        yield call(api.bulkDelete, resource, ids);
-        yield put(bulkDeleteResourceSuccess({ resource, ids }));
-        yield call(reFetchResource, resource);
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        const responseData = (error as { response?: { data?: { message?: string } } }).response?.data;
-        yield put(bulkDeleteResourceFailure({ resource, error: responseData?.message || message }));
-    }
-}
-
-function* handleBulkDuplicateResource(action: PayloadAction<{ resource: string; ids: (string | number)[] }>) {
-    const { resource, ids } = action.payload;
-    try {
-        const response: ApiResponse = yield call(api.bulkDuplicate, resource, ids);
-        const data = (response.data?.data || response.data) as ResourceItem[];
-        yield put(bulkDuplicateResourceSuccess({ resource, data }));
-        yield call(reFetchResource, resource);
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        const responseData = (error as { response?: { data?: { message?: string } } }).response?.data;
-        yield put(bulkDuplicateResourceFailure({ resource, error: responseData?.message || message }));
-    }
-}
-
-function* handleBulkRestoreResource(action: PayloadAction<{ resource: string; ids: (string | number)[] }>) {
-    const { resource, ids } = action.payload;
-    try {
-        yield call(api.bulkRestore, resource, ids);
-        yield put(bulkRestoreResourceSuccess({ resource, ids }));
-        yield call(reFetchResource, resource);
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        const responseData = (error as { response?: { data?: { message?: string } } }).response?.data;
-        yield put(bulkRestoreResourceFailure({ resource, error: responseData?.message || message }));
-    }
-}
-
-function* handleBulkForceDeleteResource(action: PayloadAction<{ resource: string; ids: (string | number)[] }>) {
-    const { resource, ids } = action.payload;
-    try {
-        yield call(api.bulkForceDelete, resource, ids);
-        yield put(bulkForceDeleteResourceSuccess({ resource, ids }));
-        yield call(reFetchResource, resource);
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        const responseData = (error as { response?: { data?: { message?: string } } }).response?.data;
-        yield put(bulkForceDeleteResourceFailure({ resource, error: responseData?.message || message }));
-    }
-}
-
-function* handleImportResource(action: PayloadAction<{ resource: string; formData: FormData }>) {
-    const { resource, formData } = action.payload;
-    try {
-        yield call(api.import, resource, formData);
-        yield put(importResourceSuccess({ resource }));
-        yield call(reFetchResource, resource);
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        const responseData = (error as { response?: { data?: { message?: string } } }).response?.data;
-        yield put(importResourceFailure({ resource, error: responseData?.message || message }));
-    }
-}
-
-function* handleExportResource(action: PayloadAction<{ resource: string; params: Record<string, unknown> }>) {
+function* handleExport(action: PayloadAction<ParamsPayload>): Generator {
     const { resource, params } = action.payload;
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const response: any = yield call(api.export, resource, params);
-
-        // Handle file download
-        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const resp = (yield call(api.export as (...args: unknown[]) => unknown, resource, params || {})) as { data: BlobPart; headers: Record<string, string> };
+        const url = window.URL.createObjectURL(new Blob([resp.data]));
         const link = document.createElement('a');
         link.href = url;
-
-        const contentDisposition = response.headers['content-disposition'];
-        let filename = 'export.xlsx';
-        if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-            if (filenameMatch?.[1]) {
-                filename = filenameMatch[1].replace(/['"]/g, '');
-            }
-        }
-
+        const filename = resp.headers['content-disposition']?.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)?.[1]?.replace(/['"]/g, '') || 'export.xlsx';
         link.setAttribute('download', filename);
         document.body.appendChild(link);
         link.click();
         link.remove();
         window.URL.revokeObjectURL(url);
-
-        yield put(exportResourceSuccess({ resource }));
-    } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        const responseData = (error as { response?: { data?: { message?: string } } }).response?.data;
-        yield put(exportResourceFailure({ resource, error: responseData?.message || message }));
+        yield put(actions.exportResourceSuccess({ resource }));
+    } catch (err: unknown) {
+        const error = err as { response?: { data?: { message?: string } }; message?: string };
+        const msg = error.response?.data?.message || error.message || 'Unknown error';
+        yield put(actions.exportResourceFailure({ resource, error: msg }));
     }
 }
 
+// --- Watcher ---
 export function* resourceSaga(): Generator {
-    yield takeEvery(fetchResourceRequest.type, handleFetchResource);
-    yield takeLatest(fetchItemRequest.type, handleFetchItem);
-    yield takeLatest(createResourceRequest.type, handleCreateResource);
-    yield takeLatest(updateResourceRequest.type, handleUpdateResource);
-    yield takeLatest(deleteResourceRequest.type, handleDeleteResource);
-    yield takeLatest(duplicateResourceRequest.type, handleDuplicateResource);
-    yield takeLatest(restoreResourceRequest.type, handleRestoreResource);
-    yield takeLatest(forceDeleteResourceRequest.type, handleForceDeleteResource);
-    yield takeLatest(bulkDeleteResourceRequest.type, handleBulkDeleteResource);
-    yield takeLatest(bulkDuplicateResourceRequest.type, handleBulkDuplicateResource);
-    yield takeLatest(bulkRestoreResourceRequest.type, handleBulkRestoreResource);
-    yield takeLatest(bulkForceDeleteResourceRequest.type, handleBulkForceDeleteResource);
-    yield takeLatest(importResourceRequest.type, handleImportResource);
-    yield takeLatest(exportResourceRequest.type, handleExportResource);
+    yield takeEvery(actions.fetchResourceRequest.type, handleFetch);
+    yield takeLatest(actions.fetchItemRequest.type, (a: PayloadAction<IdPayload>) =>
+        runSaga(a, api.fetchOne as (...args: unknown[]) => Promise<unknown>, actions.fetchItemSuccess, actions.fetchItemFailure));
+
+    // Mutations
+    yield takeLatest(actions.createResourceRequest.type, (a: PayloadAction<DataPayload>) =>
+        runSaga(a, api.create as (...args: unknown[]) => Promise<unknown>, actions.createResourceSuccess, actions.createResourceFailure, { msg: 'common.created_success', refetch: true }));
+    yield takeLatest(actions.updateResourceRequest.type, (a: PayloadAction<IdDataPayload>) =>
+        runSaga(a, api.update as (...args: unknown[]) => Promise<unknown>, actions.updateResourceSuccess, actions.updateResourceFailure, { msg: 'common.updated_success', refetch: true }));
+    yield takeLatest(actions.deleteResourceRequest.type, (a: PayloadAction<IdPayload>) =>
+        runSaga(a, api.delete as (...args: unknown[]) => Promise<unknown>, actions.deleteResourceSuccess, actions.deleteResourceFailure, { msg: 'common.deleted_success', refetch: true }));
+
+    // Actions
+    yield takeLatest(actions.duplicateResourceRequest.type, (a: PayloadAction<IdPayload>) =>
+        runSaga(a, ((r: unknown, id: unknown) => api.action(r as string, id as ResourceId, 'duplicate')) as (...args: unknown[]) => Promise<unknown>, actions.duplicateResourceSuccess, actions.duplicateResourceFailure, { msg: 'common.duplicated_success', refetch: true }));
+    yield takeLatest(actions.restoreResourceRequest.type, (a: PayloadAction<IdPayload>) =>
+        runSaga(a, ((r: unknown, id: unknown) => api.action(r as string, id as ResourceId, 'restore')) as (...args: unknown[]) => Promise<unknown>, actions.restoreResourceSuccess, actions.restoreResourceFailure, { msg: 'common.restored_success', refetch: true }));
+    yield takeLatest(actions.forceDeleteResourceRequest.type, (a: PayloadAction<IdPayload>) =>
+        runSaga(a, ((r: unknown, id: unknown) => api.action(r as string, id as ResourceId, 'force-delete', 'delete')) as (...args: unknown[]) => Promise<unknown>, actions.forceDeleteResourceSuccess, actions.forceDeleteResourceFailure, { msg: 'common.force_deleted_success', refetch: true }));
+
+    // Bulk
+    yield takeLatest(actions.bulkDeleteResourceRequest.type, (a: PayloadAction<IdsPayload>) =>
+        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], undefined, 'delete')) as (...args: unknown[]) => Promise<unknown>, actions.bulkDeleteResourceSuccess, actions.bulkDeleteResourceFailure, { msg: 'common.deleted_success', refetch: true }));
+    yield takeLatest(actions.bulkDuplicateResourceRequest.type, (a: PayloadAction<IdsPayload>) =>
+        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], 'duplicate')) as (...args: unknown[]) => Promise<unknown>, actions.bulkDuplicateResourceSuccess, actions.bulkDuplicateResourceFailure, { refetch: true }));
+    yield takeLatest(actions.bulkRestoreResourceRequest.type, (a: PayloadAction<IdsPayload>) =>
+        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], 'restore')) as (...args: unknown[]) => Promise<unknown>, actions.bulkRestoreResourceSuccess, actions.bulkRestoreResourceFailure, { refetch: true }));
+    yield takeLatest(actions.bulkForceDeleteResourceRequest.type, (a: PayloadAction<IdsPayload>) =>
+        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], 'force-delete', 'delete')) as (...args: unknown[]) => Promise<unknown>, actions.bulkForceDeleteResourceSuccess, actions.bulkForceDeleteResourceFailure, { refetch: true }));
+
+    // Files
+    yield takeLatest(actions.importResourceRequest.type, (a: PayloadAction<FormDataPayload>) =>
+        runSaga(a, api.import as (...args: unknown[]) => Promise<unknown>, actions.importResourceSuccess, actions.importResourceFailure, { refetch: true }));
+    yield takeLatest(actions.exportResourceRequest.type, handleExport);
 }

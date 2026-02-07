@@ -33,6 +33,7 @@
         "inertiajs/inertia-laravel": "^2.0",
         "tightenco/ziggy": "^2.6",
         "aliziodev/laravel-taxonomy": "^1.0",
+        "anayarojo/shoppingcart": "^4.2",
         "mnsami/composer-custom-directory-installer": "^2.0",
         "wikimedia/composer-merge-plugin": "*"
     },
@@ -44,6 +45,7 @@
         "psr-4": {
             "PS0132E282\\Core\\": "core/src/",
             "PS0132E282\\Cms\\": "cms/src/",
+            "PS0132E282\\ECommerce\\": "e-commerce/src/",
             "PS0132E282\\Notifications\\": "notifications/src/",
             "PS0132E282\\Composer\\": "Composer/"
         }
@@ -53,13 +55,15 @@
             "providers": [
                 "PS0132E282\\Core\\Providers\\CoreServiceProvider",
                 "PS0132E282\\Core\\Providers\\MacroServiceProvider",
-                "PS0132E282\\Cms\\Providers\\CmsServiceProvider"
+                "PS0132E282\\Cms\\Providers\\CmsServiceProvider",
+                "PS0132E282\\ECommerce\\Providers\\ECommerceServiceProvider"
             ]
         },
         "merge-plugin": {
             "include": [
                 "core/composer.json",
                 "cms/composer.json",
+                "e-commerce/composer.json",
                 "notifications/composer.json"
             ],
             "recurse": true,

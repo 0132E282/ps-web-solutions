@@ -79,17 +79,22 @@ function resolveModuleUrl(
 /**
  * module Hook
  */
-export function useModule(): UseModuleReturn {
+export function useModule(options?: { collection?: string }): UseModuleReturn {
     const { props } = usePage<PagePropsWithViews>();
     const currentRouteName = useMemo(() => props?.ziggy?.route?.name || getCurrentRouteName() || null, [props]);
 
     const { current, view } = useMemo(() => {
+        if (options?.collection) {
+             const baseRoute = options.collection;
+             return { current: `${baseRoute}.index`, view: { show: `${baseRoute}.show`, edit: `${baseRoute}.edit` } };
+        }
+
         if (!currentRouteName) return { current: null, view: { show: null, edit: null } };
         const parts = currentRouteName.split('.');
         const lastPart = parts[parts.length - 1] as string;
         const baseRoute = ([...CRUD_ACTIONS] as string[]).includes(lastPart) ? parts.slice(0, -1).join('.') : currentRouteName;
         return { current: `${baseRoute}.index`, view: { show: `${baseRoute}.show`, edit: `${baseRoute}.edit` } };
-    }, [currentRouteName]);
+    }, [currentRouteName, options?.collection]);
 
     const views = useMemo(() => props.views || {}, [props.views]);
     const configs = useMemo(() => props.configs || {}, [props.configs]);
@@ -107,6 +112,16 @@ export function useModule(): UseModuleReturn {
     }, [configs]);
 
     const crudRoutes = useMemo<CrudRoutes>(() => {
+        if (options?.collection) {
+            const baseRoute = options.collection;
+             return CRUD_ACTIONS.reduce((routes, action) => {
+                const key = action === 'force-delete' ? 'forceDelete' : action;
+                const suffix = action === 'importTemplate' ? 'import-template' : action;
+                (routes as unknown as Record<string, string>)[key] = `${baseRoute}.${suffix}`;
+                return routes;
+            }, {} as CrudRoutes);
+        }
+
         if (!currentRouteName) return EMPTY_ROUTES;
         const parts = currentRouteName.split('.');
         const lastPart = parts[parts.length - 1] as string;
@@ -117,7 +132,7 @@ export function useModule(): UseModuleReturn {
             (routes as unknown as Record<string, string>)[key] = `${baseRoute}.${suffix}`;
             return routes;
         }, {} as CrudRoutes);
-    }, [currentRouteName]);
+    }, [currentRouteName, options?.collection]);
 
     return { current, view, views, configs, getFieldOptions, getFilterOptions, crudRoutes };
 }

@@ -2,10 +2,10 @@
 
 namespace PS0132E282\Core\Traits;
 
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use ReflectionClass;
 use ReflectionMethod;
 
@@ -16,6 +16,7 @@ trait HasCrudAction
     use HasViews;
 
     protected ?string $cachedPluginName = null;
+
     protected ?array $cachedConfigs = null;
 
     protected function getPluginName(): string
@@ -37,8 +38,8 @@ trait HasCrudAction
 
     protected function extractPluginNameFromPath(string $filePath): ?string
     {
-        $delimiter = DIRECTORY_SEPARATOR . 'plugins' . DIRECTORY_SEPARATOR;
-        if (!str_contains($filePath, $delimiter)) {
+        $delimiter = DIRECTORY_SEPARATOR.'plugins'.DIRECTORY_SEPARATOR;
+        if (! str_contains($filePath, $delimiter)) {
             return null;
         }
 
@@ -81,7 +82,7 @@ trait HasCrudAction
 
     protected function processColumnsFromFields(array $fields): array
     {
-        if (!isset($this->model)) {
+        if (! isset($this->model)) {
             return [];
         }
 
@@ -89,7 +90,7 @@ trait HasCrudAction
         $tableName = $modelInstance->getTable();
 
         return array_values(array_filter(array_map(
-            fn($field) => $this->processSingleColumn($field, $modelInstance, $tableName),
+            fn ($field) => $this->processSingleColumn($field, $modelInstance, $tableName),
             $fields
         )));
     }
@@ -97,13 +98,13 @@ trait HasCrudAction
     protected function processSingleColumn($field, $modelInstance, string $tableName): ?array
     {
         $config = $this->normalizeFieldConfig($field);
-        if (!$config) {
+        if (! $config) {
             return null;
         }
 
         $defaults = [
             'meta' => [
-                'type' => $this->getFieldType($config['accessorKey'], $modelInstance, $tableName)
+                'type' => $this->getFieldType($config['accessorKey'], $modelInstance, $tableName),
             ],
             'id' => $config['accessorKey'],
         ];
@@ -111,7 +112,7 @@ trait HasCrudAction
         $config['meta'] = array_merge($config['meta'] ?? [], $defaults['meta']);
         $config['id'] ??= $defaults['id'];
 
-        if (($config['config']['primary'] ?? false) && !isset($config['config']['link'])) {
+        if (($config['config']['primary'] ?? false) && ! isset($config['config']['link'])) {
             $config['config']['link'] = true;
         }
 
@@ -126,9 +127,12 @@ trait HasCrudAction
 
         if (is_array($field)) {
             $name = $field['name'] ?? $field['accessorKey'] ?? $field['key'] ?? $field['field'] ?? null;
-            if (!$name) return null;
+            if (! $name) {
+                return null;
+            }
 
             $field['accessorKey'] ??= $name;
+
             return $field;
         }
 
@@ -141,7 +145,7 @@ trait HasCrudAction
     public static function queryTree(Builder $query, ?string $parentColumn = 'parent_id', ?string $orderColumn = 'created_at', string $direction = 'desc'): Builder
     {
         return $query->orderByRaw("CASE WHEN {$parentColumn} IS NULL THEN 0 ELSE 1 END")
-            ->when($orderColumn, fn($q) => $q->orderBy($orderColumn, $direction));
+            ->when($orderColumn, fn ($q) => $q->orderBy($orderColumn, $direction));
     }
 
     protected function loadItems()
@@ -164,7 +168,7 @@ trait HasCrudAction
         $loadItems = $viewConfig['config']['load-items'] ?? $viewConfig['load-items'] ?? null;
         $isTreeMode = ($loadItems === 'tree') || request()->boolean('tree', false);
 
-        if (!$isTreeMode) {
+        if (! $isTreeMode) {
             $query->orderBy('created_at', 'desc');
         }
 
@@ -182,7 +186,7 @@ trait HasCrudAction
         foreach ([$name, Str::camel($name)] as $method) {
             if (method_exists($modelInstance, $method)) {
                 $relation = $modelInstance->$method();
-                if ($relation instanceof Relation && !in_array($method, $relationships)) {
+                if ($relation instanceof Relation && ! in_array($method, $relationships)) {
                     $relationships[] = $method;
                     break;
                 }
@@ -197,11 +201,12 @@ trait HasCrudAction
 
     protected function getIndexRelationships(): array
     {
-        if (!isset($this->model)) {
+        if (! isset($this->model)) {
             return [];
         }
 
-        $fields = $this->getViewConfig('index')['fields'] ?? [];
+        $viewConfig = $this->getViewConfig('index');
+        $fields = $viewConfig['config']['fields'] ?? $viewConfig['fields'] ?? [];
         if (empty($fields)) {
             return [];
         }
@@ -224,11 +229,12 @@ trait HasCrudAction
 
     protected function getFormRelationships(): array
     {
-        if (!isset($this->model) || !$this->hasViewConfig('form')) {
+        if (! isset($this->model) || ! $this->hasViewConfig('form')) {
             return [];
         }
 
-        $sections = $this->getViewConfig('form')['sections'] ?? [];
+        $viewConfig = $this->getViewConfig('form');
+        $sections = $viewConfig['config']['sections'] ?? $viewConfig['sections'] ?? [];
         $relationships = [];
         $modelInstance = new $this->model;
 
@@ -241,7 +247,9 @@ trait HasCrudAction
 
     protected function extractRelationshipsFromSection($sectionItems, array &$relationships, $modelInstance): void
     {
-        if (!is_array($sectionItems)) return;
+        if (! is_array($sectionItems)) {
+            return;
+        }
 
         foreach ($sectionItems as $item) {
             if (isset($item['fields'])) {
@@ -254,14 +262,17 @@ trait HasCrudAction
     {
         foreach ($fields as $field) {
             $name = is_string($field) ? $field : ($field['name'] ?? null);
-            if (!$name) continue;
-
-            if (str_contains($name, '.')) {
-                $this->addRelationshipIfValid($relationships, $modelInstance, $this->extractRelationshipFromFieldName($name));
+            if (! $name) {
                 continue;
             }
 
-            if (!$this->isDatabaseColumn($modelInstance, $name)) {
+            if (str_contains($name, '.')) {
+                $this->addRelationshipIfValid($relationships, $modelInstance, $this->extractRelationshipFromFieldName($name));
+
+                continue;
+            }
+
+            if (! $this->isDatabaseColumn($modelInstance, $name)) {
                 $this->checkAndAddRelationMethod($name, $relationships, $modelInstance);
             }
         }
@@ -274,7 +285,7 @@ trait HasCrudAction
 
     protected function checkAndAddRelationMethod(string $method, array &$relationships, $modelInstance): void
     {
-        if (!method_exists($modelInstance, $method)) {
+        if (! method_exists($modelInstance, $method)) {
             return;
         }
 
@@ -302,14 +313,14 @@ trait HasCrudAction
             $viewFields = $this->extractFieldNames($fields);
         }
 
-        $classFields = !empty($this->fields) ? $this->extractFieldNames($this->fields) : [];
+        $classFields = ! empty($this->fields) ? $this->extractFieldNames($this->fields) : [];
 
         return implode(',', array_unique(array_merge($defaults, $viewFields, $classFields)));
     }
 
     protected function getFieldType(string $fieldName, $modelInstance, string $tableName): string
     {
-        if (!$this->isDatabaseColumn($modelInstance, $fieldName) && $this->isRelation($modelInstance, $fieldName)) {
+        if (! $this->isDatabaseColumn($modelInstance, $fieldName) && $this->isRelation($modelInstance, $fieldName)) {
             return 'array';
         }
 
@@ -336,6 +347,7 @@ trait HasCrudAction
     protected function getFieldTypeFromCasts($model, string $field): ?string
     {
         $casts = $model->getCasts();
+
         return isset($casts[$field]) ? match ($casts[$field]) {
             'datetime', 'date', 'timestamp' => 'date',
             'boolean' => 'boolean',
@@ -356,14 +368,14 @@ trait HasCrudAction
 
     protected function getFiltersTableIndex(): array
     {
-        return (!empty($this->filters) && is_array($this->filters))
+        return (! empty($this->filters) && is_array($this->filters))
             ? $this->translateFilters($this->filters)
             : [];
     }
 
     protected function translateFilters(array $filters): array
     {
-        return array_map(fn($filter) => $this->translateSingleFilter($filter), $filters);
+        return array_map(fn ($filter) => $this->translateSingleFilter($filter), $filters);
     }
 
     protected function translateSingleFilter($filter): array
@@ -375,7 +387,7 @@ trait HasCrudAction
             ];
         }
 
-        if (!is_array($filter)) {
+        if (! is_array($filter)) {
             return [];
         }
         if (isset($filter['label'])) {
@@ -387,6 +399,7 @@ trait HasCrudAction
                 if (isset($option['label'])) {
                     $option['label'] = $this->translateFilterLabel($option['label']);
                 }
+
                 return $option;
             }, $filter['options']);
         }
@@ -404,11 +417,12 @@ trait HasCrudAction
         }
 
         $direct = trans($label);
+
         return ($direct !== $label) ? $direct : $label;
     }
 
     protected function hasViewConfig(string $key): bool
     {
-        return defined(static::class . '::views') && isset(constant(static::class . '::views')[$key]);
+        return defined(static::class.'::views') && isset(constant(static::class.'::views')[$key]);
     }
 }

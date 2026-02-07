@@ -3,8 +3,8 @@
 namespace PS0132E282\Core\Services;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 
 class ItemLoader
 {
@@ -24,7 +24,7 @@ class ItemLoader
         }
 
         if ($tree) {
-            if (!$paginate) {
+            if (! $paginate) {
                 $limit = -1;
             }
             self::ensureTreeColumns($query, $parentColumn);
@@ -32,11 +32,12 @@ class ItemLoader
         }
 
         if ($paginate) {
-            return $query->paginate($limit ? (int)$limit : 20, ['*'], 'page', $page);
+            return $query->paginate($limit ? (int) $limit : 20, ['*'], 'page', $page);
         }
 
         if ($limit == -1 || $tree) {
             $items = $query->get();
+
             return $tree ? self::buildTree($items, $parentColumn) : $items;
         }
 
@@ -45,6 +46,7 @@ class ItemLoader
         }
 
         $items = $query->get();
+
         return $tree ? self::buildTree($items, $parentColumn) : $items;
     }
 
@@ -56,7 +58,7 @@ class ItemLoader
     protected static function ensureTreeColumns(Builder $query, string $parentColumn): void
     {
         $selectedColumns = $query->getQuery()->columns;
-        if (!$selectedColumns || in_array('*', $selectedColumns)) {
+        if (! $selectedColumns || in_array('*', $selectedColumns)) {
             return;
         }
 
@@ -70,18 +72,18 @@ class ItemLoader
             foreach ($selectedColumns as $selectedCol) {
                 if ($selectedCol === $col
                     || $selectedCol === "{$tableName}.{$col}"
-                    || (is_string($selectedCol) && preg_match('/\b' . preg_quote($col, '/') . '\b/i', $selectedCol))
+                    || (is_string($selectedCol) && preg_match('/\b'.preg_quote($col, '/').'\b/i', $selectedCol))
                 ) {
                     $found = true;
                     break;
                 }
             }
-            if (!$found) {
+            if (! $found) {
                 $columnsToAdd[] = $col;
             }
         }
 
-        if (!empty($columnsToAdd)) {
+        if (! empty($columnsToAdd)) {
             $query->addSelect($columnsToAdd);
         }
     }
@@ -118,4 +120,3 @@ class ItemLoader
         return $node;
     }
 }
-

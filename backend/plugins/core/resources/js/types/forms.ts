@@ -1,6 +1,6 @@
-import { UseFormReturn, SubmitHandler } from "react-hook-form";
-import { ZodSchema } from "zod";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
+import type { UseFormReturn, SubmitHandler } from "react-hook-form";
+import type { ZodSchema } from "zod";
 
 /**
  * Form data type - can be any record structure
@@ -33,7 +33,9 @@ export type FormFieldType =
   | 'multiple-attachment'
   | 'single-condition'
   | 'date-range'
-  | 'datatable-variants';
+  | 'datatable-variants'
+  | 'data-variation'
+  | 'slug';
 
 /**
  * Field type alias for backward compatibility
@@ -88,8 +90,8 @@ export interface FieldProps extends BaseFieldProps {
   options?: Array<{ value: string; label: string }>;
   source?: SourceConfigType;
   query?: QueryConfigType;
-  items?: unknown;
-  'header-items'?: unknown;
+  items?: Array<Record<string, unknown>>;
+  collection?: string;
   fields?: Record<string, unknown>;
   width?: string;
   className?: string;

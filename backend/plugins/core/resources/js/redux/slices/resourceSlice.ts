@@ -1,5 +1,6 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { ResourceState, ResourcePagination } from '../../types/resource';
+import { createSlice } from '@reduxjs/toolkit';
+import type { PayloadAction } from '@reduxjs/toolkit';
+import type { Resource, ResourcePagination } from '../../types/resource';
 
 // Define a generic type for resource items that MUST have an ID
 interface BaseResourceItem {
@@ -8,7 +9,7 @@ interface BaseResourceItem {
 }
 
 interface ResourcesState {
-    [key: string]: ResourceState<BaseResourceItem>;
+    [key: string]: Resource<BaseResourceItem>;
 }
 
 const initialState: ResourcesState = {};
@@ -44,7 +45,7 @@ const resourceSlice = createSlice({
         },
 
         // Single Item
-        fetchItemRequest: (state, action: PayloadAction<{ resource: string; id: string | number }>) => {
+        fetchItemRequest: (state, action: PayloadAction<{ resource: string; id: string | number; params?: Record<string, unknown> }>) => {
              const { resource } = action.payload;
             if (!state[resource]) {
                 state[resource] = { items: [], item: null, loading: true, error: null, pagination: null, lastParams: null };
@@ -135,9 +136,13 @@ const resourceSlice = createSlice({
         },
         deleteResourceSuccess: (state, action: PayloadAction<{ resource: string; id: string | number }>) => {
             const { resource, id } = action.payload;
+            console.log('[ResourceSlice] deleteResourceSuccess:', { resource, id, currentItems: state[resource]?.items?.length });
             if (state[resource]) {
                 state[resource].loading = false;
+                const beforeCount = state[resource].items.length;
                 state[resource].items = state[resource].items.filter((i) => String(i.id) !== String(id));
+                const afterCount = state[resource].items.length;
+                console.log('[ResourceSlice] Items filtered:', { beforeCount, afterCount, removed: beforeCount - afterCount });
                 if (state[resource].item && String(state[resource].item?.id) === String(id)) {
                     state[resource].item = null;
                 }

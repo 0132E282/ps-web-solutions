@@ -6,9 +6,6 @@ trait HasViews
 {
     /**
      * Get page/view name for a given action
-     *
-     * @param string $action
-     * @return string
      */
     protected function getPage(string $action): string
     {
@@ -27,21 +24,18 @@ trait HasViews
 
     /**
      * Get view config for a given action
-     *
-     * @param string $action
-     * @return array
      */
     protected function getViewConfig(string $action): array
     {
         $viewKey = in_array($action, ['show', 'create', 'edit']) ? 'form' : $action;
         $reflection = new \ReflectionClass($this);
 
-        if (!$reflection->hasConstant('views')) {
+        if (! $reflection->hasConstant('views')) {
             return $this->generateFormConfigIfNeeded($viewKey);
         }
 
         $views = $reflection->getConstant('views');
-        if (!isset($views[$viewKey])) {
+        if (! isset($views[$viewKey])) {
             return $this->generateFormConfigIfNeeded($viewKey);
         }
 
@@ -78,36 +72,31 @@ trait HasViews
 
     /**
      * Generate form config if needed (fallback when views constant not found)
-     *
-     * @param string $viewKey
-     * @return array
      */
     protected function generateFormConfigIfNeeded(string $viewKey): array
     {
         if ($viewKey === 'form' && method_exists($this, 'generateFormConfigFromModel')) {
             $generatedConfig = $this->generateFormConfigFromModel();
-            if (!empty($generatedConfig)) {
+            if (! empty($generatedConfig)) {
                 return ['config' => $generatedConfig];
             }
         }
+
         return [];
     }
 
     /**
      * Merge form config with model configs
-     *
-     * @param array $config
-     * @return array
      */
     protected function mergeFormConfig(array $config): array
     {
-        if (!empty($config['sections']) && method_exists($this, 'mergeFormFieldsWithModelConfigs')) {
+        if (! empty($config['sections']) && method_exists($this, 'mergeFormFieldsWithModelConfigs')) {
             return $this->mergeFormFieldsWithModelConfigs($config);
         }
 
         if (empty($config['sections']) && method_exists($this, 'generateFormConfigFromModel')) {
             $generatedConfig = $this->generateFormConfigFromModel();
-            if (!empty($generatedConfig['sections'])) {
+            if (! empty($generatedConfig['sections'])) {
                 $config['sections'] = $generatedConfig['sections'];
                 $config['title'] ??= $generatedConfig['title'] ?? null;
                 $config['description'] ??= $generatedConfig['description'] ?? null;
@@ -119,14 +108,11 @@ trait HasViews
 
     /**
      * Get route from controller views config (ưu tiên cao nhất)
-     *
-     * @param string $fieldName
-     * @return string|null
      */
     protected function getRouteFromControllerViews(string $fieldName): ?string
     {
         $reflection = new \ReflectionClass($this);
-        if (!$reflection->hasConstant('views')) {
+        if (! $reflection->hasConstant('views')) {
             return null;
         }
 
@@ -135,12 +121,12 @@ trait HasViews
         // Check form sections for field config
         if (isset($views['form']['sections'])) {
             foreach ($views['form']['sections'] as $sectionItems) {
-                if (!is_array($sectionItems)) {
+                if (! is_array($sectionItems)) {
                     continue;
                 }
 
                 foreach ($sectionItems as $sectionItem) {
-                    if (!is_array($sectionItem) || !isset($sectionItem['fields'])) {
+                    if (! is_array($sectionItem) || ! isset($sectionItem['fields'])) {
                         continue;
                     }
 
@@ -160,9 +146,6 @@ trait HasViews
 
     /**
      * Extract field names from fields array (supports both string array and object array)
-     *
-     * @param array $fields
-     * @return array
      */
     protected function extractFieldNames(array $fields): array
     {
@@ -185,24 +168,22 @@ trait HasViews
 
     /**
      * Get fields from form config sections
-     *
-     * @return array
      */
     protected function getFieldsFromFormConfig(): array
     {
         $reflection = new \ReflectionClass($this);
-        if (!$reflection->hasConstant('views')) {
+        if (! $reflection->hasConstant('views')) {
             return [];
         }
 
         $views = $reflection->getConstant('views');
-        if (!isset($views['form']['sections']) || !is_array($views['form']['sections'])) {
+        if (! isset($views['form']['sections']) || ! is_array($views['form']['sections'])) {
             return [];
         }
 
         $fieldNames = [];
         foreach ($views['form']['sections'] as $sectionItems) {
-            if (!is_array($sectionItems)) {
+            if (! is_array($sectionItems)) {
                 continue;
             }
 

@@ -2,8 +2,8 @@
 
 namespace PS0132E282\Cms\Controllers;
 
-use PS0132E282\Core\Base\BaseController;
 use PS0132E282\Cms\Models\PostTag;
+use PS0132E282\Core\Base\BaseController;
 
 class PostTagController extends BaseController
 {
@@ -31,4 +31,3 @@ class PostTagController extends BaseController
         ],
     ];
 }
-

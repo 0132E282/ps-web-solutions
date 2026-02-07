@@ -1,459 +1,370 @@
-import { Card, CardHeader, CardTitle, CardContent, CardDescription} from "@core/components/ui/card";
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@core/components/ui/table";
-import { Checkbox } from "@core/components/ui/checkbox";
-import { Input } from "@core/components/ui/input";
-import { Button } from "@core/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@core/components/ui/dialog";
-import AppLayout from "@core/layouts/app-layout";
-import { usePage, router } from "@inertiajs/react";
-import { useState, useMemo, useCallback } from "react";
-import { Plus, Users, Edit, Search, Loader2, Trash2, Save } from "lucide-react";
-import { Field } from "@core/components/form/field";
-import { FormPages } from "@core/components/form";
-import { route } from "@core/lib/route";
-import type { FormData } from "@core/types/forms";
+import { Field, FormPages } from '@core/components/form';
+import { Button } from '@core/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@core/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@core/components/ui/tabs';
+import AppLayout from '@core/layouts/app-layout';
+import { route } from '@core/lib/route';
+import { cn } from '@core/lib/utils';
+import { router, usePage } from '@inertiajs/react';
+import { Globe, Mail, Clock, Bell, type LucideIcon } from 'lucide-react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 
-interface Permission {
-    id: number;
-    name: string;
-    group: string;
+interface WebsiteData {
+    name?: string;
+    description?: string;
+    domain?: string;
+    logo?: string;
+    favicon?: string;
+    featured_image?: string;
+    smtp_host?: string;
+    smtp_port?: string;
+    smtp_username?: string;
+    smtp_password?: string;
+    smtp_encryption?: string;
+    smtp_from_email?: string;
+    smtp_from_name?: string;
+    timezone?: string;
+    notification_emails?: string;
+    super_admin_email?: string;
+    super_admin_name?: string;
+    receive_notifications?: boolean;
+}
+
+interface PageProps {
+    website?: WebsiteData;
+    timezones?: string[];
+    [key: string]: unknown;
+}
+
+const DEFAULT_VALUES: WebsiteData = {
+    name: '',
+    description: '',
+    domain: '',
+    logo: '',
+    favicon: '',
+    featured_image: '',
+    smtp_host: '',
+    smtp_port: '587',
+    smtp_username: '',
+    smtp_password: '',
+    smtp_encryption: 'tls',
+    smtp_from_email: '',
+    smtp_from_name: '',
+    timezone: 'Asia/Ho_Chi_Minh',
+    notification_emails: '',
+    super_admin_email: '',
+    super_admin_name: '',
+    receive_notifications: true,
+};
+
+const COMMON_TIMEZONES = [
+    'Asia/Ho_Chi_Minh',
+    'Asia/Bangkok',
+    'Asia/Singapore',
+    'Asia/Tokyo',
+    'Asia/Seoul',
+    'Asia/Shanghai',
+    'UTC',
+    'America/New_York',
+    'America/Los_Angeles',
+    'Europe/London',
+    'Europe/Paris',
+];
+
+interface MenuItem {
+    id: string;
+    label: string;
+    icon: LucideIcon;
+}
+
+const MENU_ITEMS: MenuItem[] = [
+    { id: 'general', label: 'Thông tin chung', icon: Globe },
+    { id: 'smtp', label: 'SMTP', icon: Mail },
+    { id: 'timezone', label: 'Múi giờ', icon: Clock },
+    { id: 'notifications', label: 'Thông báo', icon: Bell },
+];
+
+// Section Card Component
+interface SectionCardProps {
+    id: string;
+    icon: LucideIcon;
+    title: string;
     description: string;
+    children: ReactNode;
 }
 
-interface Role {
-    id: number;
-    name: string;
-    permissions: Permission[];
-}
-
-const formatPermissionName = (name: string): string => {
-    return name.split('.').pop()?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || '';
-};
-interface RoleCardProps {
-    role: Role;
-    isSelected: boolean;
-    onSelect: (role: Role) => void;
-    onEdit: (role: Role) => void;
-}
-
-const RoleCard = ({ role, isSelected, onSelect, onEdit }: RoleCardProps) => (
-    <div
-        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-            isSelected
-                ? 'bg-primary/10 border-primary'
-                : 'hover:bg-muted/50'
-        }`}
-        onClick={() => onSelect(role)}
-    >
-        <div className="flex items-center gap-3">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <div>
-                <span className="font-medium">{role.name}</span>
-                <span className="text-sm ml-2 text-muted-foreground">
-                    {role.permissions.length} quyền
-                </span>
+const SectionCard = ({ id, icon: Icon, title, description, children }: SectionCardProps) => (
+    <Card id={id} className="border-none shadow-none">
+        <CardHeader className="px-0 pt-0">
+            <div className="flex items-center gap-2">
+                <Icon className="h-5 w-5 text-primary" />
+                <CardTitle>{title}</CardTitle>
             </div>
-        </div>
-        {isSelected && (
-            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onEdit(role); }}>
-                <Edit className="h-4 w-4" />
-            </Button>
-        )}
-    </div>
+            <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent className="px-0 space-y-4">{children}</CardContent>
+    </Card>
 );
 
-// Permission Table Component
-interface PermissionTableProps {
-    permissions: Record<string, Permission[]>;
-    filteredPermissions: Record<string, Permission[]>;
-    checkedPermissions: Set<number>;
-    onPermissionToggle: (permissionId: number) => void;
-    onGroupToggle: (groupPermissions: Permission[], checkAll: boolean) => void;
-    isGroupFullyChecked: (groupName: string) => boolean;
-}
+const Website = () => {
+    const { props } = usePage<PageProps>();
+    const { website, timezones = COMMON_TIMEZONES } = props;
 
-const PermissionTable = ({
-    permissions,
-    filteredPermissions,
-    checkedPermissions,
-    onPermissionToggle,
-    onGroupToggle,
-    isGroupFullyChecked
-}: PermissionTableProps) => (
-    <div className="space-y-4">
-        {Object.entries(filteredPermissions).map(([groupName, groupPermissions]) => (
-            <Card key={groupName}>
-                <CardHeader>
-                    <div className="flex items-center justify-between px-4">
-                        <CardTitle className="text-lg">{groupName}</CardTitle>
-                        <div className="flex items-center space-x-2">
-                            <span className="text-sm text-muted-foreground">Chọn tất cả</span>
-                            <Checkbox
-                                checked={isGroupFullyChecked(groupName)}
-                                onCheckedChange={() =>
-                                    onGroupToggle(permissions[groupName] || groupPermissions, !isGroupFullyChecked(groupName))
-                                }
-                            />
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Code</TableHead>
-                                <TableHead>Tên</TableHead>
-                                <TableHead>Mô tả</TableHead>
-                                <TableHead className="w-[50px]">Chọn</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {groupPermissions.map((permission) => (
-                                <TableRow key={permission.id}>
-                                    <TableCell className="font-mono text-sm">
-                                        {permission.name}
-                                    </TableCell>
-                                    <TableCell>
-                                        {formatPermissionName(permission.name)}
-                                    </TableCell>
-                                    <TableCell>
-                                        {permission.description ?? ''}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Checkbox
-                                            checked={checkedPermissions.has(permission.id)}
-                                            onCheckedChange={() => onPermissionToggle(permission.id)}
-                                        />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        ))}
-    </div>
-);
-
-// Role Dialog Component
-interface RoleDialogProps {
-    isOpen: boolean;
-    editingRole: Role | null;
-    onClose: () => void;
-    onSave: (data: FormData) => void;
-    isLoading?: boolean;
-}
-
-const RoleDialog = ({ isOpen, editingRole, onClose, onSave, isLoading = false }: RoleDialogProps) => {
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>
-                        {editingRole ? 'Cập nhật vai trò' : 'Thêm vai trò mới'}
-                    </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                    <FormPages
-                        onSubmit={onSave}
-                        showHeader={false}
-                        defaultValues={{ name: editingRole?.name || "" }}
-                        className="space-y-4"
-                    >
-                        <Field
-                            name="name"
-                            label="Tên vai trò"
-                            placeholder="Nhập tên vai trò..."
-                            type="text"
-                        />
-                        <div className="flex justify-end space-x-2 mt-4">
-                            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
-                                Hủy
-                            </Button>
-                            <Button type="submit" className="cursor-pointer" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {editingRole ? <Save className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                                {editingRole ? 'Cập nhật vai trò' : 'Thêm vai trò mới'}
-                            </Button>
-                        </div>
-                    </FormPages>
-                </div>
-            </DialogContent>
-        </Dialog>
+    // Memoized default values
+    const defaultValues = useMemo(
+        () => (website || DEFAULT_VALUES) as never,
+        [website]
     );
-};
 
-const DeleteConfirmationDialog = ({
-    isOpen,
-    onClose,
-    onConfirm,
-    roleName
-}: {
-    isOpen: boolean;
-    onClose: () => void;
-    onConfirm: () => void;
-    roleName: string;
-}) => (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Xác nhận xóa vai trò</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                    Bạn có chắc chắn muốn xóa vai trò <strong>"{roleName}"</strong> không?
-                </p>
-                <p className="text-sm text-muted-foreground">
-                    Hành động này không thể hoàn tác và sẽ xóa tất cả quyền liên quan đến vai trò này.
-                </p>
-                <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={onClose}>
-                        Hủy
-                    </Button>
-                    <Button variant="destructive" onClick={onConfirm}>
-                        Xóa vai trò
-                    </Button>
-                </div>
-            </div>
-        </DialogContent>
-    </Dialog>
-);
+    // Memoized timezone options
+    const timezoneOptions = useMemo(
+        () => timezones.map((tz) => ({ value: tz, label: tz })),
+        [timezones]
+    );
 
-
-const Index = () => {
-    const { permissions, roles } = usePage().props as unknown as {
-        permissions: Record<string, Permission[]>;
-        roles: Role[];
-    };
-    const [checkedPermissions, setCheckedPermissions] = useState<Set<number>>(new Set());
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedRole, setSelectedRole] = useState<Role | null>(roles[0] || null);
-    const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
-    const [editingRole, setEditingRole] = useState<Role | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isSavingPermissions, setIsSavingPermissions] = useState(false);
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-    const syncPermissionsWithRole = useCallback((role: Role | null) => {
-        setCheckedPermissions(role ? new Set(role.permissions.map(p => p.id)) : new Set());
+    // Handle form submission
+    const handleSubmit = useCallback((data: Record<string, unknown>) => {
+        router.post(route('admin.settings.show', { key: 'website' }), data as never);
     }, []);
-
-    const handleRoleSelect = useCallback((role: Role) => {
-        setSelectedRole(role);
-        syncPermissionsWithRole(role);
-    }, [syncPermissionsWithRole]);
-
-    const saveRolePermissions = useCallback(async () => {
-        if (!selectedRole) return;
-        setIsSavingPermissions(true);
-        try {
-            await router.put(`/roles/${selectedRole.id}/permissions`, {
-                permissions: Array.from(checkedPermissions)
-            }, {
-                onSuccess: () => {
-                    // Refresh page to get updated data
-                    router.reload();
-                },
-                onError: (errors) => {
-                    console.error('Có lỗi xảy ra khi lưu quyền:', errors);
-                }
-            });
-        } catch (error) {
-            console.error('Có lỗi xảy ra khi lưu quyền:', error);
-        } finally {
-            setIsSavingPermissions(false);
-        }
-    }, [selectedRole, checkedPermissions]);
-
-
-    const filteredPermissions = useMemo(() => {
-        if (!searchTerm.trim()) return permissions;
-
-        const searchLower = searchTerm.toLowerCase();
-        return Object.entries(permissions).reduce((acc, [groupName, groupPermissions]) => {
-            const filteredGroup = groupPermissions.filter((permission) => {
-                const nameLower = permission.name.toLowerCase();
-                const formattedName = formatPermissionName(permission.name).toLowerCase();
-                return nameLower.includes(searchLower) || formattedName.includes(searchLower);
-            });
-
-            if (filteredGroup.length > 0) {
-                acc[groupName] = filteredGroup;
-            }
-
-            return acc;
-        }, {} as Record<string, Permission[]>);
-    }, [permissions, searchTerm]);
-
-    const openRoleDialog = useCallback((role: Role | null = null) => {
-        setEditingRole(role);
-        setIsRoleDialogOpen(true);
-    }, []);
-
-    const closeRoleDialog = useCallback(() => {
-        setIsRoleDialogOpen(false);
-        setEditingRole(null);
-    }, []);
-
-    const saveRole = useCallback(async (data: FormData) => {
-        setIsLoading(true);
-        try {
-            const roleData = { name: data.name as string };
-            if (editingRole) {
-                await router.put(route('admin.roles.update', { id: editingRole.id }), roleData, {
-                    onSuccess: closeRoleDialog,
-                    onError: (errors) => {
-                        console.error('Có lỗi xảy ra khi cập nhật vai trò:', errors);
-                    }
-                });
-            } else {
-                await router.post(route('admin.roles.store'), roleData, {
-                    onSuccess: closeRoleDialog,
-                    onError: (errors) => {
-                        console.error('Có lỗi xảy ra khi tạo vai trò:', errors);
-                    }
-                });
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    }, [editingRole, closeRoleDialog]);
-
-    const confirmDeleteRole = useCallback(async () => {
-        if (!selectedRole) return;
-        await router.delete(route('admin.roles.delete', { id: selectedRole.id }), {
-            onSuccess: () => {
-                setSelectedRole(null);
-                setIsDeleteDialogOpen(false);
-            },
-            onError: (error) => {
-                console.error('Có lỗi xảy ra khi xóa vai trò:', error);
-            }
-        });
-    }, [selectedRole]);
-
-    const handlePermissionToggle = useCallback((permissionId: number) => {
-        setCheckedPermissions(prev => {
-            const newChecked = new Set(prev);
-            if (newChecked.has(permissionId)) {
-                newChecked.delete(permissionId);
-            } else {
-                newChecked.add(permissionId);
-            }
-            return newChecked;
-        });
-    }, []);
-
-    const handleGroupToggle = useCallback((groupPermissions: Permission[], checkAll: boolean) => {
-        setCheckedPermissions(prev => {
-            const newChecked = new Set(prev);
-            groupPermissions.forEach(permission => {
-                if (checkAll) {
-                    newChecked.add(permission.id);
-                } else {
-                    newChecked.delete(permission.id);
-                }
-            });
-            return newChecked;
-        });
-    }, []);
-
-    const isGroupFullyChecked = useCallback((groupName: string) => {
-        const originalGroupPermissions = permissions[groupName] || [];
-        return originalGroupPermissions.length > 0 &&
-               originalGroupPermissions.every(p => checkedPermissions.has(p.id));
-    }, [permissions, checkedPermissions]);
-
 
     return (
         <AppLayout>
-            <div className="flex gap-4">
-                <Card className="max-w-[400px] w-full">
-                 <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle>Vai trò</CardTitle>
-                            <CardDescription>Quản lý vai trò của người dùng</CardDescription>
-                        </div>
-                        <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => openRoleDialog()}>
-                                <Plus className="h-4 w-4 mr-1" />
-                                Thêm mới
-                            </Button>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        {roles.map(role => (
-                            <RoleCard
-                                key={role.id}
-                                role={role}
-                                isSelected={selectedRole?.id === role.id}
-                                onSelect={handleRoleSelect}
-                                onEdit={openRoleDialog}
-                            />
-                        ))}
-                    </div>
-                </CardContent>
-                </Card>
-                <div className="flex-1 w-full space-y-4  overflow-y-auto gap-4">
-                    <div className="flex items-center justify-between">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                            <Input
-                                type="text"
-                                placeholder="Tìm kiếm quyền..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10"
-                            />
-                        </div>
-                        <Button
-                            onClick={saveRolePermissions}
-                            disabled={!selectedRole || isSavingPermissions}
-                            className="ml-4 cursor-pointer"
-                        >
-                            <Save className="h-4 w-4 mr-2" />
-                            {isSavingPermissions && <Loader2 className="h-4 w-4 animate-spin" />}
-                            Lưu quyền
-                        </Button>
-                        <Button
-                            onClick={() => setIsDeleteDialogOpen(true)}
-                            disabled={!selectedRole || isSavingPermissions}
-                            className="ml-4 bg-red-500 hover:bg-red-600 cursor-pointer text-white"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                            Xóa vai trò
-                        </Button>
-                    </div>
-                    <div className="space-y-4 max-h-[calc(100vh-150px)] overflow-y-auto">
-                        <PermissionTable
-                            permissions={permissions}
-                            filteredPermissions={filteredPermissions}
-                            checkedPermissions={checkedPermissions}
-                            onPermissionToggle={handlePermissionToggle}
-                            onGroupToggle={handleGroupToggle}
-                            isGroupFullyChecked={isGroupFullyChecked}
-                        />
-                    </div>
-                    <RoleDialog
-                        isOpen={isRoleDialogOpen}
-                        editingRole={editingRole}
-                        onClose={closeRoleDialog}
-                        onSave={saveRole}
-                        isLoading={isLoading}
-                    />
-                    <DeleteConfirmationDialog
-                        isOpen={isDeleteDialogOpen}
-                        onClose={() => setIsDeleteDialogOpen(false)}
-                        onConfirm={confirmDeleteRole}
-                        roleName={selectedRole?.name || ''}
-                    />
-                </div>
+            <div className="mb-6">
+                <h1 className="text-3xl font-bold">Cấu hình Website</h1>
+                <p className="text-muted-foreground">
+                    Quản lý thông tin website, email, múi giờ và tài khoản quản trị
+                </p>
             </div>
+
+            <FormPages
+                onSubmit={handleSubmit}
+                showHeader={false}
+                defaultValues={defaultValues}
+            >
+                <Tabs defaultValue="general" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start" orientation="vertical">
+                    <aside className="lg:col-span-3">
+                        <div className="sticky top-[172px]">
+                            <TabsList className="flex flex-col h-auto bg-transparent p-0 space-y-1 w-full">
+                                {MENU_ITEMS.map((item) => {
+                                    const Icon = item.icon;
+                                    return (
+                                        <TabsTrigger
+                                            key={item.id}
+                                            value={item.id}
+                                            className={cn(
+                                                'w-full flex items-center justify-start gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer',
+                                                'data-[state=active]:bg-primary data-[state=active]:text-primary-foreground',
+                                                'data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground',
+                                                'shadow-none border-none ring-0'
+                                            )}
+                                        >
+                                            <Icon className="h-4 w-4" />
+                                            {item.label}
+                                        </TabsTrigger>
+                                    );
+                                })}
+                            </TabsList>
+                        </div>
+                    </aside>
+
+                    <div className="lg:col-span-9">
+                        <Card className="p-6">
+                            <TabsContent value="general" className="m-0 mt-0">
+                                <SectionCard
+                                    id="general"
+                                    icon={Globe}
+                                    title="Thông tin chung"
+                                    description="Cấu hình thông tin cơ bản của website"
+                                >
+                                    <>
+                                        <Field
+                                            name="name"
+                                            label="Tên trang web"
+                                            placeholder="Việt Nam Solar"
+                                            required
+                                        />
+
+                                        <Field
+                                            name="description"
+                                            label="Mô tả trang web"
+                                            placeholder="Mô tả ngắn gọn về trang web"
+                                            type="textarea"
+                                            description="Mô tả này sẽ hiển thị trong kết quả tìm kiếm"
+                                        />
+
+                                        <Field
+                                            name="domain"
+                                            label="URL trang web"
+                                            placeholder="https://vietnamsolar.jamstack.vn"
+                                            required
+                                        />
+
+                                        <Field
+                                            name="logo"
+                                            label="Logo trang web"
+                                            type="attachment"
+                                            description="Logo chính của website, khuyến nghị kích thước 200x50px"
+                                        />
+
+                                        <Field
+                                            name="favicon"
+                                            label="Biểu tượng trang web (Favicon)"
+                                            type="attachment"
+                                            description="Icon hiển thị trên tab trình duyệt, khuyến nghị 32x32px hoặc 64x64px"
+                                        />
+
+                                        <Field
+                                            name="featured_image"
+                                            label="Hình ảnh trang web"
+                                            type="attachment"
+                                            description="Hình ảnh đại diện khi chia sẻ trên mạng xã hội (OG Image), khuyến nghị 1200x630px"
+                                        />
+                                    </>
+                                </SectionCard>
+                            </TabsContent>
+
+                            <TabsContent value="smtp" className="m-0 mt-0">
+                                <SectionCard
+                                    id="smtp"
+                                    icon={Mail}
+                                    title="Cấu hình SMTP"
+                                    description="Thiết lập máy chủ email để gửi thông báo"
+                                >
+                                    <>
+                                        <Field
+                                            name="smtp_host"
+                                            label="SMTP Host"
+                                            placeholder="smtp.gmail.com"
+                                        />
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Field
+                                                name="smtp_port"
+                                                label="Port"
+                                                placeholder="587"
+                                                type="number"
+                                            />
+
+                                            <Field
+                                                name="smtp_encryption"
+                                                label="Mã hóa"
+                                                type="select"
+                                                options={[
+                                                    { value: 'tls', label: 'TLS' },
+                                                    { value: 'ssl', label: 'SSL' },
+                                                    { value: 'none', label: 'Không' },
+                                                ]}
+                                            />
+                                        </div>
+
+                                        <Field
+                                            name="smtp_username"
+                                            label="Username"
+                                            placeholder="your-email@gmail.com"
+                                        />
+
+                                        <Field
+                                            name="smtp_password"
+                                            label="Password"
+                                            type="password"
+                                            placeholder="••••••••"
+                                        />
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Field
+                                                name="smtp_from_email"
+                                                label="Email người gửi"
+                                                placeholder="noreply@example.com"
+                                            />
+
+                                            <Field
+                                                name="smtp_from_name"
+                                                label="Tên người gửi"
+                                                placeholder="Website Name"
+                                            />
+                                        </div>
+                                    </>
+                                </SectionCard>
+                            </TabsContent>
+
+                            <TabsContent value="timezone" className="m-0 mt-0">
+                                <SectionCard
+                                    id="timezone"
+                                    icon={Clock}
+                                    title="Múi giờ"
+                                    description="Chọn múi giờ mặc định cho hệ thống"
+                                >
+                                    <>
+                                        <Field
+                                            name="timezone"
+                                            label="Múi giờ"
+                                            type="select"
+                                            options={timezoneOptions}
+                                        />
+
+                                        <div className="p-4 bg-muted rounded-lg flex items-start gap-3">
+                                            <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                                            <div>
+                                                <p className="text-sm text-muted-foreground">
+                                                    <strong>Lưu ý:</strong> Múi giờ ảnh hưởng đến cách hiển thị thời gian trong toàn bộ hệ thống.
+                                                </p>
+                                                <p className="text-sm text-muted-foreground mt-1">
+                                                    Thời gian hiện tại: {new Date().toLocaleString('vi-VN', {
+                                                        timeZone: website?.timezone || 'Asia/Ho_Chi_Minh'
+                                                    })}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </>
+                                </SectionCard>
+                            </TabsContent>
+
+                            <TabsContent value="notifications" className="m-0 mt-0">
+                                <SectionCard
+                                    id="notifications"
+                                    icon={Bell}
+                                    title="Cấu hình thông báo"
+                                    description="Quản lý email nhận thông báo từ hệ thống"
+                                >
+                                    <>
+                                        <Field
+                                            name="notification_emails"
+                                            label="Email nhận thông báo"
+                                            placeholder="admin@example.com, user@example.com"
+                                            type="textarea"
+                                            description="Nhập các email cách nhau bởi dấu phẩy. Các email này sẽ nhận thông báo về hoạt động quan trọng của hệ thống"
+                                        />
+
+                                        <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                                            <div className="flex gap-3">
+                                                <Bell className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                                                        Loại thông báo
+                                                    </p>
+                                                    <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+                                                        <li>Đơn hàng mới</li>
+                                                        <li>Đăng ký tài khoản mới</li>
+                                                        <li>Lỗi hệ thống quan trọng</li>
+                                                        <li>Cảnh báo bảo mật</li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                </SectionCard>
+                            </TabsContent>
+                            <div className="flex justify-end mt-6">
+                                <Button type="submit" size="lg">
+                                    Lưu tất cả thay đổi
+                                </Button>
+                            </div>
+                        </Card>
+                    </div>
+                </Tabs>
+            </FormPages>
         </AppLayout>
     );
 };
 
-export default Index;
+export default Website;

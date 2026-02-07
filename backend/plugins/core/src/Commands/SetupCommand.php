@@ -44,9 +44,10 @@ class SetupCommand extends Command
     public function handle(): int
     {
         $templatesPath = base_path('plugins/core/resources/templates');
-        
-        if (!is_dir($templatesPath)) {
+
+        if (! is_dir($templatesPath)) {
             $this->error("Templates directory not found: {$templatesPath}");
+
             return Command::FAILURE;
         }
 
@@ -58,7 +59,7 @@ class SetupCommand extends Command
         $this->newLine();
         $this->info("Setup complete! Created: {$successCount}, Skipped: {$skippedCount}");
 
-        if (!$this->option('skip-npm')) {
+        if (! $this->option('skip-npm')) {
             $this->newLine();
             $this->info('Installing frontend dependencies...');
             $this->installFrontendDependencies();
@@ -81,21 +82,24 @@ class SetupCommand extends Command
             $templatePath = "{$templatesPath}/{$template}";
             $targetPath = base_path($target);
 
-            if (!file_exists($templatePath)) {
+            if (! file_exists($templatePath)) {
                 $this->warn("Template not found: {$template}");
+
                 continue;
             }
 
             if (file_exists($targetPath)) {
-                if (!$force && !$merge && !$this->confirm("File <fg=yellow>{$target}</> already exists. Overwrite?", false)) {
+                if (! $force && ! $merge && ! $this->confirm("File <fg=yellow>{$target}</> already exists. Overwrite?", false)) {
                     $this->line("  <fg=yellow>⏭ Skipped</> {$target}");
                     $skippedCount++;
+
                     continue;
                 }
 
                 if ($merge && $this->canMerge($target)) {
                     $this->mergeFile($templatePath, $targetPath, $target);
                     $successCount++;
+
                     continue;
                 }
             }
@@ -115,17 +119,19 @@ class SetupCommand extends Command
     protected function installFrontendDependencies(): void
     {
         $packageJsonPath = base_path('package.json');
-        
-        if (!file_exists($packageJsonPath)) {
+
+        if (! file_exists($packageJsonPath)) {
             $this->warn('  ⚠ package.json not found, skipping frontend dependencies installation');
+
             return;
         }
 
         $this->mergePluginDependencies();
 
         $packageManager = $this->detectPackageManager();
-        if (!$packageManager) {
+        if (! $packageManager) {
             $this->warn('  ⚠ npm or pnpm not found, please install Node.js and npm/pnpm');
+
             return;
         }
 
@@ -133,12 +139,12 @@ class SetupCommand extends Command
 
         $command = "{$packageManager} install";
         $returnCode = 0;
-        exec("cd " . escapeshellarg(base_path()) . " && {$command} 2>&1", $output, $returnCode);
-        
+        exec('cd '.escapeshellarg(base_path())." && {$command} 2>&1", $output, $returnCode);
+
         if ($returnCode === 0) {
-            $this->line("  <fg=green>✓ Frontend dependencies installed successfully</>");
+            $this->line('  <fg=green>✓ Frontend dependencies installed successfully</>');
         } else {
-            $this->warn("  ⚠ Failed to install frontend dependencies");
+            $this->warn('  ⚠ Failed to install frontend dependencies');
             $this->line("  Run manually: <fg=yellow>{$command}</>");
         }
     }
@@ -150,15 +156,15 @@ class SetupCommand extends Command
     {
         $pluginPath = base_path('plugins/core/package.json');
         $rootPath = base_path('package.json');
-        
-        if (!file_exists($pluginPath)) {
+
+        if (! file_exists($pluginPath)) {
             return;
         }
 
         $pluginJson = json_decode(file_get_contents($pluginPath), true);
         $rootJson = json_decode(file_get_contents($rootPath), true);
 
-        if (!$pluginJson || !$rootJson) {
+        if (! $pluginJson || ! $rootJson) {
             return;
         }
 
@@ -167,12 +173,12 @@ class SetupCommand extends Command
 
         // Merge dependencies and peerDependencies
         foreach (['dependencies', 'peerDependencies'] as $depType) {
-            if (!isset($pluginJson[$depType]) || !is_array($pluginJson[$depType])) {
+            if (! isset($pluginJson[$depType]) || ! is_array($pluginJson[$depType])) {
                 continue;
             }
 
             foreach ($pluginJson[$depType] as $package => $version) {
-                if (!isset($rootDeps[$package]) || $rootDeps[$package] !== $version) {
+                if (! isset($rootDeps[$package]) || $rootDeps[$package] !== $version) {
                     $rootDeps[$package] = $version;
                     $merged = true;
                 }
@@ -182,8 +188,8 @@ class SetupCommand extends Command
         if ($merged) {
             ksort($rootDeps);
             $rootJson['dependencies'] = $rootDeps;
-            file_put_contents($rootPath, json_encode($rootJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
-            $this->line("  <fg=cyan>↻ Merged</> plugin dependencies into package.json");
+            file_put_contents($rootPath, json_encode($rootJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
+            $this->line('  <fg=cyan>↻ Merged</> plugin dependencies into package.json');
         }
     }
 
@@ -231,7 +237,6 @@ class SetupCommand extends Command
         $this->line("  <fg=cyan>↻ Merged</> {$target}");
     }
 
-
     /**
      * Merge vite.config.ts files
      */
@@ -240,9 +245,9 @@ class SetupCommand extends Command
         preg_match('/resolve:\s*\{[^}]*alias:\s*\{([^}]+)\}/s', $templateContent, $templateAlias);
         preg_match('/resolve:\s*\{[^}]*alias:\s*\{([^}]+)\}/s', $existingContent, $existingAlias);
 
-        if ($templateAlias && !$existingAlias) {
+        if ($templateAlias && ! $existingAlias) {
             preg_match('/resolve:\s*\{([^}]+alias:[^}]+)\}/s', $templateContent, $resolveMatch);
-            
+
             if ($resolveMatch) {
                 $replacement = "resolve: {\n{$resolveMatch[1]}\n    }";
                 $existingContent = preg_match('/resolve:\s*\{/', $existingContent)
@@ -251,7 +256,7 @@ class SetupCommand extends Command
             }
         }
 
-        if (!str_contains($existingContent, "import path from 'path';")) {
+        if (! str_contains($existingContent, "import path from 'path';")) {
             $existingContent = preg_replace("/(import.*from.*['\"]vite['\"];)/", "$1\nimport path from 'path';", $existingContent);
         }
 
@@ -266,7 +271,7 @@ class SetupCommand extends Command
         $templateJson = json_decode($templateContent, true);
         $existingJson = json_decode($existingContent, true);
 
-        if (!$templateJson || !$existingJson) {
+        if (! $templateJson || ! $existingJson) {
             return $templateContent;
         }
 
@@ -288,11 +293,11 @@ class SetupCommand extends Command
 
         // Merge other compiler options
         foreach ($templateJson['compilerOptions'] ?? [] as $key => $value) {
-            if (!isset($existingJson['compilerOptions'][$key])) {
+            if (! isset($existingJson['compilerOptions'][$key])) {
                 $existingJson['compilerOptions'][$key] = $value;
             }
         }
 
-        return json_encode($existingJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
+        return json_encode($existingJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)."\n";
     }
 }

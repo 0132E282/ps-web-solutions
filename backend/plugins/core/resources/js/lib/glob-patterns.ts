@@ -89,16 +89,9 @@ export function getPageGlobsAuto(): PageGlobs {
 
     const attempts: GlobAttempt[] = [
         createGlobAttempt(
-            5,
-            // @ts-expect-error - Vite feature
-            import.meta.glob('../../../../../resources/js/pages/**/*.tsx'),
-            pluginPagesCapital,
-            pluginPagesLower,
-        ),
-        createGlobAttempt(
             4,
             // @ts-expect-error - Vite feature
-            import.meta.glob('../../../../resources/js/pages/**/*.tsx'),
+            import.meta.glob('../../../../../resources/js/pages/**/*.tsx'),
             pluginPagesCapital,
             pluginPagesLower,
         ),

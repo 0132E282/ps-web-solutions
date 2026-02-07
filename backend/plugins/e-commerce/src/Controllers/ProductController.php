@@ -13,13 +13,15 @@ class ProductController extends BaseController
         'index' => [
             'title' => 'Products',
             'description' => 'Manage your products',
+            'filters' => ['status'],
+            'actions' => ['create' => true, 'import' => true, 'export' => true, 'duplicate' => true],
             'fields' => [
                 ['name' => 'name', 'config' => ['primary' => true]],
                 'sku',
                 'price',
                 'quantity',
                 'status',
-                'created_at'
+                'created_at',
             ],
         ],
         'form' => [
@@ -30,53 +32,55 @@ class ProductController extends BaseController
                             'title' => 'Product Information',
                             'description' => 'Basic information about the product',
                         ],
-                        'fields' => ['name', 'slug', 'sku', 'short_description', 'description'],
+                        'fields' => [
+                            'name',
+                            'slug',
+                            'spu',
+                            ['name' => 'featured', 'config' => ['width' => 'md']],
+                            ['name' => 'status', 'config' => ['width' => 'md', 'layout' => 'horizontal']],
+                            ['name' => 'categories', 'config' => ['width' => 'md']],
+                            ['name' => 'tags', 'config' => ['width' => 'md']],
+                            // ['name' => 'related_products', 'config' => ['width' => 'md']],
+                        ],
                     ],
                     [
                         'header' => [
-                            'title' => 'Pricing',
-                            'description' => 'Product pricing information',
+                            'title' => 'product variation',
+                            'description' => 'Basic information about the product',
                         ],
-                        'fields' => ['price', 'sale_price', 'cost'],
+                        'fields' => ['variations'],
                     ],
                     [
                         'header' => [
-                            'title' => 'Inventory',
-                            'description' => 'Stock and inventory management',
+                            'title' => 'Content',
+                            'description' => 'Product content',
                         ],
-                        'fields' => ['quantity', 'stock_status'],
-                    ],
-                    [
-                        'header' => [
-                            'title' => 'Shipping',
-                            'description' => 'Product dimensions and weight',
-                        ],
-                        'fields' => ['weight', 'length', 'width', 'height'],
-                    ],
-                ],
-                'sidebar' => [
-                    [
-                        'header' => [
-                            'title' => 'Status',
-                            'description' => 'Product visibility',
-                        ],
-                        'fields' => ['status', 'featured'],
-                    ],
-                    [
-                        'header' => [
-                            'title' => 'Categories & Options',
-                            'description' => 'Organize your product',
-                        ],
-                        'fields' => ['categories', 'options'],
+                        'fields' => ['description', 'content'],
                     ],
                     [
                         'header' => [
                             'title' => 'SEO',
                             'description' => 'Search engine optimization',
                         ],
-                        'fields' => ['meta_title', 'meta_description', 'meta_keywords'],
+                        'fields' => ['seo'],
                     ],
                 ],
+                // 'sidebar' => [
+                //     [
+                //         'header' => [
+                //             'title' => 'Status',
+                //             'description' => 'Product visibility',
+                //         ],
+                //         'fields' => ['status', 'featured'],
+                //     ],
+                //     [
+                //         'header' => [
+                //             'title' => 'Categories & Options',
+                //             'description' => 'Organize your product',
+                //         ],
+                //         'fields' => ['categories', 'options'],
+                //     ],
+                // ],
             ],
         ],
     ];

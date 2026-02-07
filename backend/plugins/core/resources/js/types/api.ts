@@ -1,5 +1,5 @@
-import { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
-import { DataTableFilter } from "@core/types/filter";
+import type { DataTableFilter } from "@core/types/filter";
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
 
 export interface PaginationInfo {
     current_page?: number;
@@ -19,6 +19,7 @@ export interface UrlParams {
 export interface DateRangeValue {
     from?: string;
     to?: string;
+    [key: string]: unknown;
 }
 
 export interface PaginatorData<TData> {
@@ -60,6 +61,8 @@ export interface ApiResponse<TData> {
     columns?: ColumnDef<TData, unknown>[];
     filters?: DataTableFilter[];
     pagination?: PaginationInfo;
+    meta?: Record<string, unknown>;
+    links?: Record<string, string | null>;
 }
 
 export interface TableApiConfig {

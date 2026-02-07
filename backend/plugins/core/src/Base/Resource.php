@@ -2,10 +2,10 @@
 
 namespace PS0132E282\Core\Base;
 
-use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class Resource extends JsonResource
 {
@@ -13,18 +13,17 @@ class Resource extends JsonResource
      * Transform the resource into an array.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return array
      */
     public function toArray($request): array
     {
         if ($this->resource instanceof Model) {
             return $this->resource->toArray();
         }
-        
+
         if (is_array($this->resource)) {
             return $this->resource;
         }
-        
+
         return [
             'id' => $this->id ?? null,
             'created_at' => $this->created_at ?? null,
@@ -36,8 +35,6 @@ class Resource extends JsonResource
      * Create a success response with item.
      *
      * @param  mixed  $resource
-     * @param  array  $additional
-     * @return JsonResponse
      */
     public static function item($resource, array $additional = []): JsonResponse
     {
@@ -51,8 +48,6 @@ class Resource extends JsonResource
      * Create a success response with items (collection).
      *
      * @param  mixed  $resource
-     * @param  array  $additional
-     * @return JsonResponse
      */
     public static function items($resource, array $additional = []): JsonResponse
     {
@@ -60,9 +55,10 @@ class Resource extends JsonResource
         $collection = $isPaginated ? $resource->getCollection() : $resource;
 
         $items = collect($collection)->map(function ($item) {
-            if (!is_array($item) && !is_object($item)) {
+            if (! is_array($item) && ! is_object($item)) {
                 return $item;
             }
+
             return (new static($item))->toArray(request());
         })->toArray();
 
@@ -77,7 +73,7 @@ class Resource extends JsonResource
 
         return response()->json(array_merge($data, $additional));
     }
-    
+
     public static function extractPagination(LengthAwarePaginator $paginator): array
     {
         // Directly access paginator data without calling toArray()
@@ -99,11 +95,6 @@ class Resource extends JsonResource
 
     /**
      * Create an error response.
-     *
-     * @param  string  $message
-     * @param  array  $additional
-     * @param  int  $status
-     * @return JsonResponse
      */
     public static function error(string $message, array $additional = [], int $status = 400): JsonResponse
     {

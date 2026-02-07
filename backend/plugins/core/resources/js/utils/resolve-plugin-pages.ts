@@ -51,7 +51,6 @@ function isPluginPath(path: string, pluginName: string): boolean {
         pathLower.includes(`/plugins/${pluginLower}/`) ||
         pathLower.includes(`plugins/${pluginLower}/`) ||
         // Some build setups (like current cms) expose paths without "plugins/" prefix,
-        // e.g. "../../../../cms/resources/js/pages/..."
         pathLower.includes(`/${pluginLower}/resources/js/pages/`) ||
         pathLower.includes(`/${pluginLower}/resources/pages/`) ||
         (pluginLower === 'core' && (pathLower.includes('/core/') || pathLower.includes('core/') || pathLower.includes('../pages/')))
@@ -146,64 +145,88 @@ export async function resolvePluginPages(
         return null;
     }
 
-    // 1. Try Main Pages first (Case-insensitive)
-    // We combine patterns to check both lower and capital structures in main pages
-    const mainResult = await resolveFromSource(
-        mainPages,
-        [...PAGE_PATTERNS.lower, ...PAGE_PATTERNS.capital],
-        `${name}.tsx`,
-        null
-    );
-
-    if (mainResult) {
-        pageCache.set(name, mainResult);
-        return mainResult;
-    }
-
-    // 2. Fallback for Main Pages using direct Inertia resolve
-    // This handles cases where file structure might closely match the name
-    try {
-        const module = await resolvePageComponent(`./pages/${name}.tsx`, mainPages).catch(() => null);
-        if (module) {
-            const mainPage = (typeof module === 'object' && 'default' in module) ? module.default : module;
-            if (mainPage) {
-                pageCache.set(name, mainPage as PageComponent);
-                return mainPage as PageComponent;
+    // ALWAYS try main app pages first (even if name contains '/')
+    // This handles cases like 'auth/login' which is a main page, not a plugin page
+    const targetName = name.replace(/\.tsx$/, '');
+    for (const [path, loader] of Object.entries(mainPages)) {
+        const extractedPath = extractFilePath(path, PAGE_PATTERNS.lower);
+        if (extractedPath) {
+            const extractedName = extractedPath.replace(/\.tsx$/, '');
+            if (extractedName === targetName) {
+                try {
+                    const module = await loader();
+                    if (!module) continue;
+                    // Handle both default export and named export
+                    const mainPage = (typeof module === 'object' && 'default' in module) ? module.default : module;
+                    if (mainPage) {
+                        pageCache.set(name, mainPage);
+                        return mainPage;
+                    }
+                } catch (error) {
+                    console.error(`Error loading page ${name} from ${path}:`, error);
+                }
             }
         }
-    } catch (error) {
-        // Ignore errors
     }
 
-    // 3. Try Plugin Pages
+    // Fallback: try resolvePageComponent for main pages
+    const module = await resolvePageComponent(`./pages/${name}.tsx`, mainPages).catch(() => null);
+    if (module) {
+        // Handle both default export and named export
+        let mainPage: PageComponent | null = null;
+        if (typeof module === 'object' && 'default' in module && module.default) {
+            mainPage = module.default;
+        } else if (module && typeof module !== 'object') {
+            mainPage = module as PageComponent;
+        }
+        if (mainPage) {
+            pageCache.set(name, mainPage);
+            return mainPage;
+        }
+    }
+
+    // Parse plugin pattern first to determine if it's a plugin page
+    // Parse plugin pattern (e.g., 'core/notifications/index' or 'post/index')
     const pluginMatch = name.match(/^([^/]+)\/(.+)$/);
+    console.log('[RESOLVE] Resolving page:', name, 'Is Plugin:', !!pluginMatch);
 
-    // If it's a plugin page (has slash)
-    if (pluginMatch) {
-        console.log('[RESOLVE] Resolving plugin page:', name);
+    if (!pluginMatch) {
+        failedCache.add(name);
+        console.error('Page not found in main pages:', name);
+        return null;
+    }
 
-        // Build target path
-        const targetPath = pluginMatch[2]
-            ? `${pluginMatch[1].toLowerCase() === 'core' ? pluginMatch[2] : pluginMatch[2].toLowerCase()}.tsx`
-            : `${name}.tsx`;
+    // Build target path
+    const targetPath = pluginMatch?.[2]
+        ? `${pluginMatch[1]!.toLowerCase() === 'core' ? pluginMatch[2] : pluginMatch[2].toLowerCase()}.tsx`
+        : `${name}.tsx`;
 
-        // Try plugin pages
-        const pageSources = [
-            { pages: pluginPagesCapital, patterns: PAGE_PATTERNS.capital },
-            { pages: pluginPagesLower, patterns: PAGE_PATTERNS.lower },
-        ];
+    // Try plugin pages
+    const pageSources = [
+        { pages: pluginPagesCapital, patterns: PAGE_PATTERNS.capital },
+        { pages: pluginPagesLower, patterns: PAGE_PATTERNS.lower },
+    ];
 
-        for (const { pages, patterns } of pageSources) {
-            const result = await resolveFromSource(pages, patterns, targetPath, pluginMatch);
-            if (result) {
-                pageCache.set(name, result);
-                return result;
-            }
+    for (const { pages, patterns } of pageSources) {
+        const result = await resolveFromSource(pages, patterns, targetPath, pluginMatch);
+        if (result) {
+            pageCache.set(name, result);
+            return result;
+        }
+    }
+
+    // Fallback search: try without plugin prefix filtering if first part isn't necessarily a plugin name
+    // This handles cases like 'auth/login' where 'auth' is just a directory in any plugin's pages
+    const fallbackTargetPath = `${name.toLowerCase()}.tsx`;
+    for (const { pages, patterns } of pageSources) {
+        const result = await resolveFromSource(pages, patterns, fallbackTargetPath, null);
+        if (result) {
+            pageCache.set(name, result);
+            return result;
         }
     }
 
     // Cache failure
     failedCache.add(name);
-    console.error('Page not found:', name);
     return null;
 }

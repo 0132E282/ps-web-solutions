@@ -2,9 +2,8 @@
 
 namespace PS0132E282\Cms\Models;
 
-use PS0132E282\Core\Base\BaseTerm;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
-use PS0132E282\Cms\Models\Post;
+use PS0132E282\Core\Base\BaseTerm;
 
 class PostTag extends BaseTerm
 {
@@ -21,7 +20,7 @@ class PostTag extends BaseTerm
             'description' => ['type' => 'textarea', 'config' => ['label' => 'Description', 'validation' => 'nullable|max:500']],
             'parent_id' => ['type' => 'select', 'config' => ['label' => 'Parent Tag', 'source' => ['route' => 'admin.post-tags.index', 'params' => ['fields' => ['id', 'name']], 'valueKey' => 'id', 'labelKey' => 'name'], 'validation' => 'nullable|exists:taxonomies,id']],
             'position' => ['type' => 'number', 'config' => ['label' => 'Position', 'validation' => 'integer|min:0']],
-            'status' => ['type' => 'button-radio', 'config' => ['label' => 'Status', 'options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft']], 'validation' => 'required|in:published,draft']],
+            'status' => ['type' => 'button-radio', 'config' => ['layout' => 'horizontal', 'label' => 'Status', 'options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft']], 'validation' => 'required|in:published,draft']],
         ];
     }
 

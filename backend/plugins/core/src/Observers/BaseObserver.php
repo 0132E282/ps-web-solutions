@@ -35,14 +35,11 @@ class BaseObserver
 
     /**
      * Tự động tạo slug nếu model có dùng SlugField cast và slug trống.
-     *
-     * @param  Model  $model
-     * @return void
      */
     protected function autoGenerateSlug(Model $model): void
     {
         $casts = $model->getCasts();
-        
+
         // Kiểm tra xem model có dùng SlugField cast không
         $slugField = null;
         foreach ($casts as $field => $cast) {
@@ -50,7 +47,7 @@ class BaseObserver
                 $slugField = $field;
                 break;
             }
-            
+
             // Kiểm tra nếu là string class name
             if (is_string($cast) && class_exists($cast)) {
                 $reflection = new \ReflectionClass($cast);
@@ -61,27 +58,24 @@ class BaseObserver
             }
         }
 
-        if (!$slugField) {
+        if (! $slugField) {
             return;
         }
 
         // Nếu slug chưa được set hoặc trống, set null để trigger cast set() method
-        if (!isset($model->attributes[$slugField]) || empty($model->attributes[$slugField])) {
+        if (! isset($model->attributes[$slugField]) || empty($model->attributes[$slugField])) {
             $model->setAttribute($slugField, null);
         }
     }
 
     /**
      * Kiểm tra xem có nên regenerate slug không.
-     *
-     * @param  Model  $model
-     * @return bool
      */
     protected function shouldRegenerateSlug(Model $model): bool
     {
         // Chỉ regenerate nếu slug trống và title/name thay đổi
         $casts = $model->getCasts();
-        
+
         // Kiểm tra xem có SlugField cast không và lấy field name
         $slugField = null;
         foreach ($casts as $field => $cast) {
@@ -89,7 +83,7 @@ class BaseObserver
                 $slugField = $field;
                 break;
             }
-            
+
             // Kiểm tra nếu là string class name
             if (is_string($cast) && class_exists($cast)) {
                 $reflection = new \ReflectionClass($cast);
@@ -100,13 +94,13 @@ class BaseObserver
             }
         }
 
-        if (!$slugField) {
+        if (! $slugField) {
             return false;
         }
 
         // Kiểm tra xem slug có trống không
         $slugValue = $model->getAttribute($slugField);
-        if (!empty($slugValue)) {
+        if (! empty($slugValue)) {
             return false;
         }
 
@@ -114,5 +108,3 @@ class BaseObserver
         return $model->isDirty('title') || $model->isDirty('name');
     }
 }
-
-

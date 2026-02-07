@@ -23,7 +23,7 @@ function getDefaultBreadcrumbs(): BreadcrumbItem[] {
     return [
         {
             title: dashboardTitle,
-            href: route('admin.site.dashboard') || '/dashboard',
+            href: route('admin.site.index') || '/dashboard',
         },
     ];
 }
@@ -168,7 +168,7 @@ export function generateBreadcrumbsFromRoute(
     // Only add defaults if first breadcrumb is not dashboard
     if (
         firstBreadcrumb &&
-        firstBreadcrumb.href !== route('admin.site.dashboard') &&
+        firstBreadcrumb.href !== route('admin.site.index') &&
         firstBreadcrumb.title !== getBreadcrumbTitle('breadcrumb.dashboard', 'Dashboard')
     ) {
         return [...defaultBreadcrumbs, ...breadcrumbs];

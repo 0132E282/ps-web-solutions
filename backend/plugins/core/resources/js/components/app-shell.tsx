@@ -1,17 +1,26 @@
+import { useEffect, useState, type ReactNode } from 'react';
+import { usePage } from '@inertiajs/react';
+
+import { FileManagerDialog } from '@core/components/files';
 import { SidebarProvider } from '@core/components/ui/sidebar';
 import { Toaster } from '@core/components/ui/sonner';
-import { SharedData } from '@core/types';
-import { usePage } from '@inertiajs/react';
-import { FileManagerDialog } from '@core/components/files';
-import { useState, useEffect } from 'react';
+import { toast } from '@core/lib/toast';
+import type { SharedData } from '@core/types';
 
 interface AppShellProps {
-    children: React.ReactNode;
+    children: ReactNode;
     variant?: 'header' | 'sidebar';
 }
 
 export function AppShell({ children, variant = 'header' }: AppShellProps) {
-    const isOpen = usePage<SharedData>().props.sidebarOpen;
+    const { flash, sidebarOpen: isOpen } = usePage<SharedData>().props;
+
+    useEffect(() => {
+        if (flash?.success) toast(flash.success as string, 'success');
+        if (flash?.error) toast(flash.error as string, 'error');
+        if (flash?.info) toast(flash.info as string, 'info');
+        if (flash?.warning) toast(flash.warning as string, 'warning');
+    }, [flash]);
     const [fileManagerOpen, setFileManagerOpen] = useState(false);
     const [fileManagerConfig, setFileManagerConfig] = useState<{
         multiple?: boolean;

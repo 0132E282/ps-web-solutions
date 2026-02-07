@@ -1,7 +1,5 @@
 "use client"
 
-import { ChevronRight, type LucideIcon } from "lucide-react"
-import { useMemo } from "react"
 import {
   Collapsible,
   CollapsibleContent,
@@ -18,6 +16,8 @@ import {
   SidebarMenuSubItem,
 } from "@core/components/ui/sidebar"
 import { Link, usePage } from "@inertiajs/react"
+import { ChevronRight, type LucideIcon } from "lucide-react"
+import { useMemo } from "react"
 
 interface NavItem {
   title: string
@@ -32,9 +32,11 @@ interface NavItem {
 export function NavMain({
   items,
   label,
+  searchQuery,
 }: {
   items: NavItem[]
   label?: string
+  searchQuery?: string
 }) {
   const { url } = usePage()
 
@@ -60,7 +62,7 @@ export function NavMain({
         {items.map((item, index) => {
           const isItemActive = item.isActive || checkIsActive(item.href)
           const hasActiveChild = item.items?.some(sub => checkIsActive(sub.href)) ?? false
-          const shouldExpand = isItemActive || hasActiveChild
+          const shouldExpand = isItemActive || hasActiveChild || (!!searchQuery && item.items && item.items.length > 0)
 
           return (
             <Collapsible

@@ -1,31 +1,33 @@
 <?php
+
 namespace PS0132E282\Cms\Controllers;
-use Inertia\Inertia;
+
 use App\Http\Controllers\Controller;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RoleController extends Controller
 {
-    function index()
+    public function index()
     {
         $roles = Role::select('name', 'id')->with('permissions')->get();
-        if(request()->wantsJson()) {
+        if (request()->wantsJson()) {
             return response()->json([
                 'items' => $roles,
             ]);
         }
 
         $permissions = Permission::select('name', 'id', 'group')->get()->groupBy('group');
-        
+
         return Inertia::render('cms/settings/roles', [
             'roles' => $roles,
             'permissions' => $permissions,
         ]);
     }
 
-    function store(Request $request)
+    public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:roles,name',
@@ -39,7 +41,7 @@ class RoleController extends Controller
         return Inertia::location(route('admin.settings.roles.index'));
     }
 
-    function permissions(int $id, Request $request)
+    public function permissions(int $id, Request $request)
     {
         $request->validate([
             'permissions' => 'required|array',
@@ -52,10 +54,10 @@ class RoleController extends Controller
         return Inertia::location(route('admin.settings.roles.index'));
     }
 
-    function update(int $id, Request $request)
+    public function update(int $id, Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255|unique:roles,name,' . $id,
+            'name' => 'required|string|max:255|unique:roles,name,'.$id,
         ]);
 
         $role = Role::findOrFail($id);
@@ -65,7 +67,7 @@ class RoleController extends Controller
         return Inertia::location(route('admin.settings.roles.index'));
     }
 
-    function destroy(int $id)
+    public function destroy(int $id)
     {
         Role::findOrFail($id)->delete();
 

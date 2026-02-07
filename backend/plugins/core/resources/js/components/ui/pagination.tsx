@@ -1,9 +1,9 @@
-import * as React from "react"
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
-
-import { cn } from "@core/lib/utils"
 import { buttonVariants } from "@core/components/ui/button"
+import { cn } from "@core/lib/utils"
+import { Slot } from "@radix-ui/react-slot"
 import { type VariantProps } from "class-variance-authority"
+import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
+import * as React from "react"
 
 const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (
   <nav
@@ -37,6 +37,7 @@ PaginationItem.displayName = "PaginationItem"
 
 type PaginationLinkProps = {
   isActive?: boolean
+  asChild?: boolean
 } & Pick<VariantProps<typeof buttonVariants>, "size"> &
   React.ComponentProps<"a">
 
@@ -44,20 +45,24 @@ const PaginationLink = ({
   className,
   isActive,
   size = "icon",
+  asChild = false,
   ...props
-}: PaginationLinkProps) => (
-  <a
-    aria-current={isActive ? "page" : undefined}
-    className={cn(
-      buttonVariants({
-        variant: isActive ? "outline" : "ghost",
-        size,
-      }),
-      className
-    )}
-    {...props}
-  />
-)
+}: PaginationLinkProps) => {
+  const Comp = asChild ? Slot : "a"
+  return (
+    <Comp
+      aria-current={isActive ? "page" : undefined}
+      className={cn(
+        buttonVariants({
+          variant: isActive ? "outline" : "ghost",
+          size,
+        }),
+        className
+      )}
+      {...props}
+    />
+  )
+}
 PaginationLink.displayName = "PaginationLink"
 
 const PaginationPrevious = ({
@@ -70,8 +75,14 @@ const PaginationPrevious = ({
     className={cn("gap-1 pl-2.5", className)}
     {...props}
   >
-    <ChevronLeft className="h-4 w-4" />
-    <span>Previous</span>
+    {props.asChild ? (
+      props.children
+    ) : (
+      <>
+        <ChevronLeft className="h-4 w-4" />
+        <span>Previous</span>
+      </>
+    )}
   </PaginationLink>
 )
 PaginationPrevious.displayName = "PaginationPrevious"
@@ -86,8 +97,14 @@ const PaginationNext = ({
     className={cn("gap-1 pr-2.5", className)}
     {...props}
   >
-    <span>Next</span>
-    <ChevronRight className="h-4 w-4" />
+    {props.asChild ? (
+      props.children
+    ) : (
+      <>
+        <span>Next</span>
+        <ChevronRight className="h-4 w-4" />
+      </>
+    )}
   </PaginationLink>
 )
 PaginationNext.displayName = "PaginationNext"

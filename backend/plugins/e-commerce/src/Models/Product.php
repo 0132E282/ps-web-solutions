@@ -4,10 +4,32 @@ namespace PS0132E282\ECommerce\Models;
 
 use Aliziodev\LaravelTaxonomy\Traits\HasTaxonomy;
 use PS0132E282\Core\Base\BaseModel;
+use PS0132E282\Core\Traits\HasSeo;
 
 class Product extends BaseModel
 {
-    use HasTaxonomy;
+    use HasSeo, HasTaxonomy;
+
+    public function configs(): array
+    {
+        return [
+            'title' => ['ui' => 'text', 'config' => ['validation' => 'required|max:255']],
+            'content' => ['ui' => 'editor', 'config' => ['validation' => 'required']],
+            'slug' => ['ui' => 'slug', 'config' => ['validation' => 'required|max:255']],
+            'description' => ['ui' => 'textarea', 'config' => ['validation' => 'required|max:255']],
+            'position' => ['ui' => 'text', 'config' => ['validation' => 'required|max:255']],
+            'status' => ['ui' => 'button-radio', 'config' => ['layout' => 'horizontal', 'options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft'], ['label' => 'Archived', 'value' => 'archived']], 'validation' => 'required|in:published,draft,archived']],
+            'image' => ['ui' => 'attachment', 'config' => ['validation' => 'required|exists:media,id']],
+            'related_products' => ['ui' => 'multiple-selects', 'config' => ['collection' => 'products', 'labelby' => 'title', 'validation' => 'required|exists:products,id']],
+            'categories' => ['ui' => 'multiple-selects', 'config' => ['collection' => 'categories', 'labelby' => 'title', 'validation' => 'required|exists:taxonomies,id']],
+            'featured' => ['ui' => 'checkbox', 'config' => ['validation' => 'required|boolean']],
+            'tags' => ['ui' => 'multiple-selects', 'config' => ['collection' => 'tags', 'labelby' => 'title', 'validation' => 'required|exists:taxonomies,id']],
+            'published_at' => ['ui' => 'date', 'config' => ['validation' => 'required|date']],
+            'attribute_data' => ['ui' => 'array', 'config' => ['validation' => 'required']],
+            'variations' => model_class(class: ProductVariation::class)::productDataVariationConfig(),
+            'seo' => $this->seo::configsSingleCondition(),
+        ];
+    }
 
     protected $fillable = [
         'name',
@@ -43,51 +65,37 @@ class Product extends BaseModel
         'featured' => 'boolean',
     ];
 
-    /**
-     * Get product categories
-     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::deleting(function ($product) {
+            $product->variations()->delete();
+        });
+    }
+
     public function categories()
     {
-        return $this->getTaxonomies('product_category');
+        return $this->taxonomies()->where('type', 'product_category');
     }
 
-    /**
-     * Get product options
-     */
     public function options()
     {
-        return $this->getTaxonomies('product_option');
+        return $this->taxonomies()->where('type', 'product_option');
     }
 
-    /**
-     * Scope for published products
-     */
-    public function scopePublished($query)
+    public function variations()
     {
-        return $query->where('status', 'published');
+        return $this->hasMany(ProductVariation::class);
     }
 
-    /**
-     * Scope for featured products
-     */
-    public function scopeFeatured($query)
+    public function related_products()
     {
-        return $query->where('featured', true);
+        return $this->belongsToMany(Product::class, 'product_related_products', 'product_id', 'related_product_id');
     }
 
-    /**
-     * Check if product is in stock
-     */
-    public function isInStock(): bool
+    public function tags()
     {
-        return $this->stock_status === 'in_stock' && $this->quantity > 0;
-    }
-
-    /**
-     * Get display price (sale price if available, otherwise regular price)
-     */
-    public function getDisplayPrice()
-    {
-        return $this->sale_price ?: $this->price;
+        return $this->taxonomies()->where('type', 'product_tag');
     }
 }

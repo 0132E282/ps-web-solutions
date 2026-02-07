@@ -126,7 +126,6 @@ const HeaderToolbarTable = ({
     const dispatch = useDispatch();
     const { current: currentRouteName, crudRoutes } = useModule();
 
-    // Redux State
     const resourceName = React.useMemo(() => {
         const route = crudRoutes.index || crudRoutes.show || '';
         const parts = route.split('.');
@@ -136,7 +135,6 @@ const HeaderToolbarTable = ({
     const resourceState = useSelector((state: RootState) => state.resource[resourceName!]);
     const isLoading = resourceState?.loading || false;
 
-    // Component State
     const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
     const [duplicateDialogOpen, setDuplicateDialogOpen] = React.useState(false);
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
@@ -415,8 +413,9 @@ const HeaderToolbarTable = ({
 
     return (
         <>
+        <div className={cn("flex flex-col md:flex-row md:items-center justify-end gap-4 mb-4", className)}>
             {hasTabs && (
-                <div className="flex items-center gap-1 border-b mb-4">
+                <div className="flex items-center gap-1 border-b w-full md:w-auto md:border-none overflow-x-auto">
                     {tabnavs.map((tab, index) => {
                         const isActive = activeTabIndex === index;
                         const tabHref = tab.route ? (tab.route.includes('.') ? route(tab.route) : tab.route) : tab.api;
@@ -426,7 +425,7 @@ const HeaderToolbarTable = ({
                                 key={index}
                                 variant="ghost"
                                 className={cn(
-                                    "rounded-b-none border-b-2 border-transparent px-4 py-2 h-auto",
+                                    "rounded-b-none border-b-2 border-transparent px-4 py-2 h-auto whitespace-nowrap",
                                     "hover:bg-transparent hover:text-foreground",
                                     isActive && "border-primary text-foreground font-medium",
                                     !isActive && "text-muted-foreground"
@@ -442,7 +441,7 @@ const HeaderToolbarTable = ({
             )}
 
             {hasActions && (
-                <div className={cn("flex items-center gap-2 flex-wrap ml-auto", className)}>
+                <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end">
                     {showImport && (
                         <>
                             <input
@@ -505,6 +504,7 @@ const HeaderToolbarTable = ({
                     )}
                 </div >
             )}
+        </div>
 
             {/* Delete Dialog */}
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

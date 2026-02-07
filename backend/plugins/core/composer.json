@@ -26,7 +26,8 @@
     },
     "autoload": {
         "psr-4": {
-            "PS0132E282\\Core\\": "src/"
+            "PS0132E282\\Core\\": "src/",
+            "PS0132E282\\Core\\Database\\": "database/"
         }
     },
     "autoload-dev": {

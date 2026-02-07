@@ -14,9 +14,9 @@ class ProductOptionController extends BaseController
             'title' => 'Product Options',
             'description' => 'Manage product options (size, color, material, etc.)',
             'fields' => [
-                ['name' => 'name', 'config' => ['primary' => true]], 
-                'property.type', 
-                'created_at'
+                ['name' => 'name', 'config' => ['primary' => true]],
+                'property.type',
+                'created_at',
             ],
         ],
         'form' => [
@@ -34,7 +34,7 @@ class ProductOptionController extends BaseController
                             'title' => 'Option Configuration',
                             'description' => 'Configure option type and values',
                         ],
-                        'fields' => ['property.type', 'property.values', 'property.is_required'],
+                        'fields' => [['name' => 'property.type', 'config' => ['layout' => 'horizontal']], 'property.values', 'property.is_required'],
                     ],
                 ],
                 'sidebar' => [
@@ -43,7 +43,7 @@ class ProductOptionController extends BaseController
                             'title' => 'Settings',
                             'description' => 'Option settings',
                         ],
-                        'fields' => ['status', 'sort_order'],
+                        'fields' => [['name' => 'status', 'config' => ['layout' => 'horizontal']], 'sort_order'],
                     ],
                 ],
             ],

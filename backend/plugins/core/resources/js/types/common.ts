@@ -30,6 +30,12 @@ export interface SharedData extends BasePageProps {
     };
     sidebarOpen?: boolean;
     name: string;
+    flash?: {
+        success?: string;
+        error?: string;
+        info?: string;
+        warning?: string;
+    };
     quote?: {
         message: string;
         author: string;

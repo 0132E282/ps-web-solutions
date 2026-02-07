@@ -15,7 +15,6 @@ class ThemeCategoryController extends BaseController
       'description' => 'Manage categories list',
       'fields' => [
         ['name' => 'name', 'primary' => true],
-        ['name' => 'slug'],
         ['name' => 'status'],
         ['name' => 'created_at'],
       ],

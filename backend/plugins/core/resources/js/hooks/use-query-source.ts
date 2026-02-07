@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { route } from '@core/lib/route';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { route } from '@core/lib/route';
+import { useState, useEffect, useMemo } from 'react';
 
 export interface SourceConfig {
   route: string;
@@ -78,7 +78,14 @@ export const buildUrl = (sourceRoute: string, params?: Record<string, unknown>):
 };
 
 // Convert query config to source config
-export const convertQueryToSource = (query: QueryConfig): SourceConfig => {
+export const convertQueryToSource = (config: string | QueryConfig | SourceConfig): SourceConfig => {
+  // If it already has a route, it's a SourceConfig
+  if (typeof config !== 'string' && 'route' in config) {
+    return config as SourceConfig;
+  }
+
+  // Handle string (collection name) or QueryConfig
+  const query = typeof config === 'string' ? { collection: config } : config as QueryConfig;
   const pluralName = pluralize(query.collection);
   const routeName = `admin.${pluralName}.index`;
 
@@ -93,11 +100,12 @@ export const convertQueryToSource = (query: QueryConfig): SourceConfig => {
   }
 
   const detectLabelKey = (fields: string | string[] | undefined): string => {
-    if (!fields) return 'id';
+    if (!fields) return 'name'; // Default to name
     const fieldArray = typeof fields === 'string' ? fields.split(',') : fields;
     if (fieldArray.includes('title')) return 'title';
     if (fieldArray.includes('name')) return 'name';
-    return 'id';
+    if (fieldArray.includes('label')) return 'label';
+    return fieldArray[0] || 'name';
   };
 
   return {
@@ -108,32 +116,42 @@ export const convertQueryToSource = (query: QueryConfig): SourceConfig => {
   };
 };
 
+// Extract value from a potential localization object or return as string
+const extractLabel = (value: unknown, locale?: string | null): string => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    if (locale && obj[locale]) return String(obj[locale]);
+    // Fallback to first available value if locale not found or provided
+    const values = Object.values(obj);
+    return values.length > 0 ? String(values[0]) : '';
+  }
+  return String(value);
+};
+
 // Transform API response to options array
 export const transformOptions = (
   data: unknown,
   valueKey: string,
-  labelKey: string
+  labelKey: string,
+  locale?: string | null
 ): Array<{ value: string; label: string }> => {
+  const processItem = (item: unknown) => {
+    const record = item as Record<string, unknown>;
+    return {
+      value: String(record[valueKey] ?? record.id ?? record.value ?? ''),
+      label: extractLabel(record[labelKey] ?? record.name ?? record.label ?? '', locale),
+    };
+  };
+
   if (Array.isArray(data)) {
-    return data.map((item) => {
-      const record = item as Record<string, unknown>;
-      return {
-        value: String(record[valueKey] ?? record.id ?? record.value ?? ''),
-        label: String(record[labelKey] ?? record.name ?? record.label ?? ''),
-      };
-    });
+    return data.map(processItem);
   }
 
   if (data && typeof data === 'object') {
     const dataObj = data as { data?: unknown[]; items?: unknown[]; results?: unknown[] };
     const items = dataObj.data || dataObj.items || dataObj.results || [];
-    return items.map((item) => {
-      const record = item as Record<string, unknown>;
-      return {
-        value: String(record[valueKey] ?? record.id ?? record.value ?? ''),
-        label: String(record[labelKey] ?? record.name ?? record.label ?? ''),
-      };
-    });
+    return items.map(processItem);
   }
 
   return [];
@@ -219,8 +237,7 @@ const replacePlaceholders = (
 
 // Hook to fetch options from source/query config
 export const useQuerySource = (
-  source: SourceConfig | undefined,
-  query: QueryConfig | undefined,
+  config: string | SourceConfig | QueryConfig | undefined,
   keyword?: string | null
 ) => {
   const { props: pageProps } = usePage<{
@@ -246,13 +263,16 @@ export const useQuerySource = (
     return user?.id ? String(user.id) : null;
   }, [pageProps]);
 
+  // Get current locale from props
+  const locale = useMemo(() => {
+    return (pageProps as Record<string, unknown>)?.locale as string || 'vi';
+  }, [pageProps]);
+
   // Convert query to source if needed
   const resolvedSource = useMemo(() => {
-    if (query) {
-      return convertQueryToSource(query);
-    }
-    return source;
-  }, [query, source]);
+    if (!config) return undefined;
+    return convertQueryToSource(config);
+  }, [config]);
 
   // Merge params with placeholders replacement
   const mergedParams = useMemo(() => {
@@ -313,7 +333,11 @@ export const useQuerySource = (
     }
 
     const abortController = new AbortController();
-    setIsLoading(true);
+
+    // Use setTimeout to avoid synchronous setState during render/effect initialization
+    const timer = setTimeout(() => {
+      setIsLoading(true);
+    }, 0);
 
     const url = buildUrl(resolvedSource.route, mergedParams);
     const valueKey = resolvedSource.valueKey || 'id';
@@ -322,7 +346,7 @@ export const useQuerySource = (
     axios.get(url, { signal: abortController.signal })
       .then((response) => {
         if (!abortController.signal.aborted) {
-          const transformed = transformOptions(response.data, valueKey, labelKey);
+          const transformed = transformOptions(response.data, valueKey, labelKey, locale);
           setOptions(transformed);
         }
       })
@@ -334,13 +358,14 @@ export const useQuerySource = (
       .finally(() => {
         if (!abortController.signal.aborted) {
           setIsLoading(false);
-      }
+        }
       });
 
     return () => {
+      clearTimeout(timer);
       abortController.abort();
     };
-  }, [resolvedSource?.route, paramsKey, resolvedSource?.valueKey, resolvedSource?.labelKey, mergedParams]);
+  }, [resolvedSource?.route, paramsKey, resolvedSource?.valueKey, resolvedSource?.labelKey, mergedParams, locale]);
 
 
   return { options, isLoading };

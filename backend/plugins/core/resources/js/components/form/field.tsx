@@ -1,33 +1,42 @@
-import React from "react";
-import { useFormContext, type ControllerRenderProps, type FieldValues } from "react-hook-form";
-import { Input } from "@core/components/ui/input";
-import { cn } from "@core/lib/utils";
 import {
-  FormField as FormFieldUI,
-  FormItem,
   FormControl,
   FormDescription,
+  FormField as FormFieldUI,
+  FormItem,
   FormMessage,
 } from "@core/components/ui/form";
+import { Input } from "@core/components/ui/input";
 import { Label } from "@core/components/ui/label";
-import Textarea from "./input/textarea";
-import InputButtonRadio from "./input/InputButtonRadio";
-import FrontendUrlsField from "./input/frontendUrls";
-import InputEditor from "./input/inputEditor";
-import InputSelect from "./input/inputSelect";
-import InputMultiSelect from "./input/inputMultiSelect";
-import InputCheckbox from "./input/InputCheckbox";
-import InputAttachment from "./input/inputAttachment";
-import InputMultipleAttachments from "./input/inputMultipleAttachments";
-import InputSingleCondition from "./input/inputSingleCondition";
-import { FieldType, type FieldProps, type BaseFieldProps, type BaseComplexFieldProps } from "@core/types/forms";
 import { useQuerySource } from "@core/hooks";
-import InputDateRange from './input/InputDateRange';
-import type { InputSingleConditionProps } from "./input/inputSingleCondition";
-import InputPassword from "./input/inputPassword";
-import InputDatatableVariants from "./input/InputDatatableVariants";
+import { cn } from "@core/lib/utils";
+import type { BaseComplexFieldProps, BaseFieldProps, FieldProps, FieldType } from "@core/types/forms";
+import React from "react";
+import type { ControllerRenderProps, FieldValues } from "react-hook-form";
+import { useFormContext } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 
-type OptionItem = { value: string; label: string };
+import FrontendUrlsField from "./input/frontendUrls";
+import InputAttachment from "./input/inputAttachment";
+import InputButtonRadio from "./input/InputButtonRadio";
+import InputCheckbox from "./input/InputCheckbox";
+import InputDateRange from './input/InputDateRange';
+import InputEditor from "./input/inputEditor";
+import InputMultiSelect from "./input/inputMultiSelect";
+import InputPassword from "./input/inputPassword";
+import InputSelect from "./input/inputSelect";
+import InputSingleCondition, { type InputSingleConditionProps } from "./input/inputSingleCondition";
+import InputSlug from "./input/InputSlug";
+import Textarea from "./input/textarea";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const customFieldComponents: Record<string, React.ComponentType<any>> = {};
+
+export type OptionItem = { value: string; label: string };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const registerField = (type: string, component: React.ComponentType<any>) => {
+  customFieldComponents[type] = component;
+};
 
 const fieldComponents = {
   'frontend-urls': FrontendUrlsField,
@@ -39,14 +48,14 @@ const fieldComponents = {
   'password': InputPassword,
   'checkbox': InputCheckbox,
   'attachment': InputAttachment,
-  'multiple-attachments': InputMultipleAttachments,
+  'multiple-attachment': InputAttachment,
   'single-condition': InputSingleCondition,
   'date-range': InputDateRange,
-  'datatable-variants': InputDatatableVariants,
+  'slug': InputSlug,
 } as const;
 
 const OPTION_FIELD_TYPES: readonly FieldType[] = ['radio-group', 'button-radio', 'select', 'multiple-selects'] as const;
-const COMPLEX_COMPONENTS: readonly FieldType[] = ['single-condition', 'datatable-variants'] as const;
+const COMPLEX_COMPONENTS: readonly FieldType[] = ['single-condition', 'datatable-variants', 'data-variation'] as const;
 
 const isOptionFieldType = (type: FieldType | undefined): type is typeof OPTION_FIELD_TYPES[number] => {
   return type !== undefined && OPTION_FIELD_TYPES.includes(type as typeof OPTION_FIELD_TYPES[number]);
@@ -58,25 +67,39 @@ const isComplexComponent = (type: FieldType | undefined): boolean => {
 
 /**
  * Extract string value from object or primitive
- * Handles objects with id/value properties or single-key objects
+ * Handles objects with id/value properties, localized objects, or single-key objects
  */
-const extractValue = (value: unknown): string => {
+const extractValue = (value: unknown, locale?: string | number): string => {
   if (value == null || value === '') {
     return "";
   }
 
+  const targetLocale = typeof locale === 'string' ? locale : undefined;
+
   if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
     const obj = value as Record<string, unknown>;
+
+    // Check for specific locale first if provided
+    if (targetLocale && obj[targetLocale] != null) return String(obj[targetLocale]);
+
+    // Standard field properties
     if (obj.id != null) return String(obj.id);
     if (obj.value != null) return String(obj.value);
 
+    // Fallback for common locales if no specific locale matches
+    const commonLocales = ['en', 'vi', 'fr', 'de', 'es', 'it', 'pt', 'ja', 'ko', 'zh'];
+    for (const loc of commonLocales) {
+      if (obj[loc] != null) return String(obj[loc]);
+    }
+
     const keys = Object.keys(obj);
-    if (keys.length === 1) {
+    if (keys.length > 0) {
       const firstKey = keys[0];
       if (firstKey && obj[firstKey] != null) {
         return String(obj[firstKey]);
       }
     }
+
     return "";
   }
 
@@ -160,14 +183,16 @@ const buildComplexComponentProps = (
   options: OptionItem[],
   items?: FieldProps['items'],
   headerItems?: FieldProps['header-items'],
-  fields?: Record<string, unknown>
+  fields?: Record<string, unknown>,
+  additionalProps?: Record<string, unknown>
 ): Record<string, unknown> => {
   return {
     ...baseProps,
     ...(isOptionFieldType(type) ? { options } : {}),
     ...(type === 'multiple-attachment' ? { multiple: true } : {}),
     ...(type === 'single-condition' ? { items, 'header-items': headerItems } : {}),
-    ...(type === 'datatable-variants' ? { fields } : {}),
+    ...(type === 'datatable-variants' || type === 'data-variation' ? { fields } : {}),
+    ...additionalProps,
   };
 };
 
@@ -254,16 +279,17 @@ export const Field: React.FC<FieldProps> = ({
   query,
   items,
   'header-items': headerItems,
+  collection,
   fields,
   className,
   ...props
 }) => {
   const { control } = useFormContext();
+  const { i18n } = useTranslation();
 
-  // Fetch options from source/query
+  // Fetch options from source/query/collection
   const { options: sourceOptions, isLoading: isLoadingOptions } = useQuerySource(
-    sourceProp,
-    query,
+    query || collection || sourceProp,
     undefined
   );
 
@@ -283,7 +309,16 @@ export const Field: React.FC<FieldProps> = ({
   // Render default input field
   const renderInput = React.useCallback(
     ({ field }: { field: ControllerRenderProps<FieldValues, string> }) => {
-      const normalizedValue = field.value == null ? '' : field.value;
+      let normalizedValue = field.value == null ? '' : field.value;
+
+      // Handle localized objects or complex objects in default input
+      if (typeof normalizedValue === 'object' && normalizedValue !== null) {
+        normalizedValue = extractValue(normalizedValue, i18n.language);
+      }
+
+      if (type === 'date' && typeof normalizedValue === 'string' && normalizedValue.includes('T')) {
+        normalizedValue = normalizedValue.split('T')[0];
+      }
 
       return (
         <>
@@ -304,23 +339,37 @@ export const Field: React.FC<FieldProps> = ({
         </>
       );
     },
-    [name, type, placeholder, disabled, readOnly, required, description, props]
+    [name, type, placeholder, disabled, readOnly, required, description, props, i18n.language]
   );
 
   // Render field wrapper with label
   const renderFieldWrapper = React.useCallback(
     (renderFn: (props: { field: ControllerRenderProps<FieldValues, string> }) => React.ReactElement) => (
-      <FormItem className={cn( className)}>
-        {labelComponent}
-        <FormFieldUI control={control} name={name} render={renderFn} />
+      <FormItem className={cn(className)}>
+        {type !== 'checkbox' && labelComponent}
+        <FormFieldUI
+          control={control}
+          name={name}
+          rules={props.rules as any}
+          render={renderFn}
+        />
       </FormItem>
     ),
-    [labelComponent, control, name,className]
+    [labelComponent, control, name, className, type, props.rules]
   );
 
   // Render custom field component with type-safe renderer
   const renderCustomField = React.useCallback(
     (componentProps: Record<string, unknown>, componentType: FieldType) => {
+      // Check custom fields first
+      const CustomComponent = customFieldComponents[componentType as string];
+      if (CustomComponent) {
+        return renderFieldComponent(
+          CustomComponent,
+          componentProps
+        );
+      }
+
       const FieldComponent = fieldComponents[componentType as keyof typeof fieldComponents];
 
       if (componentType === 'single-condition') {
@@ -336,7 +385,8 @@ export const Field: React.FC<FieldProps> = ({
   );
 
   // Handle custom field components
-  if (type && type in fieldComponents) {
+  // Check both default and custom components
+  if ((type && type in fieldComponents) || (type && type in customFieldComponents)) {
     if (isComplexComponent(type)) {
       const complexProps = buildComplexComponentProps(
         { control, name, label, placeholder, description, disabled, required, readOnly },
@@ -344,7 +394,8 @@ export const Field: React.FC<FieldProps> = ({
         finalOptions,
         items,
         headerItems,
-        fields
+        fields,
+        props
       );
 
       // Wrap complex components with FormItem and Label (similar to regular fields)
@@ -362,7 +413,7 @@ export const Field: React.FC<FieldProps> = ({
         { name, placeholder, disabled, required, readOnly, description },
         type,
         finalOptions,
-        { field, ...props }
+        { field, ...props, label, fields, items, 'header-items': headerItems }
       );
 
       return (

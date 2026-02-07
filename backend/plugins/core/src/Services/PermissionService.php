@@ -144,7 +144,7 @@ class PermissionService
     /**
      * Tạo permission nếu chưa tồn tại
      */
-    public function createPermissionIfNotExists(string $name, string $group, string $description = null): Permission
+    public function createPermissionIfNotExists(string $name, string $group, ?string $description = null): Permission
     {
         return Permission::firstOrCreate(
             ['name' => $name],

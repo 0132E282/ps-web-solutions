@@ -17,18 +17,18 @@ class SetLocale
     public function handle(Request $request, Closure $next): Response
     {
         // Priority: query parameter > cookie > config
-        $locale = $request->query('locale') 
-            ?? $request->cookie('locale') 
+        $locale = $request->query('locale')
+            ?? $request->cookie('locale')
             ?? config('app.locale', 'en');
 
         // Get available locales from config or default
         $availableLocales = config('app.available_locales');
-        if (!is_array($availableLocales) || empty($availableLocales)) {
+        if (! is_array($availableLocales) || empty($availableLocales)) {
             $availableLocales = ['en', 'vi'];
         }
 
         // Validate locale
-        if (!in_array($locale, $availableLocales, true)) {
+        if (! in_array($locale, $availableLocales, true)) {
             $locale = config('app.locale', 'en');
         }
 
@@ -37,10 +37,10 @@ class SetLocale
         // If locale came from query parameter, set cookie for future requests
         if ($request->query('locale') && in_array($request->query('locale'), $availableLocales, true)) {
             $response = $next($request);
+
             return $response->withCookie(cookie('locale', $locale, 60 * 24 * 365, '/', null, false, false));
         }
 
         return $next($request);
     }
 }
-

@@ -1,15 +1,12 @@
 <?php
 
 return [
-    [
-        'name' => 'core',
+    'core' => [
         'enabled' => true,
     ],
-    [
-        'name' => 'cms',
+    'cms' => [
         'enabled' => true,
         'settings' => [
-            // Ví dụ: trang settings cho CMS
             [
                 'key' => 'cms-general',
                 'view' => 'settings/cms-general',
@@ -22,8 +19,7 @@ return [
             ],
         ],
     ],
-    [
-        'name' => 'e-commerce',
+    'e-commerce' => [
         'enabled' => true,
     ],
 ];

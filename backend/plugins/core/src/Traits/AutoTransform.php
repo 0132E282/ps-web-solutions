@@ -2,10 +2,9 @@
 
 namespace PS0132E282\Core\Traits;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -17,8 +16,6 @@ trait AutoTransform
 {
     /**
      * Các trường mặc định sẽ bị loại bỏ
-     * 
-     * @var array
      */
     protected array $defaultExcludedFields = [
         'id',
@@ -29,22 +26,18 @@ trait AutoTransform
 
     /**
      * Các trường tùy chỉnh sẽ bị loại bỏ (có thể override trong controller)
-     * 
-     * @var array
      */
     protected array $excludedFields = [];
 
     /**
      * Có tự động loại bỏ các mối quan hệ không
-     * 
-     * @var bool
      */
     protected bool $excludeRelationships = true;
 
     /**
      * Tự động transform dữ liệu, loại bỏ các trường không cần thiết
-     * 
-     * @param mixed $data Model, Collection, Paginator hoặc array
+     *
+     * @param  mixed  $data  Model, Collection, Paginator hoặc array
      * @return mixed
      */
     protected function autoTransform($data)
@@ -56,9 +49,10 @@ trait AutoTransform
             $transformedData = $collection->map(function ($item) {
                 return $this->transformItem($item);
             });
-            
+
             // Set transformed collection back to paginator
             $data->setCollection($transformedData);
+
             return $data;
         }
 
@@ -80,6 +74,7 @@ trait AutoTransform
                 if ($item instanceof Model) {
                     return $this->transformItem($item);
                 }
+
                 return $this->transformArray($item);
             }, $data);
         }
@@ -89,9 +84,8 @@ trait AutoTransform
 
     /**
      * Transform một item (Model hoặc array)
-     * 
-     * @param mixed $item
-     * @return array
+     *
+     * @param  mixed  $item
      */
     protected function transformItem($item): array
     {
@@ -99,7 +93,7 @@ trait AutoTransform
             $item = $item->toArray();
         }
 
-        if (!is_array($item)) {
+        if (! is_array($item)) {
             return $item;
         }
 
@@ -108,14 +102,11 @@ trait AutoTransform
 
     /**
      * Transform một mảng, loại bỏ các trường không cần thiết
-     * 
-     * @param array $data
-     * @return array
      */
     protected function transformArray(array $data): array
     {
         $modelInstance = null;
-        
+
         // Nếu có model property, lấy instance để kiểm tra relationships
         if (isset($this->model) && class_exists($this->model)) {
             $modelInstance = new $this->model;
@@ -148,7 +139,7 @@ trait AutoTransform
                 if ($this->isRelationshipData($key, $value, $modelInstance)) {
                     continue;
                 }
-                
+
                 // Recursive transform cho nested arrays
                 $value = $this->transformArray($value);
             }
@@ -161,10 +152,6 @@ trait AutoTransform
 
     /**
      * Kiểm tra xem một key có phải là relationship không
-     * 
-     * @param string $key
-     * @param Model $modelInstance
-     * @return bool
      */
     protected function isRelationship(string $key, Model $modelInstance): bool
     {
@@ -185,40 +172,36 @@ trait AutoTransform
 
     /**
      * Lấy loại relationship
-     * 
-     * @param string $key
-     * @param Model $modelInstance
-     * @return string|null
      */
     protected function getRelationshipType(string $key, Model $modelInstance): ?string
     {
-        if (!method_exists($modelInstance, $key)) {
+        if (! method_exists($modelInstance, $key)) {
             return null;
         }
 
         try {
             $relation = $modelInstance->$key();
-            
+
             if ($relation instanceof \Illuminate\Database\Eloquent\Relations\MorphOne) {
                 return 'MorphOne';
             }
-            
+
             if ($relation instanceof \Illuminate\Database\Eloquent\Relations\MorphMany) {
                 return 'MorphMany';
             }
-            
+
             if ($relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsToMany) {
                 return 'BelongsToMany';
             }
-            
+
             if ($relation instanceof \Illuminate\Database\Eloquent\Relations\BelongsTo) {
                 return 'BelongsTo';
             }
-            
+
             if ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasOne) {
                 return 'HasOne';
             }
-            
+
             if ($relation instanceof \Illuminate\Database\Eloquent\Relations\HasMany) {
                 return 'HasMany';
             }
@@ -231,11 +214,6 @@ trait AutoTransform
 
     /**
      * Kiểm tra xem một mảng có phải là dữ liệu relationship không
-     * 
-     * @param string $key
-     * @param array $value
-     * @param Model|null $modelInstance
-     * @return bool
      */
     protected function isRelationshipData(string $key, array $value, ?Model $modelInstance = null): bool
     {
@@ -260,8 +238,6 @@ trait AutoTransform
 
     /**
      * Lấy danh sách các trường sẽ bị loại bỏ
-     * 
-     * @return array
      */
     protected function getExcludedFields(): array
     {
@@ -273,9 +249,8 @@ trait AutoTransform
 
     /**
      * Thêm trường vào danh sách loại bỏ
-     * 
-     * @param string|array $fields
-     * @return void
+     *
+     * @param  string|array  $fields
      */
     protected function addExcludedFields($fields): void
     {
@@ -285,9 +260,8 @@ trait AutoTransform
 
     /**
      * Xóa trường khỏi danh sách loại bỏ
-     * 
-     * @param string|array $fields
-     * @return void
+     *
+     * @param  string|array  $fields
      */
     protected function removeExcludedFields($fields): void
     {
@@ -297,9 +271,6 @@ trait AutoTransform
 
     /**
      * Bật/tắt việc loại bỏ relationships
-     * 
-     * @param bool $exclude
-     * @return void
      */
     protected function setExcludeRelationships(bool $exclude): void
     {
@@ -309,14 +280,11 @@ trait AutoTransform
     /**
      * Transform request data để loại bỏ các trường không cần thiết và nhóm relationships
      * Sử dụng cho create và update
-     * 
-     * @param array $data
-     * @return array
      */
     protected function autoTransformRequest(array $data): array
     {
         $modelInstance = null;
-        
+
         // Nếu có model property, lấy instance để kiểm tra relationships
         if (isset($this->model) && class_exists($this->model)) {
             $modelInstance = new $this->model;
@@ -341,7 +309,7 @@ trait AutoTransform
             if ($modelInstance && $this->isRelationship($key, $modelInstance)) {
                 // Lấy loại relationship để xử lý phù hợp
                 $relationType = $this->getRelationshipType($key, $modelInstance);
-                
+
                 // MorphOne và MorphMany: giữ nguyên associative array (field data)
                 // BelongsToMany: normalize thành array of IDs
                 // BelongsTo: giữ nguyên single value
@@ -353,6 +321,7 @@ trait AutoTransform
                     // BelongsTo, HasOne, HasMany: giữ nguyên giá trị
                     $relationships[$key] = $value;
                 }
+
                 continue;
             }
 
@@ -364,10 +333,11 @@ trait AutoTransform
                 $baseKey = str_replace('_data', '', $key);
                 if ($modelInstance && $this->isRelationship($baseKey, $modelInstance)) {
                     // Nếu có key gốc (ví dụ: roles) thì bỏ qua _data
-                    if (!isset($data[$baseKey])) {
+                    if (! isset($data[$baseKey])) {
                         // Nếu không có key gốc, extract IDs từ _data
                         $relationships[$baseKey] = $this->extractIdsFromRelationshipData($value);
                     }
+
                     continue;
                 }
             }
@@ -380,10 +350,11 @@ trait AutoTransform
                     $possibleRelationKey = $key;
                     if ($modelInstance && $this->isRelationship($possibleRelationKey, $modelInstance)) {
                         $relationships[$possibleRelationKey] = $this->extractIdsFromRelationshipData($value);
+
                         continue;
                     }
                 }
-                
+
                 // Recursive transform cho nested arrays thông thường
                 $value = $this->transformRequestArray($value);
             }
@@ -402,14 +373,11 @@ trait AutoTransform
 
     /**
      * Transform nested array trong request
-     * 
-     * @param array $data
-     * @return array
      */
     protected function transformRequestArray(array $data): array
     {
         $transformed = [];
-        
+
         foreach ($data as $key => $value) {
             if (is_array($value)) {
                 $transformed[$key] = $this->transformRequestArray($value);
@@ -417,16 +385,15 @@ trait AutoTransform
                 $transformed[$key] = $value;
             }
         }
-        
+
         return $transformed;
     }
 
     /**
      * Chuẩn hóa giá trị relationship
      * Chuyển đổi các dạng khác nhau thành array of IDs
-     * 
-     * @param mixed $value
-     * @return array
+     *
+     * @param  mixed  $value
      */
     protected function normalizeRelationshipValue($value): array
     {
@@ -435,7 +402,7 @@ trait AutoTransform
             if ($this->isArrayOfIds($value)) {
                 return array_values(array_filter($value));
             }
-            
+
             // Nếu là array of objects, extract IDs
             if ($this->isArrayOfObjects($value)) {
                 return $this->extractIdsFromRelationshipData($value);
@@ -444,7 +411,7 @@ trait AutoTransform
 
         // Nếu là single value, convert to array
         if ($value !== null && $value !== '') {
-            return [(int)$value];
+            return [(int) $value];
         }
 
         return [];
@@ -452,9 +419,6 @@ trait AutoTransform
 
     /**
      * Kiểm tra xem array có phải là array of IDs không
-     * 
-     * @param array $array
-     * @return bool
      */
     protected function isArrayOfIds(array $array): bool
     {
@@ -463,7 +427,7 @@ trait AutoTransform
         }
 
         foreach ($array as $item) {
-            if (!is_numeric($item) && !is_int($item)) {
+            if (! is_numeric($item) && ! is_int($item)) {
                 return false;
             }
         }
@@ -473,9 +437,6 @@ trait AutoTransform
 
     /**
      * Kiểm tra xem array có phải là array of objects không
-     * 
-     * @param array $array
-     * @return bool
      */
     protected function isArrayOfObjects(array $array): bool
     {
@@ -484,7 +445,7 @@ trait AutoTransform
         }
 
         foreach ($array as $item) {
-            if (!is_array($item)) {
+            if (! is_array($item)) {
                 return false;
             }
         }
@@ -494,30 +455,26 @@ trait AutoTransform
 
     /**
      * Extract IDs từ relationship data (array of objects)
-     * 
-     * @param array $data
-     * @return array
      */
     protected function extractIdsFromRelationshipData(array $data): array
     {
         $ids = [];
-        
+
         foreach ($data as $item) {
             if (is_array($item)) {
                 // Nếu có key 'id'
                 if (isset($item['id'])) {
-                    $ids[] = (int)$item['id'];
+                    $ids[] = (int) $item['id'];
                 }
                 // Nếu là associative array với key là ID
                 elseif (count($item) === 1 && isset($item[0])) {
-                    $ids[] = (int)$item[0];
+                    $ids[] = (int) $item[0];
                 }
             } elseif (is_numeric($item)) {
-                $ids[] = (int)$item;
+                $ids[] = (int) $item;
             }
         }
-        
+
         return array_values(array_unique(array_filter($ids)));
     }
 }
-

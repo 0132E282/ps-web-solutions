@@ -3,7 +3,6 @@
 namespace PS0132E282\Cms\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Route;
 use PS0132E282\Core\Traits\AutoReginPlugin;
 
 class CmsServiceProvider extends ServiceProvider

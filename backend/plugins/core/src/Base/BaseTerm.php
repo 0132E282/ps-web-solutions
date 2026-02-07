@@ -3,8 +3,8 @@
 namespace PS0132E282\Core\Base;
 
 use Aliziodev\LaravelTaxonomy\Models\Taxonomy;
-use PS0132E282\Core\Cats\Property;
 use PS0132E282\Core\Cats\Localization;
+use PS0132E282\Core\Cats\Property;
 use PS0132E282\Core\Cats\SlugField;
 
 abstract class BaseTerm extends Taxonomy
@@ -12,6 +12,63 @@ abstract class BaseTerm extends Taxonomy
     protected $table = 'taxonomies';
 
     protected $appends = ['status'];
+
+    /**
+     * Boot the model.
+     * Override Taxonomy::boot to handle localized slugs (array).
+     */
+    protected static function boot(): void
+    {
+        static::bootTraits();
+
+        static::creating(function (self $term) {
+            // Check uniqueness for array/string slug
+            if (! empty($term->slug) && static::slugExists($term->slug, null)) {
+                $slugStr = is_array($term->slug) ? json_encode($term->slug, JSON_UNESCAPED_UNICODE) : $term->slug;
+                throw new \Exception("The slug '{$slugStr}' already exists.");
+            }
+        });
+
+        static::updating(function (self $term) {
+            if ($term->isDirty('slug') && ! empty($term->slug)) {
+                if (static::slugExists($term->slug, $term->id)) {
+                    $slugStr = is_array($term->slug) ? json_encode($term->slug, JSON_UNESCAPED_UNICODE) : $term->slug;
+                    throw new \Exception("The slug '{$slugStr}' already exists.");
+                }
+            }
+        });
+    }
+
+    /**
+     * Check if a slug already exists.
+     * Override to support localized slugs (array).
+     *
+     * @param  string|array  $slug
+     */
+    public static function slugExists($slug, ?int $excludeId = null): bool
+    {
+        if (is_array($slug)) {
+            $query = static::query();
+
+            $query->where(function ($q) use ($slug) {
+                foreach ($slug as $locale => $value) {
+                    if (! empty($value)) {
+                        // Check if JSON column contains this locale value
+                        // Using -> operator for JSON in MariaDB/MySQL
+                        $q->orWhere("slug->{$locale}", $value);
+                    }
+                }
+            });
+
+            if ($excludeId) {
+                $query->where('id', '!=', $excludeId);
+            }
+
+            return $query->exists();
+        }
+
+        return parent::slugExists($slug, $excludeId);
+    }
 
     protected $fillable = [
         'name',
@@ -30,15 +87,13 @@ abstract class BaseTerm extends Taxonomy
     /**
      * Get the casts array.
      * Merge parent casts with custom casts for localization support.
-     *
-     * @return array
      */
     public function getCasts(): array
     {
         return array_merge(parent::getCasts(), [
-            "property" => Property::class,
-            "slug" => SlugField::class,
-            "name" => Localization::class,
+            'property' => Property::class,
+            'slug' => SlugField::class,
+            'name' => Localization::class,
         ]);
     }
 
@@ -68,7 +123,7 @@ abstract class BaseTerm extends Taxonomy
     public function setStatusAttribute($value)
     {
         // This will be handled by soft deletes
-        if ($value === 'draft' && !$this->deleted_at) {
+        if ($value === 'draft' && ! $this->deleted_at) {
             $this->delete(); // Soft delete
         } elseif ($value === 'published' && $this->deleted_at) {
             $this->restore();
@@ -88,12 +143,12 @@ abstract class BaseTerm extends Taxonomy
         });
 
         static::creating(function ($term) {
-            if (!$term->type && method_exists($term, 'getTaxonomyName')) {
+            if (! $term->type && method_exists($term, 'getTaxonomyName')) {
                 $term->type = $term->getTaxonomyName();
             }
 
             // Auto-generate slug if not provided
-            if (!$term->slug && $term->name) {
+            if (! $term->slug && $term->name) {
                 $nameValue = is_array($term->name)
                     ? ($term->name[config('app.locale')] ?? reset($term->name))
                     : $term->name;
@@ -108,7 +163,7 @@ abstract class BaseTerm extends Taxonomy
     public function save(array $options = [])
     {
         // Ensure type is set before saving
-        if (!$this->type && method_exists($this, 'getTaxonomyName')) {
+        if (! $this->type && method_exists($this, 'getTaxonomyName')) {
             $this->type = $this->getTaxonomyName();
         }
 
@@ -122,6 +177,7 @@ abstract class BaseTerm extends Taxonomy
     {
         if (method_exists($this, 'getTaxonomyName')) {
             $taxonomyName = $this->getTaxonomyName();
+
             return $query->where('type', $taxonomyName);
         }
 
@@ -144,9 +200,9 @@ abstract class BaseTerm extends Taxonomy
         if ($status === 'draft') {
             return $query->onlyTrashed();
         }
+
         return $query->whereNull('deleted_at');
     }
-
 
     /**
      * Get all models attached to this taxonomy term
@@ -165,8 +221,7 @@ abstract class BaseTerm extends Taxonomy
     /**
      * Get property value by key
      *
-     * @param string|null $key
-     * @param mixed $default
+     * @param  mixed  $default
      * @return mixed
      */
     public function getProperty(?string $key = null, $default = null)
@@ -183,9 +238,7 @@ abstract class BaseTerm extends Taxonomy
     /**
      * Set property value by key
      *
-     * @param string $key
-     * @param mixed $value
-     * @return void
+     * @param  mixed  $value
      */
     public function setProperty(string $key, $value): void
     {
@@ -196,20 +249,16 @@ abstract class BaseTerm extends Taxonomy
 
     /**
      * Check if property key exists
-     *
-     * @param string $key
-     * @return bool
      */
     public function hasProperty(string $key): bool
     {
         $property = $this->property ?? [];
+
         return data_get($property, $key) !== null;
     }
 
     /**
      * Get property type (for options)
-     *
-     * @return string|null
      */
     public function getPropertyType(): ?string
     {
@@ -218,8 +267,6 @@ abstract class BaseTerm extends Taxonomy
 
     /**
      * Get property values (for options)
-     *
-     * @return array
      */
     public function getPropertyValues(): array
     {
@@ -228,8 +275,6 @@ abstract class BaseTerm extends Taxonomy
 
     /**
      * Check if property is required
-     *
-     * @return bool
      */
     public function isPropertyRequired(): bool
     {

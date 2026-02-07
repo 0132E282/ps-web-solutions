@@ -8,25 +8,25 @@ use Spatie\Permission\Traits\HasPermissions;
 
 class ApplicationKey extends Model
 {
-  use HasPermissions;
+    use HasPermissions;
 
-  protected $fillable = [
-    'user_id',
-    'name',
-    'token_hash',
-    'last_used_at',
-  ];
+    protected $fillable = [
+        'user_id',
+        'name',
+        'token_hash',
+        'last_used_at',
+    ];
 
-  protected $casts = [
-    'last_used_at' => 'datetime',
-  ];
+    protected $casts = [
+        'last_used_at' => 'datetime',
+    ];
 
-  protected $hidden = [
-    'token_hash',
-  ];
+    protected $hidden = [
+        'token_hash',
+    ];
 
-  public function user(): BelongsTo
-  {
-    return $this->belongsTo(\App\Models\User::class);
-  }
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class);
+    }
 }

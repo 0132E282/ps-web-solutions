@@ -1,14 +1,14 @@
-import { Field } from '@core/components/form/field';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card';
-import { tt } from '@core/lib/i18n';
-import type { FormSectionProps, FormFieldType, FieldWidth } from '@core/types/forms';
-import { useFormContext } from 'react-hook-form';
-import { useMemo } from 'react';
-import { usePage } from '@inertiajs/react';
 import { shouldShowField } from '@core/utils/field-visibility';
 import type { SharedData } from '@core/types';
-import { cn } from '@core/lib/utils';
+import type { FormSectionProps, FormFieldType, FieldWidth } from '@core/types/forms';
+import { Field } from '@core/components/form/field';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@core/components/ui/card';
 import { useModule } from "@core/hooks/use-module";
+import { tt } from '@core/lib/i18n';
+import { cn } from '@core/lib/utils';
+import { usePage } from '@inertiajs/react';
+import React, { useMemo } from 'react';
+import { useFormContext } from 'react-hook-form';
 
 const getFieldName = (field: { name?: unknown; accessorKey?: unknown }): string => {
     if (typeof field.name === 'string') return field.name;
@@ -189,7 +189,7 @@ export function Section({ section }: FormSectionProps) {
     return (
         <Card>
             {section.header && (
-                <CardHeader>
+                <CardHeader className="sticky top-16 z-20 bg-background/95 backdrop-blur py-4 border-b rounded-t-xl transition-all">
                     <CardTitle>{section.header.title || ''}</CardTitle>
                     {section.header.description && (
                         <CardDescription>{section.header.description}</CardDescription>
@@ -197,10 +197,10 @@ export function Section({ section }: FormSectionProps) {
                 </CardHeader>
             )}
             <CardContent>
-                <div className="flex flex-wrap gap-4">
+                <div className="flex flex-wrap gap-4 items-end">
                     {fields.map((field, fieldIndex) => {
                         const fieldConfig = field.config as Record<string, unknown> | undefined;
-                        const width = (fieldConfig?.width || (field as Record<string, unknown>).width) as FieldWidth | undefined;
+                        const width = fieldConfig?.width as FieldWidth | undefined;
                         const fieldName = getFieldName(field);
                         const fieldLabel = (fieldConfig?.label as string) || tt(`fields.${fieldName}`) || fieldName;
                         const fieldOptions = getFieldOptions(field as Record<string, unknown>, fieldName) as Array<{ value: string; label: string }> | undefined;

@@ -26,7 +26,7 @@ export interface ResourcePagination {
     links: PaginationLinks;
 }
 
-export interface ResourceState<T = Record<string, unknown>> {
+export interface Resource<T = Record<string, unknown>> {
     items: T[];
     item: T | null;
     loading: boolean;

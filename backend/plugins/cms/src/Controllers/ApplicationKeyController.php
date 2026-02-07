@@ -2,13 +2,12 @@
 
 namespace PS0132E282\Cms\Controllers;
 
-use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use PS0132E282\Core\Base\BaseController;
+use Inertia\Inertia;
 use PS0132E282\Cms\Models\ApplicationKey;
-use Spatie\Permission\Models\Permission;
 use PS0132E282\Core\Services\PermissionService;
+use Spatie\Permission\Models\Permission;
 
 class ApplicationKeyController extends \Illuminate\Routing\Controller
 {
@@ -18,82 +17,83 @@ class ApplicationKeyController extends \Illuminate\Routing\Controller
     {
         $this->permissionService = $permissionService;
     }
-  public function index()
-  {
-    $keys = ApplicationKey::query()
-      ->select('id', 'name', 'last_used_at', 'created_at', 'user_id')
-      ->with(['user:id,name', 'permissions']) // Include permissions
-      ->latest()
-      ->get();
 
-    if (request()->wantsJson()) {
-      return response()->json([
-        'items' => $keys,
-      ]);
+    public function index()
+    {
+        $keys = ApplicationKey::query()
+            ->select('id', 'name', 'last_used_at', 'created_at', 'user_id')
+            ->with(['user:id,name', 'permissions']) // Include permissions
+            ->latest()
+            ->get();
+
+        if (request()->wantsJson()) {
+            return response()->json([
+                'items' => $keys,
+            ]);
+        }
+
+        // Add a permission with group 'api' if it doesn't exist
+        Permission::firstOrCreate(
+            ['name' => 'api.access'],
+            ['group' => 'api', 'guard_name' => 'api', 'description' => 'Access API']
+        );
+
+        $permissions = Permission::where('guard_name', 'api')->get()->groupBy('group');
+
+        return Inertia::render('cms/settings/application_keys', [
+            'applicationKeys' => $keys,
+            'permissions' => $permissions,
+        ]);
     }
 
-    // Add a permission with group 'api' if it doesn't exist
-    Permission::firstOrCreate(
-        ['name' => 'api.access'],
-        ['group' => 'api', 'guard_name' => 'api', 'description' => 'Access API']
-    );
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
 
-    $permissions = Permission::where('guard_name', 'api')->get()->groupBy('group');
+        $plainToken = Str::random(64);
 
-    return Inertia::render('cms/settings/application_keys', [
-      'applicationKeys' => $keys,
-      'permissions' => $permissions,
-    ]);
-  }
+        ApplicationKey::create([
+            'user_id' => auth()->id(),
+            'name' => $request->name,
+            'token_hash' => hash('sha256', $plainToken),
+        ]);
 
-  public function store(Request $request)
-  {
-    $request->validate([
-      'name' => 'required|string|max:255',
-    ]);
+        return redirect()->route('admin.settings.application-keys.index')
+            ->with('flash', [
+                'type' => 'success',
+                'message' => 'Application key created successfully.',
+                'token' => $plainToken,
+            ]);
+    }
 
-    $plainToken = Str::random(64);
+    public function update($id, Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
 
-    ApplicationKey::create([
-      'user_id' => auth()->id(),
-      'name' => $request->name,
-      'token_hash' => hash('sha256', $plainToken),
-    ]);
+        $key = ApplicationKey::findOrFail($id);
+        $key->update([
+            'name' => $request->name,
+        ]);
 
-    return redirect()->route('admin.settings.application-keys.index')
-      ->with('flash', [
-        'type' => 'success',
-        'message' => 'Application key created successfully.',
-        'token' => $plainToken,
-      ]);
-  }
+        return redirect()->route('admin.settings.application-keys.index')
+            ->with('flash', [
+                'type' => 'success',
+                'message' => 'Application key updated successfully.',
+            ]);
+    }
 
-  public function update($id, Request $request)
-  {
-    $request->validate([
-      'name' => 'required|string|max:255',
-    ]);
+    public function destroy($id)
+    {
+        ApplicationKey::findOrFail($id)->delete();
 
-    $key = ApplicationKey::findOrFail($id);
-    $key->update([
-      'name' => $request->name,
-    ]);
-
-    return redirect()->route('admin.settings.application-keys.index')
-      ->with('flash', [
-        'type' => 'success',
-        'message' => 'Application key updated successfully.',
-      ]);
-  }
-
-  public function destroy($id)
-  {
-    ApplicationKey::findOrFail($id)->delete();
-
-    return redirect()->route('admin.settings.application-keys.index')
-      ->with('flash', [
-        'type' => 'success',
-        'message' => 'Application key deleted successfully.',
-      ]);
-  }
+        return redirect()->route('admin.settings.application-keys.index')
+            ->with('flash', [
+                'type' => 'success',
+                'message' => 'Application key deleted successfully.',
+            ]);
+    }
 }

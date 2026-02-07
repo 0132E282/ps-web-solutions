@@ -1,12 +1,12 @@
 import { usePage } from '@inertiajs/react';
-import AppLayout from '@core/layouts/app-layout';
-import { Section } from '@core/components/section';
-import { FormPages } from '@core/components/form/form-pages';
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { createResourceRequest, updateResourceRequest, fetchItemRequest } from '@core/redux';
-import { RootState } from '@core/redux/store';
+import { FormPages } from '@core/components/form/form-pages';
+import { Section } from '@core/components/section';
+import AppLayout from '@core/layouts/app-layout';
 import { getCurrentRouteName } from '@core/lib/route';
+import { createResourceRequest, updateResourceRequest, fetchItemRequest } from '@core/redux';
+import type { RootState } from '@core/redux/store';
 
 interface FormViews {
     title?: string;
@@ -50,9 +50,19 @@ const FormPage = () => {
 
     useEffect(() => {
         if (isEdit && itemId) {
-            dispatch(fetchItemRequest({ resource: resourceName, id: itemId }));
+            // Extract all field names from both main and sidebar sections
+            const fieldNames = [
+                ...mainSections.flatMap(s => s.fields || []),
+                ...sidebarSections.flatMap(s => s.fields || [])
+            ].map(f => typeof f === 'string' ? f : (f as Record<string, unknown>)?.name).filter(Boolean);
+
+            dispatch(fetchItemRequest({
+                resource: resourceName,
+                id: itemId,
+                params: { fields: fieldNames.join(',') }
+            }));
         }
-    }, [dispatch, isEdit, itemId, resourceName]);
+    }, [dispatch, isEdit, itemId, resourceName, mainSections, sidebarSections]);
 
     const handleSave = (data: Record<string, unknown>) => {
         if (isEdit && itemId) {
@@ -63,7 +73,8 @@ const FormPage = () => {
     };
 
     // Merge inertia item with redux item if redux item is loaded
-    const currentItem = (resourceState?.item as Record<string, unknown>) || inertiaItem || {};
+    // Only use persistent item data if we are in edit mode to avoid state leakage in create mode
+    const currentItem = isEdit ? ((resourceState?.item as Record<string, unknown>) || inertiaItem || {}) : {};
 
     return (
         <AppLayout>
@@ -71,12 +82,12 @@ const FormPage = () => {
                 defaultValues={currentItem}
                 onSubmit={handleSave}
             >
-                <div className="flex gap-6">
+                <div className="flex flex-col lg:flex-row gap-6">
                     <div className="flex-1 space-y-6">
                         {mainSections.map((section, index) => <Section key={index} section={section} variant="main" />)}
                     </div>
                     {sidebarSections.length > 0 && (
-                        <div className="flex-1 max-w-[400px] space-y-6">
+                        <div className="w-full lg:w-[400px] space-y-6">
                             {sidebarSections.map((section, index) => <Section key={index} section={section} variant="sidebar" />)}
                         </div>
                     )}

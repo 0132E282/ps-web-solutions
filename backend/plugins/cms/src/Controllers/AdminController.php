@@ -2,11 +2,11 @@
 
 namespace PS0132E282\Cms\Controllers;
 
-use PS0132E282\Core\Base\BaseController;
-use PS0132E282\Cms\Models\Admin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
+use PS0132E282\Cms\Models\Admin;
+use PS0132E282\Core\Base\BaseController;
 
 class AdminController extends BaseController
 {
@@ -21,7 +21,7 @@ class AdminController extends BaseController
                 ['name' => 'roles', 'type' => 'select'],
             ],
             'fields' => [
-                ["name" => "name", "config" => ["primary" => true]], "email", "roles", "status", ["name" => "created_at", "config" => ["type" => "date"]]
+                ['name' => 'name', 'config' => ['primary' => true]], 'email', 'roles', 'status', ['name' => 'created_at', 'config' => ['type' => 'date']],
             ],
             'actions' => [
                 'duplicate' => false,
@@ -40,11 +40,11 @@ class AdminController extends BaseController
                             'description' => 'Admin details',
                         ],
                         'fields' => [
-                            "name",
-                            "email", 
-                            ["name" => "password", "config" => ["width" => "md"]], 
-                            ["name" => "confirm_password", "config" => ["width" => "md"]], 
-                            "roles", 
+                            'name',
+                            'email',
+                            ['name' => 'password', 'config' => ['width' => 'md']],
+                            ['name' => 'confirm_password', 'config' => ['width' => 'md']],
+                            'roles',
                         ],
                     ],
                 ],
@@ -84,5 +84,3 @@ class AdminController extends BaseController
         return back()->with('success', 'Mật khẩu đã được cập nhật thành công');
     }
 }
-
-

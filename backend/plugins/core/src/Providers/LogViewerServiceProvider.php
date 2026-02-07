@@ -23,20 +23,20 @@ class LogViewerServiceProvider extends ServiceProvider
         // Publish log-viewer config
         if ($this->app->runningInConsole()) {
             $this->publishes([
-                __DIR__ . '/../../config/log-viewer.php' => config_path('log-viewer.php'),
+                __DIR__.'/../../config/log-viewer.php' => config_path('log-viewer.php'),
             ], 'log-viewer-config');
         }
 
         // Merge config
         $this->mergeConfigFrom(
-            __DIR__ . '/../../config/log-viewer.php',
+            __DIR__.'/../../config/log-viewer.php',
             'log-viewer'
         );
 
         // Authorization Gate
         Gate::define('viewLogViewer', function ($user = null) {
             // Allow access if user is authenticated and has super-admin or admin role
-            return $user 
+            return $user
                 && ($user->hasRole('super-admin') || $user->hasRole('admin'));
         });
     }

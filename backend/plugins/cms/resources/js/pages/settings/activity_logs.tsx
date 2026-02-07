@@ -1,17 +1,18 @@
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@core/components/ui/card";
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@core/components/ui/table";
-import { Input } from "@core/components/ui/input";
-import AppLayout from "@core/layouts/app-layout";
-import { usePage, router } from "@inertiajs/react";
-import { route } from "@core/lib/route";
-import { useState, useEffect } from "react";
-import { Search, Eye, Activity, Trash2, Edit, Plus } from "lucide-react";
-import { format } from "date-fns";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@core/components/ui/dialog";
-import { Badge } from "@core/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@core/components/ui/select";
-import { Label } from "@core/components/ui/label";
 import InputDateRange from "@core/components/form/input/InputDateRange";
+import LaravelPagination from "@core/components/pagination";
+import { Badge } from "@core/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@core/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@core/components/ui/dialog";
+import { Input } from "@core/components/ui/input";
+import { Label } from "@core/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@core/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@core/components/ui/table";
+import AppLayout from "@core/layouts/app-layout";
+import { route } from "@core/lib/route";
+import { router, usePage } from "@inertiajs/react";
+import { format } from "date-fns";
+import { Activity, Edit, Eye, Plus, Search, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface Causer {
     id: number;
@@ -28,9 +29,9 @@ interface ActivityLog {
     event: string;
     causer?: Causer;
     properties: {
-        attributes?: any;
-        old?: any;
-        [key: string]: any;
+        attributes?: Record<string, unknown>;
+        old?: Record<string, unknown>;
+        [key: string]: unknown;
     };
     created_at: string;
 }
@@ -45,8 +46,17 @@ interface FilterProps {
 interface ActivityLogsProps {
     activities: {
         data: ActivityLog[];
-        links: any[];
-        meta?: any;
+        links: {
+            url: string | null;
+            label: string;
+            active: boolean;
+        }[];
+        meta?: {
+            current_page: number;
+            last_page: number;
+            per_page: number;
+            total: number;
+        };
     };
     filters?: FilterProps;
 }
@@ -121,7 +131,7 @@ const ActivityLogs = () => {
                                 />
                             </div>
 
-                            <Select value={eventFilter} onValueChange={setEventFilter}>
+                            <Select value={eventFilter} onValueChange={(value: string) => setEventFilter(value)}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Chọn sự kiện" />
                                 </SelectTrigger>
@@ -137,7 +147,7 @@ const ActivityLogs = () => {
                                 <InputDateRange
                                     name="date_range"
                                     value={{ from: dateFrom, to: dateTo }}
-                                    onChange={(value) => {
+                                    onChange={(value: { from: string; to: string }) => {
                                         setDateFrom(value.from || "");
                                         setDateTo(value.to || "");
                                     }}
@@ -198,7 +208,9 @@ const ActivityLogs = () => {
                             </TableBody>
                         </Table>
 
-                        {/* Pagination would go here typically, relying on next/prev links in activities.links */}
+                        <div className="mt-4">
+                            <LaravelPagination links={activities.links} />
+                        </div>
                     </CardContent>
                 </Card>
 

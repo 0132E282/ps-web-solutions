@@ -21,4 +21,3 @@ return [
         'updated_at' => 'Ngày cập nhật',
     ],
 ];
-

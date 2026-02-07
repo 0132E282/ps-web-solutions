@@ -1,13 +1,13 @@
-import { useMemo, useCallback } from "react";
-import { Search, X } from "lucide-react";
 import { Input } from "@core/components/ui/input";
-import { tt } from "@core/lib/i18n";
-import { Table, ColumnDef } from "@tanstack/react-table";
-import { ColumnVisibilityDropdown } from "./column-visibility-dropdown";
-import { default as AdvancedFilter, AdvancedFilterCondition, AdvancedFilterField } from "../advanced-filter";
+import { getColumnKey } from "@core/hooks/use-datatable";
 import { useModule } from "@core/hooks/use-module";
-import { DataTableFilter } from "@core/types/filter";
-import { getColumnKey } from "./hooks";
+import { tt } from "@core/lib/i18n";
+import type { DataTableFilter } from "@core/types/filter";
+import { type ColumnDef, type Table } from "@tanstack/react-table";
+import { Search, X } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { default as AdvancedFilter, type AdvancedFilterCondition, type AdvancedFilterField } from "../advanced-filter";
+import { ColumnVisibilityDropdown } from "./column-visibility-dropdown";
 
 interface DataTableToolbarProps<TData, TValue> {
     table: Table<TData>;
@@ -59,9 +59,10 @@ export function DataTableToolbar<TData, TValue>({
     const viewFiltersMap = useMemo(() => {
         const map = new Map<string, Record<string, unknown>>();
         if (viewsData?.filters && Array.isArray(viewsData.filters)) {
-            viewsData.filters.forEach((vf: any) => {
-                const key = vf.name || vf.key;
-                if (key) map.set(key, vf);
+            viewsData.filters.forEach((vf: unknown) => {
+                const filter = vf as Record<string, unknown>;
+                const key = (filter.name || filter.key) as string | undefined;
+                if (key) map.set(key, filter);
             });
         }
         return map;

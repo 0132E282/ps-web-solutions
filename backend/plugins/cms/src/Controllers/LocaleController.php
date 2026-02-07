@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cookie;
-use Inertia\Inertia;
 
 class LocaleController extends Controller
 {
@@ -29,4 +28,3 @@ class LocaleController extends Controller
         return back()->withCookie($cookie);
     }
 }
-

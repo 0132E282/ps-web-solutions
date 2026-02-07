@@ -2,8 +2,8 @@
 
 namespace PS0132E282\Core\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Seo extends Model
@@ -36,8 +36,8 @@ class Seo extends Model
                     'description' => self::$configs['description'],
                     'keywords' => self::$configs['keywords'],
                     'canonical_url' => self::$configs['canonical_url'],
-                ]
-            ]
+                ],
+            ],
         ];
     }
 

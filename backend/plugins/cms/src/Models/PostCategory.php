@@ -31,4 +31,9 @@ class PostCategory extends BaseTerm
     {
         return $this->attachedModels(Post::class);
     }
+
+    public function getUrlFrontendAttribute(): string
+    {
+        return config('app.url').'/'.$this->slug;
+    }
 }

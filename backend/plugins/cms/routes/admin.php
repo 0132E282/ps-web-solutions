@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use PS0132E282\Cms\Controllers\AdminController;
+use PS0132E282\Cms\Controllers\MenuController;
+use PS0132E282\Cms\Controllers\RedirectController;
 
 Route::get('', [AdminController::class, 'index'])->name('index');
 Route::get('/create', [AdminController::class, 'form'])->name('create');
@@ -10,3 +12,6 @@ Route::get('/{id}', [AdminController::class, 'form'])->name('update');
 Route::put('/{id}', [AdminController::class, 'edit'])->name('edit');
 Route::put('/{id}/password', [AdminController::class, 'updatePassword'])->name('updatePassword');
 Route::delete('/{id}', [AdminController::class, 'destroy'])->name('destroy');
+
+Route::module('redirects', RedirectController::class);
+Route::module('menus', MenuController::class);

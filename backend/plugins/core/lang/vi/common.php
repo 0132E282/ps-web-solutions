@@ -72,4 +72,3 @@ return [
         'roles.index' => 'Danh sách vai trò',
     ],
 ];
-

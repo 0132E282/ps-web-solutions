@@ -3,12 +3,12 @@
 namespace PS0132E282\Cms\Controllers;
 
 use App\Http\Controllers\Controller;
-use PS0132E282\Core\Models\Media;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Inertia\Inertia;
-use ZipArchive;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
+use PS0132E282\Core\Models\Media;
+use ZipArchive;
 
 class FileController extends Controller
 {
@@ -112,7 +112,7 @@ class FileController extends Controller
                 ];
             } catch (\Exception $e) {
                 return response()->json([
-                    'message' => 'Lỗi khi tải file: ' . $e->getMessage(),
+                    'message' => 'Lỗi khi tải file: '.$e->getMessage(),
                 ], 500);
             }
         }
@@ -145,7 +145,7 @@ class FileController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Lỗi khi tạo thư mục: ' . $e->getMessage(),
+                'message' => 'Lỗi khi tạo thư mục: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -175,7 +175,7 @@ class FileController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Lỗi khi đổi tên: ' . $e->getMessage(),
+                'message' => 'Lỗi khi đổi tên: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -202,7 +202,7 @@ class FileController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Lỗi khi di chuyển: ' . $e->getMessage(),
+                'message' => 'Lỗi khi di chuyển: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -219,7 +219,7 @@ class FileController extends Controller
         try {
             $newMedia = $media->duplicate($request->name, $request->parent_id);
 
-            if (!$newMedia) {
+            if (! $newMedia) {
                 return response()->json([
                     'message' => 'Lỗi khi sao chép',
                 ], 500);
@@ -239,7 +239,7 @@ class FileController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Lỗi khi sao chép: ' . $e->getMessage(),
+                'message' => 'Lỗi khi sao chép: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -261,7 +261,7 @@ class FileController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Lỗi khi xóa: ' . $e->getMessage(),
+                'message' => 'Lỗi khi xóa: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -278,7 +278,7 @@ class FileController extends Controller
 
         $storage = Storage::disk($media->disk ?? 'public');
 
-        if (!$storage->exists($media->path)) {
+        if (! $storage->exists($media->path)) {
             return response()->json([
                 'message' => 'File không tồn tại',
             ], 404);
@@ -303,14 +303,14 @@ class FileController extends Controller
             ], 400);
         }
 
-        $zipFileName = 'files_' . time() . '.zip';
-        $zipPath = storage_path('app/temp/' . $zipFileName);
+        $zipFileName = 'files_'.time().'.zip';
+        $zipPath = storage_path('app/temp/'.$zipFileName);
 
-        if (!file_exists(storage_path('app/temp'))) {
+        if (! file_exists(storage_path('app/temp'))) {
             mkdir(storage_path('app/temp'), 0755, true);
         }
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         if ($zip->open($zipPath, ZipArchive::CREATE) !== true) {
             return response()->json([
                 'message' => 'Không thể tạo file ZIP',
@@ -338,7 +338,7 @@ class FileController extends Controller
         $children = $folder->children;
 
         foreach ($children as $child) {
-            $currentPath = $basePath ? $basePath . '/' . $child->name : $child->name;
+            $currentPath = $basePath ? $basePath.'/'.$child->name : $child->name;
 
             if ($child->type === 'file') {
                 $storage = Storage::disk($child->disk ?? 'public');
@@ -361,9 +361,9 @@ class FileController extends Controller
         ]);
 
         $ids = $request->get('ids');
-        $zipName = $request->get('name', 'archive_' . time() . '.zip');
+        $zipName = $request->get('name', 'archive_'.time().'.zip');
 
-        if (!Str::endsWith($zipName, '.zip')) {
+        if (! Str::endsWith($zipName, '.zip')) {
             $zipName .= '.zip';
         }
 
@@ -376,19 +376,19 @@ class FileController extends Controller
         }
 
         $storage = Storage::disk('public');
-        $zipPath = 'compressed/' . $zipName;
+        $zipPath = 'compressed/'.$zipName;
 
-        if (!$storage->exists('compressed')) {
+        if (! $storage->exists('compressed')) {
             $storage->makeDirectory('compressed');
         }
 
-        $tempZipPath = storage_path('app/temp/' . $zipName);
+        $tempZipPath = storage_path('app/temp/'.$zipName);
 
-        if (!file_exists(storage_path('app/temp'))) {
+        if (! file_exists(storage_path('app/temp'))) {
             mkdir(storage_path('app/temp'), 0755, true);
         }
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         if ($zip->open($tempZipPath, ZipArchive::CREATE) !== true) {
             return response()->json([
                 'message' => 'Không thể tạo file ZIP',
@@ -411,7 +411,7 @@ class FileController extends Controller
         $storage->put($zipPath, file_get_contents($tempZipPath));
         unlink($tempZipPath);
 
-        $mediaHelper = new Media();
+        $mediaHelper = new Media;
         $absoluteUrl = $mediaHelper->buildUrl($zipPath, 'public');
 
         $media = Media::create([
@@ -443,7 +443,7 @@ class FileController extends Controller
     {
         $media = Media::findOrFail($id);
 
-        if ($media->type !== 'file' || !in_array($media->extension, ['zip', 'rar', '7z'], true)) {
+        if ($media->type !== 'file' || ! in_array($media->extension, ['zip', 'rar', '7z'], true)) {
             return response()->json([
                 'message' => 'File không phải là file nén',
             ], 400);
@@ -451,7 +451,7 @@ class FileController extends Controller
 
         $storage = Storage::disk($media->disk ?? 'public');
 
-        if (!$storage->exists($media->path)) {
+        if (! $storage->exists($media->path)) {
             return response()->json([
                 'message' => 'File không tồn tại',
             ], 404);
@@ -463,23 +463,24 @@ class FileController extends Controller
             ], 400);
         }
 
-        $tempZipPath = storage_path('app/temp/' . basename($media->path));
+        $tempZipPath = storage_path('app/temp/'.basename($media->path));
 
-        if (!file_exists(storage_path('app/temp'))) {
+        if (! file_exists(storage_path('app/temp'))) {
             mkdir(storage_path('app/temp'), 0755, true);
         }
 
         file_put_contents($tempZipPath, $storage->get($media->path));
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         if ($zip->open($tempZipPath) !== true) {
             unlink($tempZipPath);
+
             return response()->json([
                 'message' => 'Không thể mở file ZIP',
             ], 500);
         }
 
-        $extractPath = dirname($media->path) . '/' . pathinfo($media->name, PATHINFO_FILENAME);
+        $extractPath = dirname($media->path).'/'.pathinfo($media->name, PATHINFO_FILENAME);
 
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $filename = $zip->getNameIndex($i);
@@ -492,11 +493,11 @@ class FileController extends Controller
                 continue;
             }
 
-            $filePath = $extractPath . '/' . $filename;
+            $filePath = $extractPath.'/'.$filename;
             $storage->put($filePath, $fileContent);
 
             $fileInfo = pathinfo($filename);
-            $mediaHelper = new Media();
+            $mediaHelper = new Media;
             $absoluteUrl = $mediaHelper->buildUrl($filePath, $media->disk);
 
             Media::create([
@@ -524,7 +525,7 @@ class FileController extends Controller
     public function getFoldersTree(Request $request)
     {
         $excludeIds = $request->get('exclude_ids', []);
-        if (!is_array($excludeIds)) {
+        if (! is_array($excludeIds)) {
             $excludeIds = [];
         }
 
@@ -537,6 +538,7 @@ class FileController extends Controller
             return $folders
                 ->filter(function ($folder) use ($parentId) {
                     $folderParentId = $folder->parent_id;
+
                     return ($parentId === null && $folderParentId === null)
                         || ($parentId !== null && $folderParentId !== null && (string) $folderParentId === (string) $parentId);
                 })
@@ -559,5 +561,3 @@ class FileController extends Controller
         ]);
     }
 }
-
-

@@ -12,7 +12,6 @@ class AuthController extends Controller
     /**
      * Show the admin login form
      *
-     * @param Request $request
      * @return \Inertia\Response
      */
     public function showLogin(Request $request)
@@ -47,7 +46,6 @@ class AuthController extends Controller
     /**
      * Show the email verification notice
      *
-     * @param Request $request
      * @return \Inertia\Response
      */
     public function showVerifyEmail(Request $request)
@@ -60,7 +58,6 @@ class AuthController extends Controller
     /**
      * Show the reset password form
      *
-     * @param Request $request
      * @return \Inertia\Response
      */
     public function showResetPassword(Request $request)
@@ -74,7 +71,6 @@ class AuthController extends Controller
     /**
      * Show the forgot password form
      *
-     * @param Request $request
      * @return \Inertia\Response
      */
     public function showForgotPassword(Request $request)
@@ -86,7 +82,7 @@ class AuthController extends Controller
 
     /**
      * Show the registration form
-     *  
+     *
      * @return \Inertia\Response
      */
     public function showRegister()

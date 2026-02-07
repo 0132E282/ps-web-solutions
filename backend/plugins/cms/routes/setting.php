@@ -2,14 +2,13 @@
 
 use Illuminate\Support\Facades\Route;
 use PS0132E282\Cms\Controllers\ActivityLogController;
+use PS0132E282\Cms\Controllers\ApplicationKeyController;
 use PS0132E282\Cms\Controllers\ConfigurationController;
 use PS0132E282\Cms\Controllers\RoleController;
-use PS0132E282\Cms\Controllers\ApplicationKeyController;
-
 use PS0132E282\Cms\Controllers\SettingController;
 
-
 Route::get('/', [ConfigurationController::class, 'index'])->name('index');
+
 Route::prefix('/roles')->name('roles.')->group(function () {
     Route::get('', [RoleController::class, 'index'])->name('index');
     Route::post('', [RoleController::class, 'store'])->name('store');

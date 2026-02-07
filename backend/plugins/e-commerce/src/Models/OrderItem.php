@@ -47,13 +47,13 @@ class OrderItem extends Model
     public function calculateTotals()
     {
         $this->subtotal = $this->price * $this->quantity;
-        
+
         // Calculate tax if enabled
         if (config('e-commerce.tax.enabled')) {
             $taxRate = config('e-commerce.tax.rate', 0) / 100;
             $this->tax = $this->subtotal * $taxRate;
         }
-        
+
         $this->total = $this->subtotal + $this->tax;
     }
 }
