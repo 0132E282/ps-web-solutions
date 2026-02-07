@@ -1,0 +1,51 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "0132e282/e-commerce",
+    "license": "MIT",
+    "type": "library",
+    "description": "E-Commerce plugin for PS E-Commerce",
+    "keywords": [
+        "laravel",
+        "e-commerce",
+        "shop"
+    ],
+    "require": {
+        "php": "^8.2",
+        "composer/installers": "^2.0",
+        "laravel/framework": "^12.0",
+        "0132e282/core": "*",
+        "anayarojo/shoppingcart": "^4.2"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.24",
+        "phpunit/phpunit": "^11.5.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "PS0132E282\\ECommerce\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PS0132E282\\ECommerce\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "laravel/pint": true,
+            "phpunit/phpunit": true,
+            "pestphp/pest-plugin": true,
+            "composer/installers": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "PS0132E282\\ECommerce\\Providers\\ECommerceServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

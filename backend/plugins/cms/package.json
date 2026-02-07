@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json.schemastore.org/package.json",
+    "name": "@cms/plugin",
+    "version": "1.0.0",
+    "description": "CMS plugin frontend dependencies",
+    "private": true,
+    "type": "module",
+    "dependencies": {},
+    "peerDependencies": {
+        "@core/essentials": "*"
+    }
+}
+
+
+
+
+
+
+
+
+
+

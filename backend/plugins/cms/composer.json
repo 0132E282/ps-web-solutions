@@ -1,0 +1,46 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "0132e282/cms",
+    "license": "MIT",
+    "type": "library",
+    "description": "CMS plugin built on top of Core",
+    "keywords": [
+        "laravel",
+        "cms"
+    ],
+    "require": {
+        "php": "^8.2",
+        "composer/installers": "^2.0",
+        "0132e282/core": "*"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.24",
+        "phpunit/phpunit": "^11.5.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "PS0132E282\\Cms\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PS0132E282\\Cms\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "laravel/pint": true,
+            "phpunit/phpunit": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "PS0132E282\\Cms\\Providers\\CmsServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

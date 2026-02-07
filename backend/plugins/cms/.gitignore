@@ -1,0 +1,16 @@
+/node_modules
+/vendor
+/.idea
+/.vscode
+*.log
+.DS_Store
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,509 @@
+.editor-wrapper {
+    max-height: none !important;
+    overflow: visible !important;
+    min-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+}
+
+.editor-wrapper.max-h-none {
+    max-height: none;
+}
+
+// ------
+
+.ck {
+    --ck-color-toolbar-background: #ffffff;
+}
+
+.ck.ck-editor {
+    @apply shadow-sm;
+    .ck-editor__top {
+        .ck-sticky-panel {
+            .ck-sticky-panel__content {
+                .ck-menu-bar {
+                    @apply bg-[#F9F9F9] py-1.5 px-3 rounded-bl-none rounded-br-none;
+                    .ck-menu-bar__menu {
+                        .ck-menu-bar__menu__button {
+                            @apply cursor-pointer text-gray-700 text-xs;
+                        }
+                    }
+                }
+                .ck-toolbar {
+                    border-top: 1px solid #e9e9ec;
+                    @apply rounded-t-none px-1.5;
+                    .ck-toolbar__items {
+                        margin-right: 0px !important;
+                        margin-left: 0px !important;
+                        flex-direction: row !important;
+                        @apply my-1 flex-grow-0;
+                        .ck-button {
+                            @apply text-xs text-gray-700 cursor-pointer p-1.5 my-0 mr-0 border-0;
+                            &:focus {
+                                @apply ring-0;
+                            }
+                            .ck-icon {
+                                @apply size-4;
+                                &.ck-dropdown__arrow {
+                                    @apply w-[9px];
+                                }
+                            }
+                            &.ck-button_with-text {
+                                .ck-button__icon {
+                                    @apply mr-2;
+                                }
+                                .ck-button__label {
+                                    @apply w-auto;
+                                }
+                                .ck-dropdown__arrow {
+                                    @apply ml-3;
+                                }
+                            }
+                            &.ck-splitbutton__arrow {
+                                @apply w-[17px] p-0 px-1;
+                            }
+                            &.ck-splitbutton__action {
+                                @apply p-0 w-4;
+                            }
+                        }
+                        .ck-dropdown {
+                            @apply my-0;
+                            .ck-dropdown__button {
+                                @apply hover:bg-[#ebebeb] rounded;
+                            }
+                            .ck-dropdown__arrow {
+                                @apply w-[9px] ml-2;
+                            }
+                            .ck-dropdown__panel.ck-dropdown__panel_se {
+                                @apply top-[calc(100%+4px)];
+                                .ck-list-properties {
+                                    .ck-list-styles-list {
+                                        @apply p-0 gap-0;
+                                        .ck-button {
+                                            @apply size-4 p-1 rounded-none;
+                                            .ck-icon {
+                                                @apply size-6;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .ck-toolbar__separator {
+                        @apply h-4 my-auto bg-gray-200 mx-1;
+                    }
+                    .ck-dropdown.ck-toolbar__grouped-dropdown.ck-toolbar-dropdown {
+                        @apply cursor-pointer;
+                    }
+                }
+            }
+        }
+    }
+    .ck-editor__main {
+        .ck-content {
+            @apply text-base px-3 text-gray-900;
+            font-size: 16px !important;
+        }
+    }
+}
+
+.ck.ck-powered-by,
+.ck.ck-button.ck-off.ck-file-dialog-button {
+    @apply hidden;
+}
+
+.ck-placeholder {
+    @apply relative;
+}
+
+.ck.ck-content:not(.ck-style-grid__button__preview):not(.ck-editor__nested-editable) {
+    min-height: 300px !important;
+    max-height: calc(100vh - 104px);
+    height: auto !important;
+    display: block !important;
+
+    > *:not(figure, .simple-box.ck-widget, .ck-placeholder) {
+        // Remove all: revert to prevent height issues
+    }
+
+    @apply hover:border-primary focus:border-primary focus:hover:border-primary focus:outline-none overflow-y-auto;
+}
+
+.ck.ck-menu-bar {
+    gap: 0px !important;
+    @apply rounded-[3px];
+}
+
+.ck-content .image {
+    margin: 0.9em !important;
+}
+
+.ck.ck-menu-bar__menu .ck-button__label {
+    font-size: 11px !important;
+}
+
+li:has(> h1)::marker {
+    font-size: 2em;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+li:has(> h2)::marker {
+    font-size: 1.75em;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.ck.ck-content ol li::marker {
+    text-transform: none !important;
+    color: inherit;
+}
+
+.ck.ck-menu-bar__menu > .ck.ck-menu-bar__menu__panel {
+    bottom: auto !important;
+    top: 100% !important;
+    margin-top: 4px;
+    z-index: 99999999999 !important;
+}
+
+.ck.ck-content a {
+    color: #007cba;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+/* Keep toolbar and dropdowns stable in browser fullscreen */
+:fullscreen .editor-wrapper,
+:-webkit-full-screen .editor-wrapper {
+    overflow: visible !important;
+}
+
+:fullscreen .custom-editor .ck-editor__top,
+:-webkit-full-screen .custom-editor .ck-editor__top {
+    overflow: visible !important;
+}
+
+:fullscreen .custom-editor .ck-sticky-panel,
+:fullscreen .custom-editor .ck-sticky-panel__content,
+:-webkit-full-screen .custom-editor .ck-sticky-panel,
+:-webkit-full-screen .custom-editor .ck-sticky-panel__content {
+    position: sticky;
+    top: 0;
+    z-index: 2147483647; /* max 32-bit int to ensure on top */
+    overflow: visible !important;
+}
+
+// :fullscreen .custom-editor .ck-dropdown__panel,
+// :-webkit-full-screen .custom-editor .ck-dropdown__panel {
+//     z-index: 2147483647;
+// }
+
+/* Avoid 1px shift when focusing toolbar buttons */
+.ck .ck-button,
+.ck .ck-button:focus,
+.ck .ck-button:active,
+.ck .ck-button.ck-on {
+    outline: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+
+.ck.ck-dropdown__panel {
+    background: var(--ck-color-dropdown-panel-background);
+    border: 1px solid var(--ck-color-dropdown-panel-border);
+    top: 30px;
+    box-shadow: var(--ck-drop-shadow), 0 0;
+    min-width: 100%;
+    left: 0;
+}
+
+/* Fix CKEditor height issues - Force height with higher specificity */
+.ck.ck-editor {
+    min-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+}
+
+.ck.ck-editor__main {
+    min-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+}
+
+.ck.ck-content {
+    min-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+    font-size: 16px !important;
+}
+
+/* Force content area to have proper height */
+.ck.ck-content:not(.ck-style-grid__button__preview):not(.ck-editor__nested-editable) {
+    min-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+    font-size: 16px !important;
+}
+
+/* Ensure editor wrapper has proper height */
+.editor-wrapper .ck.ck-editor {
+    min-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+}
+
+.editor-wrapper .ck.ck-editor__main {
+    min-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+}
+
+.editor-wrapper .ck.ck-content {
+    min-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+    padding: 20px !important;
+    font-size: 16px !important;
+}
+
+/* Override CKEditor default styles that might be causing height issues */
+.ck.ck-editor__editable {
+    min-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+    padding: 20px !important;
+    box-sizing: border-box !important;
+    font-size: 16px !important;
+}
+
+.ck.ck-editor__editable:not(.ck-focused) {
+    min-height: 300px !important;
+    height: auto !important;
+    display: block !important;
+    padding: 20px !important;
+    font-size: 16px !important;
+}
+
+
+.ck.ck-content {
+    font-size: 16px !important;
+    &  p {
+        min-height: 20px !important;
+        margin: 0 0 10px 0 !important;
+        font-size: 16px !important;
+    }
+    &  h1 {
+        font-size: 2rem !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        margin: 1.5rem 0 1rem 0 !important;
+        color: #1f2937 !important;
+        font-family: inherit !important;
+    }
+    &  h2 {
+        font-size: 1.75em !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        margin: 1.5rem 0 1rem 0 !important;
+        color: #1f2937 !important;
+        font-family: inherit !important;
+    }
+    &  h3 {
+        font-size: 1.5em !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        margin: 1.5rem 0 1rem 0 !important;
+        color: #1f2937 !important;
+        font-family: inherit !important;
+    }
+    &  h4 {
+        font-size: 1.25em !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        margin: 1.5rem 0 1rem 0 !important;
+        color: #1f2937 !important;
+        font-family: inherit !important;
+    }
+    &  h5 {
+        font-size: 1.125em !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        margin: 1.5rem 0 1rem 0 !important;
+        color: #1f2937 !important;
+        font-family: inherit !important;
+    }
+    &  h6 {
+        font-size: 1em !important;
+        font-weight: 700 !important;
+        line-height: 1.2 !important;
+        margin: 1.5rem 0 1rem 0 !important;
+        color: #1f2937 !important;
+        font-family: inherit !important;
+    }
+    &  ul {
+        list-style-type: disc !important;
+        margin: 0 0 10px 0 !important;
+        padding-left: 1.5rem !important;
+    }
+    &  ol {
+        list-style-type: decimal !important;
+        margin: 0 0 10px 0 !important;
+        padding-left: 1.5rem !important;
+    }
+    &  li {
+        margin-bottom: 10px !important;
+    }
+    &  a {
+        color: #007cba !important;
+        text-decoration: none !important;
+    }
+    &  img {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+    &  table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin: 0 auto !important;
+    }
+    &  div[style*="text-align: center"] table,
+    &  div[style*="text-align:center"] table {
+        margin: 0 auto !important;
+    }
+    &  table[style*="text-align: center"],
+    &  table[style*="text-align:center"] {
+        margin: 0 auto !important;
+    }
+    &  th {
+        background-color: #f0f0f0 !important;
+        font-weight: bold !important;
+    }
+    &  td {
+        border: 1px solid #e0e0e0 !important;
+        padding: 10px !important;
+    }
+    &  tr {
+        border-bottom: 1px solid #e0e0e0 !important;
+    }
+   
+}
+
+.ck.ck-content:empty::before {
+    content: "Nhập nội dung...";
+    color: #999;
+    font-style: italic;
+    min-height: 280px !important;
+    display: block !important;
+    padding: 20px !important;
+}
+
+.ck.ck-toolbar__items {
+    flex-wrap: wrap !important;
+    display: flex !important;
+    flex-direction: row !important;
+}
+
+/* Fix toolbar z-index to stay above source editing area */
+.ck.ck-editor__top {
+    position: relative;
+    z-index: 10 !important;
+}
+
+.ck-sticky-panel {
+    position: relative;
+    z-index: 1001 !important;
+}
+
+.ck-toolbar {
+    position: relative;
+    z-index: 1001 !important;
+}
+
+.ck-menu-bar {
+    position: relative;
+    z-index: 1001 !important;
+}
+
+/* Fix source editing area to not overlap toolbar */
+.ck-editor__main {
+    position: relative;
+    overflow: visible;
+}
+
+.ck-source-editing-area {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 1 !important;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+/* Ensure source area is contained within main content, not entire editor */
+.ck-editor__main .ck-source-editing-area {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 1 !important;
+}
+
+/* Fix CKEditor dialogs and panels to appear above Dialog components */
+/* Dialog component uses z-50 (z-index: 50), so CKEditor needs higher */
+/* Using 10010 to match existing dropdown panel z-index */
+.ck.ck-balloon-panel,
+.ck.ck-balloon,
+.ck.ck-dialog,
+.ck.ck-dialog__panel,
+.ck.ck-list__dropdown,
+.ck.ck-tooltip,
+.ck.ck-tooltip__text {
+    z-index: 10010 !important;
+}
+
+/* Ensure CKEditor file manager and other modal dialogs appear above everything */
+.ck.ck-dialog__wrapper {
+    z-index: 10010 !important;
+}
+
+/* Fix for CKEditor dropdowns inside Dialog */
+[data-radix-portal] ~ .ck.ck-dropdown__panel,
+[data-radix-portal] ~ .ck.ck-balloon-panel {
+    z-index: 10010 !important;
+}
+
+/* Ensure CKEditor dropdowns can escape Dialog overflow constraints */
+[data-radix-portal] .ck.ck-dropdown__panel,
+[data-radix-portal] .ck.ck-balloon-panel,
+[data-radix-portal] .ck.ck-tooltip {
+    position: fixed !important;
+    z-index: 10010 !important;
+}
+
+/* Allow CKEditor content to overflow when inside Dialog */
+[data-radix-portal] .editor-wrapper {
+    overflow: visible !important;
+}
+
+[data-radix-portal] .ck.ck-editor {
+    overflow: visible !important;
+}
+
+/* Styles for rows prop - default 10 rows */
+.ckeditor-wrapper {
+    .ck.ck-content {
+        $line-height: 1.5em;
+        $padding-vertical: 40px;
+        $default-rows: 10;
+        
+        min-height: calc(#{$default-rows} * #{$line-height} + #{$padding-vertical}) !important;
+    }
+}

@@ -1,0 +1,58 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "0132e282/core",
+    "license": "MIT",
+    "type": "library",
+    "description": "Core library for Essentials Utils",
+    "keywords": [
+        "laravel",
+        "core"
+    ],
+    "require": {
+        "php": "^8.2",
+        "composer/installers": "^2.0",
+        "laravel/framework": "^12.0",
+        "spatie/laravel-permission": "^6.23",
+        "spatie/laravel-activitylog": "^4.0",
+        "spatie/laravel-translatable": "^6.12",
+        "opcodesio/log-viewer": "^3.0",
+        "inertiajs/inertia-laravel": "^2.0",
+        "tightenco/ziggy": "^2.6",
+        "aliziodev/laravel-taxonomy": "^1.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.24",
+        "phpunit/phpunit": "^11.5.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "PS0132E282\\Core\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PS0132E282\\Core\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "laravel/pint": true,
+            "phpunit/phpunit": true,
+            "pestphp/pest-plugin": true,
+            "composer/installers": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "PS0132E282\\Core\\Providers\\CoreServiceProvider",
+                "PS0132E282\\Core\\Providers\\MacroServiceProvider",
+                "PS0132E282\\Core\\Providers\\LogViewerServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
+

@@ -1,0 +1,75 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "0132e282/essentials-utils",
+    "type": "library",
+    "description": "Essential utilities library for Laravel framework essentials plugin",
+    "keywords": [
+        "laravel",
+        "framework",
+        "utilities",
+        "essentials",
+        "plugin"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "0132e282",
+            "email": "0132e282@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "composer/composer": "^2.9",
+        "composer-plugin-api": "^2.0",
+        "composer/installers": "^2.0",
+        "laravel/framework": "^12.0",
+        "laravel/fortify": "^1.30",
+        "laravel/wayfinder": "^0.1.9",
+        "spatie/laravel-permission": "^6.23",
+        "spatie/laravel-activitylog": "^4.0",
+        "spatie/laravel-translatable": "^6.12",
+        "opcodesio/log-viewer": "^3.0",
+        "inertiajs/inertia-laravel": "^2.0",
+        "tightenco/ziggy": "^2.6",
+        "aliziodev/laravel-taxonomy": "^1.0",
+        "mnsami/composer-custom-directory-installer": "^2.0",
+        "wikimedia/composer-merge-plugin": "*"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.24",
+        "phpunit/phpunit": "^11.5.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "PS0132E282\\Core\\": "core/src/",
+            "PS0132E282\\Cms\\": "cms/src/",
+            "PS0132E282\\Notifications\\": "notifications/src/",
+            "PS0132E282\\Composer\\": "Composer/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "PS0132E282\\Core\\Providers\\CoreServiceProvider",
+                "PS0132E282\\Core\\Providers\\MacroServiceProvider",
+                "PS0132E282\\Cms\\Providers\\CmsServiceProvider"
+            ]
+        },
+        "merge-plugin": {
+            "include": [
+                "core/composer.json",
+                "cms/composer.json",
+                "notifications/composer.json"
+            ],
+            "recurse": true,
+            "replace": false,
+            "ignore-duplicates": false,
+            "merge-dev": true,
+            "merge-extra": true,
+            "merge-extra-deep": true,
+            "merge-scripts": true
+        }
+    }
+}
+

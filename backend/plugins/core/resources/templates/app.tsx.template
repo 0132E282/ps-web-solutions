@@ -1,0 +1,13 @@
+import '../css/app.css';
+
+import { initializeTheme } from '@core/hooks/use-appearance';
+import { setupInertiaApp } from '@core/lib/inertia';
+
+setupInertiaApp({
+    progress: {
+        color: '#4B5563',
+    },
+});
+
+initializeTheme();
+
