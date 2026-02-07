@@ -10,9 +10,6 @@ export const SubNavbar = () => (
               </a>
           ))}
         </div>
-        <Badge variant="secondary" className="bg-[#fff3da] text-[#856404] hover:bg-[#fff3da] border border-[#ffeeba] rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap hidden lg:inline-flex">
-          Bundle - Save 88%
-        </Badge>
       </div>
     </div>
   );

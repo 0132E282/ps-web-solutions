@@ -36,9 +36,17 @@ export default async function CategoryPage({ params }: Props) {
   const templates = Array.from({ length: 12 }).map((_, i) => ({
     id: i + 1,
     title: `${CategoryTitle} Template ${i + 1} - Modern Dashboard & Landing Page`,
-    image: `https://via.placeholder.com/400x250/e0e0e0/555?text=${CategoryTitle}+${i + 1}`,
+    image: `https://images.unsplash.com/photo-${[
+        '1498050108023-c5249f4df085',
+        '1461747541859-4d81f4529e1c',
+        '1555066931-4365d14bab8c',
+        '1517694712202-14dd9538aa97',
+        '1581291518633-83b4ebd1d83e'
+    ][i % 5]}?q=80&w=800&auto=format&fit=crop`,
     price: (i % 5) * 10 + 19,
-    isFree: i % 3 === 0,
+    originalPrice: (i % 5) * 10 + 39,
+    isFree: i % 4 === 0,
+    isHot: i % 3 === 0,
     slug: `${CategoryTitle.toLowerCase().replace(/ /g, '-')}-template-${i + 1}`
   }));
 
@@ -46,56 +54,39 @@ export default async function CategoryPage({ params }: Props) {
     <div className="min-h-screen bg-slate-50 font-sans text-brand-text">
       <Navbar />
       <SubNavbar />
-
-      <div className="bg-brand-bg py-8 border-b border-gray-200">
-        <div className="container mx-auto px-5">
-            <div className="flex items-center text-sm text-muted-foreground mb-4">
-                <Link href="/" className="hover:text-brand-primary">Home</Link>
-                <ChevronRight size={14} className="mx-2" />
-                <span className="text-brand-dark font-medium">{CategoryTitle}</span>
-            </div>
-            <h1 className="text-3xl lg:text-4xl font-bold text-brand-dark">{CategoryTitle} Templates</h1>
-            <p className="mt-2 text-muted-foreground max-w-2xl">
-                Browse our collection of {CategoryTitle} templates. Use these templates to build responsive, mobile-first websites.
-            </p>
+      <main className="container mx-auto px-5 pb-10 pt-5">
+        <div className="bg-brand-bg border-b border-gray-200">
+          <div className="flex items-center text-sm text-muted-foreground mb-4">
+              <Link href="/" className="hover:text-brand-primary">Home</Link>
+              <ChevronRight size={14} className="mx-2" />
+              <span className="text-brand-dark font-medium">{CategoryTitle}</span>
+          </div>
         </div>
-      </div>
-
-      <main className="container mx-auto px-5 py-10">
-        <div className="flex flex-col lg:flex-row gap-10">
-            {/* Sidebar */}
-            <aside className="w-full lg:w-[280px] shrink-0">
+        <div className="flex flex-col lg:flex-row gap-8 mt-5">
+            <aside className="w-full lg:w-[260px] shrink-0">
                 <div className="lg:sticky lg:top-24">
                     <SidebarFilter />
                 </div>
             </aside>
 
-            {/* Content */}
             <div className="flex-1">
-                <div className="flex justify-between items-center mb-6">
-                    <div className="text-muted-foreground">
-                        Showing <span className="font-bold text-brand-dark">1-12</span> of <span className="font-bold text-brand-dark">45</span> templates
-                    </div>
-
-                    {/* Simple Sort Dropdown Mock */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground hidden sm:inline">Sort by:</span>
-                        <select className="bg-white border border-gray-200 text-sm rounded-md p-2 outline-none focus:ring-1 focus:ring-brand-primary">
-                            <option>Newest</option>
-                            <option>Popular</option>
+               <div className="flex justify-end mb-4">
+                  <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Sort by:</span>
+                        <select className="bg-slate-50 border border-slate-200 text-sm font-bold rounded-xl p-3 outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all cursor-pointer">
+                            <option>Newest Release</option>
+                            <option>Popularity</option>
                             <option>Price: Low to High</option>
                             <option>Price: High to Low</option>
                         </select>
                     </div>
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mb-16">
                     {templates.map(t => (
                         <TemplateCard key={t.id} {...t} />
                     ))}
                 </div>
 
-                {/* Pagination */}
                 <div className="flex justify-center items-center gap-2">
                     <Button variant="outline" size="icon" className="w-10 h-10 rounded-full" disabled>
                         <ChevronLeft size={16} />

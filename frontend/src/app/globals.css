@@ -150,3 +150,11 @@
         @apply bg-background text-foreground;
     }
 }
+@layer utilities {
+    .swiper-pagination-bullet-custom {
+        @apply w-3 h-3 rounded-full bg-white/30 cursor-pointer transition-all duration-300;
+    }
+    .swiper-pagination-bullet-active-custom {
+        @apply w-10 bg-brand-primary;
+    }
+}

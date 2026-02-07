@@ -66,7 +66,5 @@ export const SidebarFilter = () => (
                 ))}
             </div>
         </div>
-
-        <Button className="w-full bg-brand-primary text-white hover:bg-[#e0961d]">Apply Filter</Button>
     </div>
 );

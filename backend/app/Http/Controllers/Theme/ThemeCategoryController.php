@@ -25,9 +25,8 @@ class ThemeCategoryController extends BaseController
           [
             'header' => [
               'title' => 'Category Information',
-              'description' => 'Basic information about the category',
             ],
-            'fields' => ['name'],
+            'fields' => ['name', 'parent'],
           ],
         ],
         'sidebar' => [
