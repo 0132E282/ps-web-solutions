@@ -33,7 +33,7 @@ const Index = () => {
         return null;
     }
     return (
-        <>
+        <div className="flex flex-col gap-4">
             <HeaderToolbarTable
                 create={views?.actions?.create}
                 import={views?.actions?.import}
@@ -58,11 +58,10 @@ const Index = () => {
                     ] : undefined
                 }
             />
-
             <Card className="p-4">
                 <DataTable resource={resource as unknown as Resource<Item>}/>
             </Card>
-        </>
+        </div>
     );
 }
 

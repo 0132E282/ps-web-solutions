@@ -3,16 +3,17 @@
 namespace App\Http\Controllers\Theme;
 
 use PS0132E282\Core\Base\BaseController;
-use App\Models\Theme\ThemeCategory;
+use App\Models\Theme\ThemeOption;
 
-class ThemeCategoryController extends BaseController
+class ThemeOptionController extends BaseController
 {
-  protected ?string $model = ThemeCategory::class;
+  protected ?string $model = ThemeOption::class;
 
   const views = [
     'index' => [
-      'title' => 'Categories',
-      'description' => 'Manage categories list',
+      'title' => 'Options',
+      'description' => 'Manage options list',
+      'load-items' => 'tree',
       'fields' => [
         ['name' => 'name', 'primary' => true],
         ['name' => 'status'],
@@ -24,20 +25,25 @@ class ThemeCategoryController extends BaseController
         'main' => [
           [
             'header' => [
-              'title' => 'Category Information',
+              'title' => 'Option Information',
+              'description' => 'Basic information about the option',
             ],
-            'fields' => ['name', 'parent'],
+            'fields' => [
+              'name',
+
+            ],
           ],
+
         ],
         'sidebar' => [
           [
             'header' => [
-              'title' => 'Category Information',
-              'description' => 'Basic information about the category',
+              'title' => 'Sidebar',
+              'description' => 'Sidebar information',
             ],
             'fields' => [
               'status',
-              'position',
+              'parent',
             ],
           ],
         ],

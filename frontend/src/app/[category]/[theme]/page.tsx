@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Check, Download, Eye, Heart, ShoppingCart, Star, Share2, Info, Layers, Layout, Globe, Code } from 'lucide-react';
+import { Check, Eye, Heart, Star, Share2, Info, Layers, Layout, Globe, Code } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ThemeActionButtons } from '@/components/templates/ThemeActionButtons';
 
 type Props = {
   params: Promise<{ theme: string }>;
@@ -121,7 +122,6 @@ export default async function ThemeDetailPage({ params }: Props) {
                     <TabsList className="w-full justify-start bg-transparent border-b border-gray-200 rounded-none h-auto p-0 mb-6">
                         <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-brand-primary data-[state=active]:text-brand-primary px-6 py-3 text-base">Item Details</TabsTrigger>
                         <TabsTrigger value="reviews" className="rounded-none border-b-2 border-transparent data-[state=active]:border-brand-primary data-[state=active]:text-brand-primary px-6 py-3 text-base">Reviews ({theme.reviews})</TabsTrigger>
-                        <TabsTrigger value="support" className="rounded-none border-b-2 border-transparent data-[state=active]:border-brand-primary data-[state=active]:text-brand-primary px-6 py-3 text-base">Support</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="details" className="bg-white p-8 rounded-xl border border-gray-200">
@@ -174,11 +174,6 @@ export default async function ThemeDetailPage({ params }: Props) {
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="support" className="bg-white p-8 rounded-xl border border-gray-200">
-                         <h3 className="text-xl font-bold text-brand-dark mb-4">Need Help?</h3>
-                         <p className="mb-4 text-muted-foreground">Our support team is always ready to help. We usually respond within 24 hours.</p>
-                         <Button variant="outline">Contact Support</Button>
-                    </TabsContent>
                 </Tabs>
 
             </div>
@@ -195,17 +190,7 @@ export default async function ThemeDetailPage({ params }: Props) {
                         </div>
                         <p className="text-sm text-muted-foreground mb-6">Quality checked by MyWebsite</p>
 
-                        <div className="space-y-3">
-                            <Button className="w-full bg-brand-primary hover:bg-[#e0961d] text-white font-bold h-12 text-base shadow-md gap-2">
-                                <ShoppingCart size={18} /> Add to Cart
-                            </Button>
-                            <Button className="w-full bg-brand-secondary hover:bg-[#218838] text-white font-bold h-12 text-base shadow-md gap-2">
-                                <Download size={18} /> Buy Now
-                            </Button>
-                             <Button variant="outline" className="w-full h-12 text-base gap-2">
-                                <Eye size={18} /> Live Preview
-                            </Button>
-                        </div>
+                        <ThemeActionButtons price={theme.price} themeTitle={theme.title} />
 
                         <Separator className="my-6" />
 

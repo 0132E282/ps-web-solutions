@@ -21,7 +21,11 @@ class AdminController extends BaseController
                 ['name' => 'roles', 'type' => 'select'],
             ],
             'fields' => [
-                ['name' => 'name', 'config' => ['primary' => true]], 'email', 'roles', 'status', ['name' => 'created_at', 'config' => ['type' => 'date']],
+                ['name' => 'name', 'config' => ['primary' => true]],
+                'email',
+                'roles',
+                'status',
+                ['name' => 'created_at', 'config' => ['type' => 'date']],
             ],
             'actions' => [
                 'duplicate' => false,

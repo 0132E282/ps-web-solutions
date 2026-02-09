@@ -27,8 +27,8 @@ return [
             'route' => 'admin.theme-categories.index',
           ],
           [
-            'title' => 'Tag themes',
-            'route' => 'admin.theme-tags.index',
+            'title' => 'Options themes',
+            'route' => 'admin.theme-options.index',
           ],
         ],
       ],

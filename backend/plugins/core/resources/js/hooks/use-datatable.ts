@@ -17,7 +17,6 @@ import type { PaginationInfo } from "../components/table/helpers";
 import { tableRegistry } from "../components/table/table-registry";
 import { fetchResourceRequest } from "../redux/slices/resourceSlice";
 
-
 interface InertiaPageProps extends Record<string, unknown> {
     ziggy?: { route?: { name?: string } };
     columns?: ColumnDef<unknown, unknown>[];
@@ -48,22 +47,50 @@ type TreeItem<T> = T & { _level: number; _hasChildren: boolean; _parentId: strin
 
 const flattenTree = <T extends Record<string, unknown>>(
     tree: T[], level = 0, parentId: string | number | null = null, expandedRows?: Set<string | number>
-): TreeItem<T>[] => {
-    return tree.flatMap(node => {
+): TreeItem<T>[] =>
+    tree.flatMap(node => {
         const { children, ...rest } = node;
         const nodeId = (node.id || rest.id) as string | number;
         const hasChildren = Array.isArray(children) && children.length > 0;
-        const current: TreeItem<T> = { ...rest, _level: level, _hasChildren: hasChildren, _parentId: parentId, _id: nodeId } as TreeItem<T>;
-
-        if (hasChildren && expandedRows?.has(nodeId)) {
-            return [current, ...flattenTree(children as T[], level + 1, nodeId, expandedRows)];
-        }
-        return [current];
+        const current = { ...rest, _level: level, _hasChildren: hasChildren, _parentId: parentId, _id: nodeId } as TreeItem<T>;
+        const isExpanded = hasChildren && (expandedRows?.has(String(nodeId)) || (typeof nodeId === 'number' && expandedRows?.has(nodeId)));
+        return isExpanded ? [current, ...flattenTree(children as T[], level + 1, nodeId, expandedRows)] : [current];
     });
-};
 
 export const getColumnKey = <TData, TValue>(column: ColumnDef<TData, TValue>): string | undefined =>
     column.id || (column as unknown as Record<string, unknown>).accessorKey as string | undefined;
+
+const normalizePagination = (raw: PaginationInfo | ResourcePagination | null | undefined): PaginationInfo | null => {
+    if (!raw) return null;
+    const src = (typeof raw === 'object' && 'meta' in raw && raw.meta) ? raw.meta : raw;
+    const r = src as Record<string, unknown>;
+    return {
+        current_page: (r.current_page as number) ?? 1,
+        last_page: (r.last_page as number) ?? 1,
+        per_page: (r.per_page as number) ?? 10,
+        total: (r.total as number) ?? 0,
+        from: (r.from as number) ?? 0,
+        to: (r.to as number) ?? 0,
+    };
+};
+
+const checkTreeMode = (obj: any): boolean =>
+    obj?.['load-items'] === 'tree' || obj?.loaditems === 'tree' ||
+    obj?.config?.['load-items'] === 'tree' || obj?.config?.loaditems === 'tree';
+
+const buildAdvancedFilterParams = (params: URLSearchParams, filters: AdvancedFilterCondition[]) => {
+    for (const cond of filters) {
+        if (!cond.field || !cond.operator) continue;
+        const key = `filters[_and][${cond.field}][${cond.operator}]`;
+        if (Array.isArray(cond.value)) {
+            (cond.value as (string | number)[]).forEach(v => params.append(`${key}[]`, String(v)));
+        } else if (cond.value !== undefined && cond.value !== null && cond.value !== '') {
+            params.append(key, String(cond.value));
+        } else if (cond.operator === '_is_null' || cond.operator === '_is_not_null') {
+            params.append(key, '1');
+        }
+    }
+};
 
 export function useDataTableRoute(routeProp?: string) {
     const { props } = usePage<InertiaPageProps>();
@@ -77,32 +104,6 @@ export function useDataTableRoute(routeProp?: string) {
 
     return { currentRouteName, resourceName, routeName, effectiveApiUrl, effectiveUseApi: Boolean(routeName && effectiveApiUrl), props };
 }
-const normalizePagination = (raw: PaginationInfo | ResourcePagination | null | undefined): PaginationInfo | null => {
-    if (!raw) return null;
-
-    // Check if it's ResourcePagination (has meta)
-    if (typeof raw === 'object' && 'meta' in raw && raw.meta) {
-        return {
-            current_page: raw.meta.current_page ?? 1,
-            last_page: raw.meta.last_page ?? 1,
-            per_page: raw.meta.per_page ?? 10,
-            total: raw.meta.total ?? 0,
-            from: raw.meta.from ?? 0,
-            to: raw.meta.to ?? 0
-        };
-    }
-
-    // It's PaginationInfo or similar
-    const r = raw as Record<string, unknown>;
-    return {
-        current_page: (r.current_page as number) ?? 1,
-        last_page: (r.last_page as number) ?? 1,
-        per_page: (r.per_page as number) ?? 10,
-        total: (r.total as number) ?? 0,
-        from: (r.from as number) ?? 0,
-        to: (r.to as number) ?? 0
-    };
-};
 
 export function useDataTableData<TData, TValue = unknown>(
     { effectiveUseApi, effectiveApiUrl, resourceName, routeName, props }: ReturnType<typeof useDataTableRoute>,
@@ -110,14 +111,15 @@ export function useDataTableData<TData, TValue = unknown>(
     { isTreeMode, expandedRows, columnFiltersRef }: { isTreeMode: boolean; expandedRows: Set<string | number>; columnFiltersRef: React.MutableRefObject<ColumnFiltersState> }
 ) {
     const dispatch = useDispatch();
-    const [tableData, setTableData] = useState<unknown>(itemsProp || dataProp || props.items || props.data || null);
+    const initialData = itemsProp || dataProp || props.items || props.data || null;
+    const [tableData, setTableData] = useState<unknown>(initialData);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [apiColumns, setApiColumns] = useState<ColumnDef<TData, TValue>[]>([]);
     const [apiFilters, setApiFilters] = useState<DataTableFilter[]>([]);
     const lastFetchedUrlRef = useRef<string | null>(null);
     const isFetchingRef = useRef(false);
-    const lastPropsRef = useRef<unknown>(itemsProp || dataProp || props.items || props.data);
+    const lastPropsRef = useRef<unknown>(initialData);
 
     const reduxResource = useSelector((state: { resource: Record<string, unknown> }) => routeName ? state.resource[routeName] : null);
 
@@ -131,11 +133,10 @@ export function useDataTableData<TData, TValue = unknown>(
 
     useEffect(() => {
         const resource = (resourceProp || reduxResource) as Resource<TData> | null;
-        if (resource) {
-            if (resource.items) setTableData({ ...resource, items: [...(resource.items as unknown[])] });
-            if (typeof resource.loading === 'boolean') setIsLoading(resource.loading);
-            if (resource.error !== undefined) setError(resource.error);
-        }
+        if (!resource) return;
+        if (resource.items) setTableData({ ...resource, items: [...(resource.items as unknown[])] });
+        if (typeof resource.loading === 'boolean') setIsLoading(resource.loading);
+        if (resource.error !== undefined) setError(resource.error);
     }, [resourceProp, reduxResource]);
 
     const processApiResponse = useCallback((data: ApiResponse<TData>) => {
@@ -158,32 +159,17 @@ export function useDataTableData<TData, TValue = unknown>(
             if (search) params.set('search', search);
             if (isTreeMode) params.set('tree', 'true');
             formatFiltersForAPI(columnFiltersRef.current, []).forEach((value, key) => params.append(key, value));
-            advancedFilters.forEach((cond) => {
-                if (cond.field && cond.operator) {
-                    const key = `filters[_and][${cond.field}][${cond.operator}]`;
-                    if (Array.isArray(cond.value)) {
-                        (cond.value as (string | number)[]).forEach((v) => params.append(`${key}[]`, String(v)));
-                    } else if (cond.value !== undefined && cond.value !== null && cond.value !== '') {
-                        params.append(key, String(cond.value));
-                    } else if (cond.operator === '_is_null' || cond.operator === '_is_not_null') {
-                        params.append(key, '1');
-                    }
-                }
-            });
+            buildAdvancedFilterParams(params, advancedFilters);
+
+            const queryParams: Record<string, unknown> = {};
+            params.forEach((value, key) => { queryParams[key] = value; });
 
             if (effectiveApiUrl) {
                 setIsLoading(true);
                 const response = await axios.get<ApiResponse<TData>>(effectiveApiUrl, { params });
                 processApiResponse(response.data);
-                if (routeName) {
-                    const queryParams: Record<string, unknown> = {};
-                    params.forEach((value, key) => { queryParams[key] = value; });
-                    dispatch(fetchResourceRequest({ resource: routeName, params: queryParams }));
-                }
-            } else if (routeName) {
-                setIsLoading(true);
-                const queryParams: Record<string, unknown> = {};
-                params.forEach((value, key) => { queryParams[key] = value; });
+            }
+            if (routeName) {
                 dispatch(fetchResourceRequest({ resource: routeName, params: queryParams }));
             }
         } catch (err) {
@@ -199,11 +185,7 @@ export function useDataTableData<TData, TValue = unknown>(
         const url = new URL(window.location.href);
         url.searchParams.set('page', String(newPage));
         url.searchParams.set('limit', String(newLimit));
-        if (search) {
-            url.searchParams.set('search', search);
-        } else {
-            url.searchParams.delete('search');
-        }
+        search ? url.searchParams.set('search', search) : url.searchParams.delete('search');
 
         if (effectiveUseApi && effectiveApiUrl) {
             window.history.replaceState({}, '', url.toString());
@@ -218,17 +200,15 @@ export function useDataTableData<TData, TValue = unknown>(
         const extracted = extractFromPaginator<TData>(raw);
         let processedItems = extracted.items;
 
-        if (isTreeMode && Array.isArray(processedItems) && processedItems.length > 0) {
-            const hasTreeStructure = processedItems.some((item: unknown) => item && typeof item === 'object' && 'children' in item);
-            if (hasTreeStructure) processedItems = flattenTree(processedItems as Array<Record<string, unknown>>, 0, null, expandedRows) as TData[];
+        if (isTreeMode && processedItems.length > 0 && processedItems.some((item: unknown) => item && typeof item === 'object' && 'children' in item)) {
+            processedItems = flattenTree(processedItems as Array<Record<string, unknown>>, 0, null, expandedRows) as TData[];
         }
-
-        const rawPagination = extracted.pagination || (reduxResource as { pagination?: unknown })?.pagination || paginationProp || props.pagination;
-        const pagination = normalizePagination(rawPagination as PaginationInfo | ResourcePagination | null | undefined);
 
         return {
             items: Array.from(processedItems),
-            pagination
+            pagination: normalizePagination(
+                extracted.pagination || (reduxResource as { pagination?: unknown })?.pagination || paginationProp || props.pagination as PaginationInfo | ResourcePagination | null | undefined
+            ),
         };
     }, [tableData, reduxResource, paginationProp, isTreeMode, expandedRows, props.pagination]);
 
@@ -266,17 +246,17 @@ export function useDataTableColumns<TData extends Record<string, unknown>, TValu
     }, [filters, mergedColumns]);
 
     const columnsWithFilters = useMemo(() =>
-        allColumns.map(column => {
-            const filter = filters.find(f => f.key === getColumnKey(column) || f.key === column.id);
-            return filter ? { ...column, filterFn: createFilterFn(filter) } : column;
+        allColumns.map(col => {
+            const filter = filters.find(f => f.key === getColumnKey(col) || f.key === col.id);
+            return filter ? { ...col, filterFn: createFilterFn(filter) } : col;
         }),
     [allColumns, filters]);
 
     const initialColumnVisibility = useMemo(() =>
-        allColumns.reduce((visibility, column) => {
-            const columnId = getColumnKey(column);
-            if (columnId && (column as unknown as Record<string, unknown>).hidden === true) visibility[columnId] = false;
-            return visibility;
+        allColumns.reduce((vis, col) => {
+            const id = getColumnKey(col);
+            if (id && (col as unknown as Record<string, unknown>).hidden === true) vis[id] = false;
+            return vis;
         }, {} as VisibilityState),
     [allColumns]);
 
@@ -307,7 +287,9 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
     const [globalFilterState, setGlobalFilterState] = useState(normalizedInitialPagination ? '' : initialParams.search);
     const columnFiltersRef = useRef<ColumnFiltersState>(columnFilters);
 
-    const isTreeMode = useMemo(() => routeInfo.props.configs?.['load-items'] === 'tree' || routeInfo.props.views?.['load-items'] === 'tree', [routeInfo.props.configs, routeInfo.props.views]);
+    const isTreeMode = useMemo(() =>
+        checkTreeMode(routeInfo.props.configs) || checkTreeMode(routeInfo.props.views),
+    [routeInfo.props.configs, routeInfo.props.views]);
 
     const { items, pagination, fetchData, updateUrlParams, setApiItemsRaw, lastFetchedUrlRef, apiColumns, apiFilters, isLoading, error, isFetchingRef, setApiColumns, setApiFilters } =
         useDataTableData<TData, TValue>(routeInfo, { itemsProp, dataProp, paginationProp, resourceProp: props.resource }, { isTreeMode, expandedRows, columnFiltersRef });
@@ -354,43 +336,36 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
     }, [i18n, currentRouteName]);
 
     const globalFilterFn = useCallback((row: { original: TData }, _columnId: string, filterValue: unknown) => {
-        if (!filterValue) return true;
-        const searchValue = String(filterValue).toLowerCase().trim();
+        const searchValue = filterValue ? String(filterValue).toLowerCase().trim() : '';
         if (!searchValue) return true;
-        return searchableFields.some((field) => {
+        return searchableFields.some(field => {
             const value = row.original[field];
             if (value == null) return false;
-            const strVal = Array.isArray(value) ? value.join(' ') : String(value);
-            return strVal.toLowerCase().includes(searchValue);
+            return (Array.isArray(value) ? value.join(' ') : String(value)).toLowerCase().includes(searchValue);
         });
     }, [searchableFields]);
 
+    const fetchWithReset = useCallback((search?: string, filters: AdvancedFilterCondition[] = []) => {
+        if (!effectiveUseApi || !effectiveApiUrl) return;
+        setPageIndex(0);
+        fetchData(1, pageSize, search ?? globalFilterState, filters);
+    }, [effectiveUseApi, effectiveApiUrl, pageSize, globalFilterState, fetchData]);
+
     const handleColumnFiltersChange = useCallback((updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)) => {
-        setColumnFilters((prev) => {
+        setColumnFilters(prev => {
             const newFilters = typeof updater === 'function' ? updater(prev) : updater;
             columnFiltersRef.current = newFilters;
-            if (effectiveUseApi && effectiveApiUrl && !isFetchingRef.current) {
-                setPageIndex(0);
-                fetchData(1, pageSize, globalFilterState, advancedFilters);
-            }
+            if (!isFetchingRef.current) fetchWithReset(globalFilterState, advancedFilters);
             return newFilters;
         });
-    }, [effectiveUseApi, effectiveApiUrl, pageSize, globalFilterState, fetchData, advancedFilters, isFetchingRef]);
+    }, [fetchWithReset, globalFilterState, advancedFilters, isFetchingRef]);
 
-    const handleAdvancedFilterApply = useCallback(() => {
-        if (effectiveUseApi && effectiveApiUrl) {
-            setPageIndex(0);
-            fetchData(1, pageSize, globalFilterState, advancedFilters);
-        }
-    }, [effectiveUseApi, effectiveApiUrl, pageSize, globalFilterState, fetchData, advancedFilters]);
+    const handleAdvancedFilterApply = useCallback(() => fetchWithReset(globalFilterState, advancedFilters), [fetchWithReset, globalFilterState, advancedFilters]);
 
     const handleAdvancedFilterClear = useCallback(() => {
         setAdvancedFilters([]);
-        if (effectiveUseApi && effectiveApiUrl) {
-            setPageIndex(0);
-            fetchData(1, pageSize, globalFilterState, []);
-        }
-    }, [effectiveUseApi, effectiveApiUrl, pageSize, globalFilterState, fetchData]);
+        fetchWithReset(globalFilterState, []);
+    }, [fetchWithReset, globalFilterState]);
 
     const handlePageSizeChange = useCallback((size: number) => {
         setPageSize(size);
@@ -404,13 +379,13 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
     }, [updateUrlParams, pageSize, effectiveUseApi, globalFilterState, advancedFilters]);
 
     const toggleRowExpansion = useCallback((rowId: string | number) => {
-        setExpandedRows((prev) => {
+        setExpandedRows(prev => {
             const next = new Set(prev);
-            if (next.has(rowId)) {
-                next.delete(rowId);
-            } else {
-                next.add(rowId);
-            }
+            const sId = String(rowId);
+            const nId = Number(rowId);
+            if (next.has(sId)) next.delete(sId);
+            else if (!isNaN(nId) && next.has(nId)) next.delete(nId);
+            else next.add(sId);
             return next;
         });
     }, []);
@@ -422,29 +397,24 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
         manualPagination: true,
         pageCount: pagination?.last_page || 1,
         autoResetPageIndex: false,
         autoResetExpanded: false,
+        enableRowSelection: true,
+        globalFilterFn,
         state: { sorting, columnFilters, columnVisibility, rowSelection, pagination: { pageIndex, pageSize } },
         getRowId: (row, index) => (row as Record<string, unknown>).id ? String((row as Record<string, unknown>).id) : String(index),
         onSortingChange: setSorting,
         onColumnFiltersChange: handleColumnFiltersChange,
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
-        onPaginationChange: (updater) => {
-            if (typeof updater === 'function') {
-                const next = updater({ pageIndex, pageSize });
-                setPageSize(next.pageSize);
-                setPageIndex(next.pageIndex);
-            } else {
-                setPageSize(updater.pageSize);
-                setPageIndex(updater.pageIndex);
-            }
+        onPaginationChange: updater => {
+            const next = typeof updater === 'function' ? updater({ pageIndex, pageSize }) : updater;
+            setPageSize(next.pageSize);
+            setPageIndex(next.pageIndex);
         },
-        enableRowSelection: true,
-        globalFilterFn,
-        getPaginationRowModel: getPaginationRowModel(),
         onGlobalFilterChange: onGlobalFilterChange ? (value) => onGlobalFilterChange(typeof value === 'string' ? value : '') : setGlobalFilterState,
     });
 

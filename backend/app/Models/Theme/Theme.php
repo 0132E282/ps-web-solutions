@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Theme;
 
 use PS0132E282\Core\Base\BaseModel;
 
@@ -40,6 +40,6 @@ class Theme extends BaseModel
 
   public function category()
   {
-    return $this->belongsTo(ThemeCategory::class, 'category_id');
+    return $this->belongsTo(\App\Models\Theme\ThemeCategory::class, 'category_id');
   }
 }

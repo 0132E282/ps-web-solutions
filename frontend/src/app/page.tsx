@@ -1,13 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { ArrowRight, CheckCircle, Clock, Gem, Play } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowRight, Clock, Play, Gem } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Navbar } from '@/components/layout/Navbar';
 import { SubNavbar } from '@/components/layout/SubNavbar';
 import { Footer } from '@/components/layout/Footer';
-import { TemplateCard } from '@/components/templates/TemplateCard';
+import { TemplateCard, type TemplateCardProps } from '@/components/templates/TemplateCard';
 
 // Swiper imports
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -43,9 +42,9 @@ const HeroSlider = () => {
   ];
 
   return (
-    <section className="py-10">
-      <div className="container mx-auto px-5">
-        <div className="relative group bg-slate-900 overflow-hidden h-[300px] lg:h-[550px] rounded-3xl shadow-2xl shadow-slate-200">
+    <section className="py-12 lg:py-10 bg-[#fafafa]">
+      <div className="container mx-auto">
+        <div className="relative group bg-slate-900 overflow-hidden h-[350px] lg:h-[600px] rounded-[2.5rem] shadow-2xl shadow-slate-200">
           <Swiper
             modules={[Autoplay, Navigation, Pagination, EffectFade]}
             effect="fade"
@@ -61,34 +60,29 @@ const HeroSlider = () => {
                 bulletClass: 'swiper-pagination-bullet-custom',
                 bulletActiveClass: 'swiper-pagination-bullet-active-custom',
             }}
-            autoplay={{ delay: 5000, disableOnInteraction: false }}
+            autoplay={{ delay: 6000, disableOnInteraction: false }}
             loop={true}
             className="h-full w-full"
           >
             {slides.map((slide) => (
               <SwiperSlide key={slide.id}>
                 <div className="relative w-full h-full">
-                  {/* Image Only Layer */}
                   <div
-                    className="absolute inset-0 bg-cover bg-center transition-transform duration-[10s] ease-linear scale-110 group-hover:scale-100"
+                    className="absolute inset-0 bg-cover bg-center transition-transform duration-[15s] ease-linear scale-110 group-hover:scale-100"
                     style={{ backgroundImage: `url(${slide.image})` }}
-                  >
-                    <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-all duration-500"></div>
-                  </div>
+                  ></div>
                 </div>
               </SwiperSlide>
             ))}
 
-            {/* Custom Navigation */}
-            <button className="swiper-button-prev-custom absolute left-6 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white z-20 opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-slate-900 pointer-events-auto">
-                ❮
+            <button aria-label="Previous slide" className="swiper-button-prev-custom absolute left-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white z-20 opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-slate-900 shadow-2xl">
+                <span className="text-xl">❮</span>
             </button>
-            <button className="swiper-button-next-custom absolute right-6 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white z-20 opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-slate-900 pointer-events-auto">
-                ❯
+            <button aria-label="Next slide" className="swiper-button-next-custom absolute right-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white z-20 opacity-0 group-hover:opacity-100 transition-all hover:bg-white hover:text-slate-900 shadow-2xl">
+                <span className="text-xl">❯</span>
             </button>
 
-            {/* Custom Pagination */}
-            <div className="swiper-pagination-custom absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-3"></div>
+            <div className="swiper-pagination-custom absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex gap-4"></div>
           </Swiper>
         </div>
       </div>
@@ -96,98 +90,54 @@ const HeroSlider = () => {
   );
 };
 
-const CustomTabs = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: string) => void }) => (
-  <section className="py-8">
-    <div className="container mx-auto px-5">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b border-slate-100">
-        <div
-          className={`group flex items-center gap-5 p-7 cursor-pointer transition-all duration-300 relative overflow-hidden
-              ${activeTab === 'premium' ? 'bg-white' : 'hover:bg-slate-50'}`}
-          onClick={() => setActiveTab('premium')}
-        >
-          <div className={`flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 shadow-sm
-              ${activeTab === 'premium' ? 'bg-emerald-50 text-emerald-600 shadow-emerald-100' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'}`}>
-            <CheckCircle size={28} strokeWidth={2.5} />
-          </div>
-          <div className="flex flex-col">
-            <h3 className={`text-lg font-bold transition-colors ${activeTab === 'premium' ? 'text-brand-dark' : 'text-slate-500'}`}>Premium Themes</h3>
-            <p className="text-[13px] text-slate-400 font-medium leading-relaxed">High-Quality UI • Clean Code • Support</p>
-          </div>
-          {activeTab === 'premium' && <div className="absolute bottom-0 left-0 w-full h-1 bg-emerald-500 animate-in fade-in slide-in-from-bottom-1" />}
-        </div>
 
-        <div
-          className={`group flex items-center gap-5 p-7 cursor-pointer transition-all duration-300 relative overflow-hidden
-              ${activeTab === 'freebies' ? 'bg-white' : 'hover:bg-slate-50'}`}
-          onClick={() => setActiveTab('freebies')}
-        >
-          <div className={`flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 shadow-sm
-              ${activeTab === 'freebies' ? 'bg-amber-50 text-amber-600 shadow-amber-100' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'}`}>
-            <Gem size={28} strokeWidth={2.5} />
-          </div>
-          <div className="flex flex-col">
-            <h3 className={`text-lg font-bold transition-colors ${activeTab === 'freebies' ? 'text-brand-dark' : 'text-slate-500'}`}>Top Freebies</h3>
-            <p className="text-[13px] text-slate-400 font-medium leading-relaxed">Most popular free-to-use templates</p>
-          </div>
-          {activeTab === 'freebies' && <div className="absolute bottom-0 left-0 w-full h-1 bg-amber-500 animate-in fade-in slide-in-from-bottom-1" />}
-        </div>
 
-        <div
-          className={`group flex items-center gap-5 p-7 cursor-pointer transition-all duration-300 relative overflow-hidden
-              ${activeTab === 'recent' ? 'bg-white' : 'hover:bg-slate-50'}`}
-          onClick={() => setActiveTab('recent')}
-        >
-          <div className={`flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 shadow-sm
-              ${activeTab === 'recent' ? 'bg-blue-50 text-blue-600 shadow-blue-100' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'}`}>
-            <Clock size={28} strokeWidth={2.5} />
-          </div>
-          <div className="flex flex-col">
-            <h3 className={`text-lg font-bold transition-colors ${activeTab === 'recent' ? 'text-brand-dark' : 'text-slate-500'}`}>Fresh Releases</h3>
-            <p className="text-[13px] text-slate-400 font-medium leading-relaxed">Latest trends and fresh UI patterns</p>
-          </div>
-          {activeTab === 'recent' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-500 animate-in fade-in slide-in-from-bottom-1" />}
-        </div>
-      </div>
-    </div>
-  </section>
-);
-
-const TemplateSlider = ({ templates }: { templates: any[] }) => {
+const TemplateSlider = ({ title, description, templates, navId }: { title: string, description?: string, templates: TemplateCardProps[], navId: string }) => {
   return (
-    <section className="py-16">
+    <section className="py-16 overflow-hidden md:overflow-visible">
       <div className="container mx-auto px-5">
-        <div className="flex items-end justify-between mb-10">
-            <div>
-              <h2 className="text-3xl font-black text-brand-dark mb-3">Trending Templates</h2>
-              <p className="text-slate-500 font-medium">Hand-picked premium assets with exclusive discounts.</p>
+        <div className="flex flex-col md:flex-row md:items-end justify-between  gap-6">
+            <div className="max-w-2xl">
+              <h2 className="text-3xl font-black text-brand-dark mb-3 tracking-tighter">{title}</h2>
+              {description && <p className="text-slate-500 font-medium text-lg leading-relaxed">{description}</p>}
             </div>
-            <div className="flex gap-2">
-              <button className="tmpl-prev w-12 h-12 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-brand-primary hover:text-white transition-all active:scale-90 shadow-sm">❮</button>
-              <button className="tmpl-next w-12 h-12 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-brand-primary hover:text-white transition-all active:scale-90 shadow-sm">❯</button>
-            </div>
+            <Button variant="ghost" className="hidden sm:flex items-center gap-2 text-brand-primary font-bold hover:bg-brand-primary/5 rounded-xl px-4 py-2 transition-all">
+              View All <ArrowRight size={18} />
+            </Button>
         </div>
 
-        <Swiper
-          modules={[Navigation, Pagination, Autoplay]}
-          spaceBetween={30}
-          slidesPerView={1}
-          navigation={{
-            nextEl: '.tmpl-next',
-            prevEl: '.tmpl-prev',
-          }}
-          autoplay={{ delay: 5000, disableOnInteraction: false }}
-          breakpoints={{
-            640: { slidesPerView: 2 },
-            1280: { slidesPerView: 3 },
-          }}
-          className="pb-16"
-        >
-          {templates.map((t) => (
-            <SwiperSlide key={t.id}>
-              <TemplateCard {...t} />
-            </SwiperSlide>
-          ))}
-        </Swiper>
+        <div className="relative group/slider">
+          <Swiper
+            modules={[Navigation, Pagination, Autoplay]}
+            spaceBetween={24}
+            slidesPerView={1}
+            navigation={{
+              nextEl: `.${navId}-next`,
+              prevEl: `.${navId}-prev`,
+            }}
+            autoplay={{ delay: 5000, disableOnInteraction: false }}
+            breakpoints={{
+              640: { slidesPerView: 2 },
+              1024: { slidesPerView: 3 },
+              1280: { slidesPerView: 4 },
+            }}
+            className="pb-4 sm:px-2"
+          >
+            {templates.map((t) => (
+              <SwiperSlide key={t.id} className="py-4 h-auto">
+                <TemplateCard {...t} />
+              </SwiperSlide>
+            ))}
+          </Swiper>
+
+          {/* Navigation Buttons - Side Positioning */}
+          <button aria-label="Prev templates" className={`${navId}-prev absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-16 h-16 rounded-full bg-white border border-slate-100 items-center justify-center text-slate-400 z-30 shadow-[0_10px_40px_rgba(0,0,0,0.12)] transition-all hover:bg-brand-primary hover:text-white hover:border-brand-primary active:scale-90 opacity-0 group-hover/slider:opacity-100 invisible group-hover/slider:visible hidden lg:flex`}>
+              <span className="text-3xl mr-1 leading-none">❮</span>
+          </button>
+          <button aria-label="Next templates" className={`${navId}-next absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-16 h-16 rounded-full bg-white border border-slate-100 items-center justify-center text-slate-400 z-30 shadow-[0_10px_40px_rgba(0,0,0,0.12)] transition-all hover:bg-brand-primary hover:text-white hover:border-brand-primary active:scale-90 opacity-0 group-hover/slider:opacity-100 invisible group-hover/slider:visible hidden lg:flex`}>
+              <span className="text-3xl ml-1 leading-none">❯</span>
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -216,67 +166,74 @@ const FeaturedPosts = () => {
                Featured Articles
                <div className="w-2 h-2 rounded-full bg-brand-primary animate-pulse" />
             </h2>
-            <p className="text-slate-500 font-medium">Insights, tutorials and the latest trends in web development.</p>
-          </div>
-          <div className="flex gap-2">
-            <button className="post-prev w-12 h-12 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-brand-dark hover:text-white transition-all active:scale-90">❮</button>
-            <button className="post-next w-12 h-12 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 hover:bg-brand-dark hover:text-white transition-all active:scale-90">❯</button>
           </div>
         </div>
+        <div className="relative group/article-slider">
+          <Swiper
+            modules={[Navigation, Pagination, Autoplay]}
+            spaceBetween={30}
+            slidesPerView={1}
+            navigation={{
+              nextEl: '.post-next',
+              prevEl: '.post-prev',
+            }}
+            autoplay={{ delay: 4000, disableOnInteraction: false }}
+            breakpoints={{
+              640: { slidesPerView: 2 },
+              1024: { slidesPerView: 3 },
+            }}
+            className="pb-12"
+          >
+            {posts.map((post) => (
+              <SwiperSlide key={post.id}>
+                <div className="group cursor-pointer">
+                  <div className="relative aspect-video rounded-2xl overflow-hidden mb-5">
+                    <img
+                      src={post.image}
+                      alt={post.title}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    />
+                    <div className="absolute top-4 left-4 px-3 py-1 rounded-lg bg-white/90 backdrop-blur-sm text-[11px] font-bold uppercase tracking-wider text-brand-dark shadow-sm">
+                      {post.category}
+                    </div>
+                  </div>
+                  <div className="space-y-3 px-1">
+                    <div className="flex items-center gap-2 text-slate-400 text-[12px] font-semibold">
+                       <Clock size={14} />
+                       <span>{post.date}</span>
+                    </div>
+                    <h3 className="text-xl font-bold text-brand-dark leading-snug group-hover:text-brand-primary transition-colors line-clamp-2">
+                      {post.title}
+                    </h3>
+                  </div>
+                </div>
+              </SwiperSlide>
+            ))}
+          </Swiper>
 
-        <Swiper
-          modules={[Navigation, Pagination, Autoplay]}
-          spaceBetween={30}
-          slidesPerView={1}
-          navigation={{
-            nextEl: '.post-next',
-            prevEl: '.post-prev',
-          }}
-          autoplay={{ delay: 4000, disableOnInteraction: false }}
-          breakpoints={{
-            640: { slidesPerView: 2 },
-            1024: { slidesPerView: 3 },
-          }}
-          className="pb-12"
-        >
-          {posts.map((post) => (
-            <SwiperSlide key={post.id}>
-              <div className="group cursor-pointer">
-                <div className="relative aspect-video rounded-2xl overflow-hidden mb-5">
-                  <img
-                    src={post.image}
-                    alt={post.title}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute top-4 left-4 px-3 py-1 rounded-lg bg-white/90 backdrop-blur-sm text-[11px] font-bold uppercase tracking-wider text-brand-dark shadow-sm">
-                    {post.category}
-                  </div>
-                </div>
-                <div className="space-y-3 px-1">
-                  <div className="flex items-center gap-2 text-slate-400 text-[12px] font-semibold">
-                     <Clock size={14} />
-                     <span>{post.date}</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-brand-dark leading-snug group-hover:text-brand-primary transition-colors line-clamp-2">
-                    {post.title}
-                  </h3>
-                </div>
-              </div>
-            </SwiperSlide>
-          ))}
-        </Swiper>
+          {/* Navigation Buttons - Side Positioning */}
+          <button aria-label="Prev posts" className="post-prev absolute left-0 top-[35%] -translate-y-1/2 -translate-x-1/2 w-14 h-14 rounded-full bg-white border border-slate-100 items-center justify-center text-slate-400 z-30 shadow-[0_10px_40px_rgba(0,0,0,0.12)] transition-all hover:bg-brand-primary hover:text-white hover:border-brand-primary active:scale-90 opacity-0 group-hover/article-slider:opacity-100 invisible group-hover/article-slider:visible hidden lg:flex">
+              <span className="text-2xl mr-1 leading-none">❮</span>
+          </button>
+          <button aria-label="Next posts" className="post-next absolute right-0 top-[35%] -translate-y-1/2 translate-x-1/2 w-14 h-14 rounded-full bg-white border border-slate-100 items-center justify-center text-slate-400 z-30 shadow-[0_10px_40px_rgba(0,0,0,0.12)] transition-all hover:bg-brand-primary hover:text-white hover:border-brand-primary active:scale-90 opacity-0 group-hover/article-slider:opacity-100 invisible group-hover/article-slider:visible hidden lg:flex">
+              <span className="text-2xl ml-1 leading-none">❯</span>
+          </button>
+        </div>
       </div>
     </section>
   );
 };
 
 export default function Home() {
-  const templates = [
+  const bestSellingTemplates = [
     { id: 1, title: 'Phoenix - Premium Bootstrap 5 Admin Dashboard', image: 'https://images.unsplash.com/photo-1551288049-bbda38a1091e?q=80&w=800', price: 59, originalPrice: 79, isHot: true },
     { id: 2, title: 'Falcon - Premium Bootstrap 5 Dashboard', image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=800', price: 69, originalPrice: 99, isHot: false },
     { id: 3, title: 'Sparrow - Creative Multipurpose Template', image: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?q=80&w=800', price: 49, originalPrice: 69, isHot: true },
     { id: 4, title: 'Gulp - Multipage Landing Page Portfolio', image: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=800', price: 39, originalPrice: 59, isHot: false },
     { id: 5, title: 'Basic - Simple Free Blog Template', image: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?q=80&w=800', price: 0, isFree: true },
+  ];
+
+  const featuredTemplates = [
     { id: 6, title: 'E-commerce Theme - Dark Mode Support', image: 'https://images.unsplash.com/photo-1557821552-17105176677c?q=80&w=800', price: 79, originalPrice: 129, isHot: true },
     { id: 7, title: 'Modern Real Estate UI Kit', image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=800', price: 45, originalPrice: 65, isHot: false },
     { id: 8, title: 'Fitness & Gym Landing Page', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=800', price: 29, isFree: false },
@@ -291,49 +248,49 @@ export default function Home() {
       <main>
         <HeroSlider />
 
-        <section className="py-20">
-          <div className="container mx-auto px-5">
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
-              <div>
-                <h2 className="text-4xl font-black text-brand-dark mb-4 tracking-tighter">
-                   Explore <span className="text-brand-primary">Premium</span> Assets
-                </h2>
-                <p className="text-slate-500 font-medium text-lg">Browse our highly curated collection of high-quality website templates.</p>
-              </div>
-              <Button variant="outline" className="rounded-2xl  border-slate-200 hover:border-brand-primary hover:text-brand-primary text-base font-bold gap-3 transition-all hover:bg-brand-primary/5 active:scale-95 h-auto">
-                View All <ArrowRight size={20} />
-              </Button>
-            </div>
+        <TemplateSlider
+            title="Sản phẩm bán chạy"
+            templates={bestSellingTemplates}
+            navId="best-selling"
+        />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-              {templates.map((t) => (
-                <TemplateCard key={t.id} {...t} />
-              ))}
-            </div>
-          </div>
-        </section>
+        <TemplateSlider
+            title="Sản phẩm nổi bật"
+            templates={featuredTemplates}
+            navId="featured"
+        />
 
         <FeaturedPosts />
 
-        <section className="pb-20">
+        <section className="pb-32">
             <div className="container mx-auto px-5">
-                <div className="bg-white border border-slate-200 rounded-2xl flex flex-col lg:flex-row overflow-hidden relative">
-                    <div className="absolute inset-0 p-[2px] rounded-2xl bg-gradient-to-r from-[#4facfe] to-[#00f2fe] -z-10 pointer-events-none"></div>
-
-                    <div className="flex-[1.5] p-10 lg:p-16 bg-white rounded-l-2xl">
-                        <h2 className="text-[32px] font-bold mb-6 text-brand-dark leading-tight">Hire top notch React & UI/UX specialists from MyWebsite</h2>
-                        <p className="text-muted-foreground text-lg mb-8">Need help with custom development? We can help you with software engineers experienced in Backend and front-end development.</p>
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                            <Button className="bg-brand-primary hover:bg-[#e0961d] text-white rounded-xl px-8 py-6 h-auto text-base font-bold shadow-lg shadow-orange-200">Get a Free Quote</Button>
-                            <div className="text-[#2196f3] font-semibold underline cursor-pointer hover:text-blue-600 transition-colors">Email: contact@mywebsite.com</div>
+                <div className="bg-[#0f172a] rounded-[3rem] flex flex-col lg:flex-row overflow-hidden relative shadow-2xl shadow-blue-900/10">
+                    <div className="flex-[1.5] p-10 lg:p-20 relative z-10">
+                        <div className="w-20 h-20 bg-brand-primary/10 rounded-3xl flex items-center justify-center mb-8">
+                           <Gem size={40} className="text-brand-primary" />
+                        </div>
+                        <h2 className="text-4xl md:text-5xl font-black mb-8 text-white leading-[1.1] tracking-tight">Hire top notch React & UI/UX specialists</h2>
+                        <p className="text-slate-400 text-xl mb-12 max-w-2xl leading-relaxed">Need help with custom development? Our expert team of software engineers and designers can help you scale your product with precision.</p>
+                        <div className="flex flex-col sm:flex-row items-center gap-8">
+                            <Button className="bg-brand-primary hover:bg-brand-primary/90 text-white rounded-2xl px-10 py-7 h-auto text-lg font-black shadow-xl shadow-brand-primary/20 transition-all hover:-translate-y-1 active:scale-95 leading-none">Get a Free Quote</Button>
+                            <div className="text-white/60 font-bold hover:text-white transition-colors cursor-pointer flex items-center gap-3">
+                              <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center">
+                                <Clock size={20} />
+                              </div>
+                              contact@mywebsite.com
+                            </div>
                         </div>
                     </div>
-                    <div className="flex-1 bg-[#1a202c] min-h-[300px] flex items-center justify-center">
-                        <div className="flex flex-col items-center gap-3 text-white cursor-pointer group">
-                            <div className="w-20 h-20 rounded-full border-2 border-white/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                <Play size={40} fill="#fff" className="ml-1" />
+                    <div className="flex-1 bg-brand-primary relative min-h-[400px] flex items-center justify-center overflow-hidden">
+                        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=2670&auto=format&fit=crop')] bg-cover bg-center mix-blend-overlay opacity-60"></div>
+                        <div className="flex flex-col items-center gap-6 text-white cursor-pointer group relative z-10 transition-transform duration-500 hover:scale-105">
+                            <div className="w-28 h-28 rounded-full border-4 border-white/20 bg-white/10 backdrop-blur-xl flex items-center justify-center group-hover:bg-brand-primary group-hover:border-brand-primary transition-all duration-300 shadow-2xl">
+                                <Play size={48} fill="#fff" className="ml-2 scale-90 group-hover:scale-100 transition-transform" />
                             </div>
-                            <span className="font-semibold tracking-wide">Watch Video</span>
+                            <span className="font-black text-xl tracking-widest uppercase">Watch Success Story</span>
+                        </div>
+                        <div className="absolute top-0 right-0 p-12">
+                          <div className="text-[120px] font-black text-white/5 select-none leading-none">MYWEB</div>
                         </div>
                     </div>
                 </div>

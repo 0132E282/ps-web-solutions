@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Theme;
 
 use PS0132E282\Core\Base\BaseController;
-use App\Models\Theme;
+use App\Models\Theme\Theme;
 
 class ThemeController extends BaseController
 {

@@ -71,6 +71,9 @@ export function DataTable<TData extends Record<string, unknown>, TValue>(props: 
                                     <TableRow key={headerGroup.id} className="hover:bg-muted">
                                         {headerGroup.headers.map((header, i) => {
                                             const meta = header.column.columnDef.meta as { width?: string | number } | undefined;
+                                            const firstDataHeaderIndex = headerGroup.headers.findIndex(h => h.column.id !== 'select');
+                                            const isTreeColumnHeader = i === (firstDataHeaderIndex !== -1 ? firstDataHeaderIndex : 0) && isTreeMode;
+
                                             return (
                                                 <TableHead
                                                     key={header.id + (header.column.id === 'select' ? `-${Object.keys(rowSelection).length}-${JSON.stringify(rowSelection).length}` : '')}
@@ -78,9 +81,9 @@ export function DataTable<TData extends Record<string, unknown>, TValue>(props: 
                                                     className={cn(meta?.width && "wrap-break-word")}
                                                 >
                                                     {!header.isPlaceholder && (
-                                                        i === 0 && isTreeMode ? (
-                                                            <div className="flex items-center gap-1.5">
-                                                                <div className="h-5 w-5 shrink-0" />
+                                                        isTreeColumnHeader ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="h-6 w-6 shrink-0" />
                                                                 <div className="flex items-center">
                                                                     {flexRender(header.column.columnDef.header, header.getContext())}
                                                                 </div>
@@ -107,33 +110,58 @@ export function DataTable<TData extends Record<string, unknown>, TValue>(props: 
                                         const rowData = row.original as Record<string, unknown>;
                                         const level = isTreeMode && typeof rowData._level === 'number' ? rowData._level : 0;
                                         const hasChildren = isTreeMode && rowData._hasChildren === true;
-                                        const rowId = String(isTreeMode && rowData._id != null ? rowData._id : row.id);
-                                        const isExpanded = isTreeMode && (expandedRows.has(rowId) || expandedRows.has(Number(rowId)));
+                                        const rowId = String(isTreeMode && rowData._id != null ? rowData._id : (row.id ?? (row.original as any).id));
+                                        const isExpanded = isTreeMode && (expandedRows.has(rowId) || expandedRows.has(Number(rowId)) || expandedRows.has(String(rowId)));
                                         const isSelected = (rowSelection as Record<string, boolean>)?.[rowId] || false;
+
+                                        // Find index of first column that isn't the selection checkbox
+                                        const firstDataColumnIndex = mergedColumns.findIndex(c => c.id !== 'select');
+                                        const treeColumnIndex = firstDataColumnIndex !== -1 ? firstDataColumnIndex : 0;
 
                                         return (
                                             <Fragment key={row.id}>
-                                                <TableRow data-state={isSelected && "selected"} className="group/row h-[70px]">
+                                                <TableRow data-state={isSelected && "selected"} className="group/row">
                                                     {row.getVisibleCells().map((cell, i) => {
                                                         const meta = cell.column.columnDef.meta as { width?: string | number } | undefined;
+                                                        const isTreeColumn = i === treeColumnIndex && isTreeMode;
+
                                                         return (
-                                                            <TableCell key={cell.id} style={getWidthStyle(meta)} className={cn(meta?.width && "wrap-break-word")}>
-                                                                {i === 0 && isTreeMode ? (
-                                                                    <div style={{ paddingLeft: level > 0 ? `${level * 20}px` : '0' }} className="flex items-center gap-1.5">
-                                                                        {hasChildren ? (
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={(e) => {
-                                                                                    e.preventDefault();
-                                                                                    e.stopPropagation();
-                                                                                    toggleRowExpansion(rowId);
-                                                                                }}
-                                                                                className="h-5 w-5 p-0 hover:bg-accent rounded transition-colors flex items-center justify-center shrink-0 cursor-pointer"
-                                                                            >
-                                                                                <ChevronRight className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", isExpanded && "rotate-90")} />
-                                                                            </button>
-                                                                        ) : <div className="h-5 w-5 shrink-0" />}
-                                                                        <div className="flex items-center">{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>
+                                                            <TableCell
+                                                                key={cell.id}
+                                                                style={getWidthStyle(meta)}
+                                                                className={cn(
+                                                                    "py-3",
+                                                                    meta?.width && "wrap-break-word"
+                                                                )}
+                                                            >
+                                                                {isTreeColumn ? (
+                                                                    <div
+                                                                        style={{ paddingLeft: level > 0 ? `${level * 24}px` : '0' }}
+                                                                        className="flex items-center gap-2"
+                                                                    >
+                                                                        <div className="shrink-0 w-6 h-6 flex items-center justify-center">
+                                                                            {hasChildren ? (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        e.stopPropagation();
+                                                                                        toggleRowExpansion(rowId);
+                                                                                    }}
+                                                                                    className="h-6 w-6 p-0 hover:bg-accent hover:text-accent-foreground rounded-md transition-all flex items-center justify-center cursor-pointer border border-transparent hover:border-border"
+                                                                                >
+                                                                                    <ChevronRight className={cn(
+                                                                                        "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                                                                                        isExpanded && "rotate-90 text-primary  hover:text-accent-foreground "
+                                                                                    )} />
+                                                                                </button>
+                                                                            ) : (
+                                                                                level > 0 && <div className="h-full w-px bg-border/50 ml-3" />
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0">
+                                                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                                        </div>
                                                                     </div>
                                                                 ) : flexRender(cell.column.columnDef.cell, cell.getContext())}
                                                             </TableCell>

@@ -3,6 +3,7 @@
 namespace PS0132E282\Core\Base;
 
 use Aliziodev\LaravelTaxonomy\Models\Taxonomy;
+use Illuminate\Support\Str;
 use PS0132E282\Core\Cats\Localization;
 use PS0132E282\Core\Cats\Property;
 use PS0132E282\Core\Cats\SlugField;
@@ -105,9 +106,14 @@ abstract class BaseTerm extends Taxonomy
 
     /**
      * Get the taxonomy name for this term type
-     * Override this in child classes
+     * Default: converts ThemeOption -> theme_options
      */
-    abstract protected function getTaxonomyName(): string;
+    protected function getTaxonomyName(): string
+    {
+        return (string) Str::of(class_basename($this))
+            ->snake()
+            ->plural();
+    }
 
     /**
      * Get status attribute (published/draft)

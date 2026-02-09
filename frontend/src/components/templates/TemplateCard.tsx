@@ -21,7 +21,7 @@ export const TemplateCard = ({ image, title, price, originalPrice, isFree, slug,
     const hasDiscount = originalPrice && originalPrice > price;
 
     return (
-    <Card className="border-none shadow-[0_4px_25px_rgba(0,0,0,0.06)] rounded-2xl overflow-hidden group hover:-translate-y-2 transition-all duration-500 bg-white">
+    <Card className="h-full flex flex-col border-none shadow-[0_4px_25px_rgba(0,0,0,0.06)] rounded-2xl overflow-hidden group hover:-translate-y-2 transition-all duration-500 bg-white">
       <div className="relative h-[240px] overflow-hidden">
         <Link href={`/templates/${themeSlug}`} className="block h-full">
             <img
@@ -51,7 +51,7 @@ export const TemplateCard = ({ image, title, price, originalPrice, isFree, slug,
         </div>
       </div>
 
-      <CardContent className="p-6">
+      <CardContent className="p-6 flex-1 flex flex-col">
         <div className="mb-4">
             <Link href={`/templates/${themeSlug}`} className="block group/title">
                 <h4 className="text-[17px] font-bold leading-snug line-clamp-2 min-h-[50px] text-brand-dark group-hover/title:text-brand-primary transition-colors">
@@ -59,6 +59,8 @@ export const TemplateCard = ({ image, title, price, originalPrice, isFree, slug,
                 </h4>
             </Link>
         </div>
+
+        <div className="flex-1"></div>
 
         <div className="flex justify-between items-end border-t border-slate-50 pt-4">
           <div className="flex flex-col">

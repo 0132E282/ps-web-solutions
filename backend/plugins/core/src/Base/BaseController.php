@@ -276,11 +276,11 @@ class BaseController extends Controller
         $viewConfig = $this->getViewConfig($viewKey);
         $baseView = $this->getBaseView($viewKey);
 
-        $views = array_filter([
+        $views = array_merge($baseView, array_filter([
             'title' => $baseView['title'] ?? null,
             'description' => $baseView['description'] ?? null,
             'icon' => $baseView['icon'] ?? null,
-        ], fn($value) => $value !== null);
+        ], fn($value) => $value !== null));
 
         if (isset($baseView['fields'])) {
             $views['fields'] = $viewKey === 'index'
