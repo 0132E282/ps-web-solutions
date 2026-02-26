@@ -51,9 +51,27 @@ return [
         ],
       ],
       [
+        'title' => 'Dự án',
+        'icon' => 'FolderKanban',
+        'children' => [
+          [
+            'title' => 'Danh sách dự án',
+            'route' => 'admin.projects.index',
+          ],
+          [
+            'title' => 'Danh mục dự án',
+            'route' => 'admin.project-categories.index',
+          ],
+        ],
+      ],
+      [
         'title' => 'Website',
         'icon' => 'Globe',
         'children' => [
+          [
+            'title' => 'Slider & Banner',
+            'route' => 'admin.sliders.index',
+          ],
           [
             'title' => 'Menus',
             'route' => 'admin.menus.index',

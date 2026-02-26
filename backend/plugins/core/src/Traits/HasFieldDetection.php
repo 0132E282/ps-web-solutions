@@ -7,9 +7,12 @@ use Illuminate\Support\Str;
 
 trait HasFieldDetection
 {
+    // * Fields that are automatically marked as primary (clickable link in table)
+    protected array $primaryFields = ['name', 'title'];
+
     /**
-     * Process index fields to auto-detect type from model casts
-     * Auto-adds type config for datetime/date fields
+     * Process index fields to auto-detect type from model casts.
+     * Auto-detects: date, badge (relationship/dot-notation), primary (name/title)
      */
     protected function processIndexFields(array $fields): array
     {
@@ -21,14 +24,44 @@ trait HasFieldDetection
         $casts = $modelInstance->getCasts();
         $tableName = $modelInstance->getTable();
 
-        return array_map(function ($field) use ($casts, $tableName) {
+        return array_map(function ($field) use ($casts, $tableName, $modelInstance) {
             if (is_array($field)) {
                 return $field;
             }
 
-            $fieldConfig = $this->detectFieldType($field, $casts, $tableName);
+            // * Auto-detect: dot notation field (e.g. "roles.name") → badge
+            if (str_contains($field, '.')) {
+                $relationName = explode('.', $field)[0];
 
-            return $fieldConfig ?? $field;
+                return [
+                    'name'   => $field,
+                    'type'   => 'string',
+                    'ui'     => 'badge',
+                    'size'   => $this->getDefaultFieldWidth('badge', $relationName),
+                    'label'  => ucfirst($relationName),
+                ];
+            }
+
+            // * Auto-detect: model relationship method (e.g. "roles") → badge
+            if (method_exists($modelInstance, $field)) {
+                return [
+                    'name'  => $field,
+                    'type'  => 'string',
+                    'ui'    => 'badge',
+                    'size'  => $this->getDefaultFieldWidth('badge', $field),
+                    'label' => ucfirst($field),
+                ];
+            }
+
+            $fieldConfig = $this->detectFieldType($field, $casts, $tableName);
+            $resolved = $fieldConfig ?? ['name' => $field];
+
+            // * Auto-detect: "name" or "title" → primary = true
+            if (is_array($resolved) && in_array($field, $this->primaryFields, true)) {
+                $resolved['primary'] = true;
+            }
+
+            return $resolved;
         }, $fields);
     }
 

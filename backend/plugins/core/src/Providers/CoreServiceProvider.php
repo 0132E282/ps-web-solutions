@@ -200,13 +200,27 @@ class CoreServiceProvider extends ServiceProvider
 
     protected function processSidebarItems(array $items): array
     {
-        return array_map(function ($item) {
+        $filteredItems = [];
+        $user = auth()->user();
+
+        foreach ($items as $item) {
+            $hasAccess = true;
+
             if (isset($item['route'])) {
                 if ($item['route'] === 'admin.notifications.index') {
-                    $user = auth()->user();
                     $item['badge'] = ($user && \Illuminate\Support\Facades\Schema::hasTable('notifications'))
                         ? $user->unreadNotifications()->count()
                         : 0;
+                }
+
+                if ($user) {
+                    $permissionName = str_replace('admin.', '', $item['route']);
+                    // Cho phép nhìn thấy dashboard, hoặc những modules có quyền
+                    if ($item['route'] !== 'admin.site.dashboard' && $item['route'] !== 'admin.site.index' && $item['route'] !== 'admin.account.index' && $item['route'] !== 'admin.account.profile') {
+                        if (! $user->can($permissionName)) {
+                            $hasAccess = false;
+                        }
+                    }
                 }
 
                 $item['url'] = Route::has($item['route']) ? route($item['route']) : '#';
@@ -216,11 +230,23 @@ class CoreServiceProvider extends ServiceProvider
                 unset($item['route']);
             }
 
-            if (isset($item['children']) && is_array($item['children'])) {
-                $item['children'] = $this->processSidebarItems($item['children']);
+            if (! $hasAccess) {
+                continue;
             }
 
-            return $item;
-        }, $items);
+            if (isset($item['children']) && is_array($item['children'])) {
+                $item['children'] = $this->processSidebarItems($item['children']);
+
+                if (empty($item['children']) && (! isset($item['url']) || $item['url'] === '#')) {
+                    $hasAccess = false;
+                }
+            }
+
+            if ($hasAccess) {
+                $filteredItems[] = $item;
+            }
+        }
+
+        return $filteredItems;
     }
 }

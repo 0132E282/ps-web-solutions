@@ -282,6 +282,7 @@ export const Field: React.FC<FieldProps> = ({
   collection,
   fields,
   className,
+  primary: _primary,
   ...props
 }) => {
   const { control } = useFormContext();

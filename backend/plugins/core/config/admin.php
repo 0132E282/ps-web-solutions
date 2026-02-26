@@ -59,7 +59,7 @@ return [
                 'icon' => 'Globe',
                 'children' => [
                     [
-                        'title' => 'Slider',
+                        'title' => 'Slider & Banner',
                         'route' => 'admin.sliders.index',
                     ],
                     [

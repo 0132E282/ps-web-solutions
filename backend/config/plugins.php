@@ -21,8 +21,11 @@ return [
             ],
         ],
         'sliders' => [
-            'home' => 'sliders.home',
-            'home-mobile' => 'sliders.home-mobile',
+            'home' => 'Slider trang chủ',
+            'home-mobile' => 'Slider trang chủ (Mobile)',
+            'banner-home' => 'Banner trang chủ',
+            'banner-side' => 'Banner thanh bên',
+            'banner-popup' => 'Banner Popup',
         ],
         'menus' => [
             'location' => [
@@ -35,7 +38,7 @@ return [
     'e-commerce' => [
         'enabled' => false,
         'models' => [
-            'ProductVariation' => ProductVariation::class,
+            // 'ProductVariation' => ProductVariation::class,
         ],
     ],
     'notification' => [

@@ -264,8 +264,8 @@ export const FormPages = forwardRef<FormRef, FormProps>(({
     setValue, getValues, reset, form: reactHookForm, handleArrayField, handleDelete, handleDuplicate, isEdit, itemId,
   }), [setValue, getValues, reset, reactHookForm, handleArrayField, handleDelete, handleDuplicate, isEdit, itemId]);
 
-  const submitHandler = useCallback(() => reactHookForm.handleSubmit(onSubmit ? (onSubmit as SubmitHandler<FormData>) : handleAutoSubmit, handleError), [reactHookForm, onSubmit, handleError, handleAutoSubmit]);
-  const handleSave = useCallback(() => submitHandler()(), [submitHandler]);
+  const submitHandler = useCallback((e?: React.BaseSyntheticEvent) => reactHookForm.handleSubmit(onSubmit ? (onSubmit as SubmitHandler<FormData>) : handleAutoSubmit, handleError)(e), [reactHookForm, onSubmit, handleError, handleAutoSubmit]);
+  const handleSave = useCallback(() => { submitHandler(); }, [submitHandler]);
 
   return (
     <Form form={reactHookForm} onSubmit={submitHandler} className={className} title={title} currentRouteName={currentRouteName} routeTitle={routeTitle} onBack={handleBack}>

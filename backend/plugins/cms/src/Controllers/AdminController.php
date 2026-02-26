@@ -21,11 +21,10 @@ class AdminController extends BaseController
                 ['name' => 'roles', 'type' => 'select'],
             ],
             'fields' => [
-                ['name' => 'name', 'config' => ['primary' => true]],
-                'email',
-                'roles',
-                'status',
-                ['name' => 'created_at', 'config' => ['type' => 'date']],
+                'name',
+                ['name' => 'email', 'width' => 12],
+                'roles.name',
+                'created_at',
             ],
             'actions' => [
                 'duplicate' => false,
@@ -48,7 +47,6 @@ class AdminController extends BaseController
                             'email',
                             ['name' => 'password', 'config' => ['width' => 'md']],
                             ['name' => 'confirm_password', 'config' => ['width' => 'md']],
-                            'roles',
                         ],
                     ],
                 ],
@@ -59,13 +57,40 @@ class AdminController extends BaseController
                             'description' => 'configuration',
                         ],
                         'fields' => [
-                            ['name' => 'status'],
+                            'roles',
+                            'status',
                         ],
                     ],
                 ],
             ],
         ],
     ];
+
+    public function store(Request $request)
+    {
+        $request->merge([
+            'password' => Hash::make($request->input('password')),
+        ]);
+
+        $request->request->remove('confirm_password');
+
+        return parent::store($request);
+    }
+
+    public function update($id, Request $request)
+    {
+        if ($request->filled('password')) {
+            $request->merge([
+                'password' => Hash::make($request->input('password')),
+            ]);
+            $request->request->remove('confirm_password');
+        } else {
+            $request->request->remove('password');
+            $request->request->remove('confirm_password');
+        }
+
+        return parent::update($id, $request);
+    }
 
     public function updatePassword($id, Request $request)
     {

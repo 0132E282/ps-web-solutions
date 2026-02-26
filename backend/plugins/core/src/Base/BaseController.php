@@ -3,8 +3,12 @@
 namespace PS0132E282\Core\Base;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use PS0132E282\Core\Traits\AutoTransform;
 use PS0132E282\Core\Traits\HasCrudAction;
 use PS0132E282\Core\Traits\HasDuplication;
@@ -33,242 +37,219 @@ class BaseController extends Controller
         }
     }
 
+    // =========================================================================
+    // # Public CRUD Actions
+    // =========================================================================
+
     public function index()
     {
         $items = $this->loadItems();
+        $itemsArray = $this->transformItemsForView($items, 'index');
 
         if (request()->wantsJson()) {
-            return Resource::items($items);
+            return Resource::items($itemsArray, $this->buildPaginationMeta($items));
         }
 
-        $views = $this->getViewsConfig('index');
-        $configs = $this->getModelConfigs();
-
-        $inertiaData = [
-            'views' => $views,
-            'configs' => $configs,
-        ];
-
-        if ($items instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator) {
-            $inertiaData['items'] = $items->items();
-            $inertiaData['pagination'] = Resource::extractPagination($items);
-        } else {
-            $inertiaData['items'] = $items instanceof \Illuminate\Support\Collection
-                ? $items->toArray()
-                : (is_array($items) ? $items : []);
-        }
-
-        return Inertia::render($this->getPage('index'), $inertiaData);
+        return $this->renderInertia('index', [
+            'items' => $itemsArray,
+            ...$this->buildPaginationMeta($items),
+        ]);
     }
 
     public function form($id = null)
     {
-        $views = $this->getViewsConfig('form');
-        $configs = $this->getModelConfigs();
-        $item = null;
+        $item = $id ? $this->loadItemForForm($id) : null;
 
-        if (! empty($id)) {
-            $item = $this->loadItemForForm($id);
-
-            if (request()->wantsJson()) {
-                $itemArray = $item->toArray();
-                foreach ($itemArray as $key => $value) {
-                    if ($this->isLocalizedField($item, $key)) {
-                        $itemArray[$key] = $this->decodeLocalizedValue($item->getRawOriginal($key));
-                    }
-                }
-
-                return Resource::item($itemArray);
-            }
+        if ($item && request()->wantsJson()) {
+            return Resource::item($this->localizeItemArray($item));
         }
 
-        return Inertia::render($this->getPage('form'), [
-            'views' => $views,
-            'configs' => $configs,
-            'item' => $item,
-        ]);
+        return $this->renderInertia('form', ['item' => $item]);
     }
 
     public function edit($id, Request $request)
     {
-        // If it's a GET request, just show the form
+        // * GET request: only render the form view
         if ($request->isMethod('get')) {
             return $this->form($id);
         }
 
-        return $this->saveItem($id, $request, false);
+        return $this->saveItem($id, $request, redirectToIndex: false);
     }
 
     public function update($id, Request $request)
     {
-        return $this->saveItem($id, $request, true);
+        return $this->saveItem($id, $request, redirectToIndex: true);
     }
 
     public function store(Request $request)
     {
-        $rules = $this->getValidationRules('create');
-        if (! empty($rules)) {
-            $request->validate($rules);
-        }
+        $this->validateRequest($request, 'create');
 
         $data = $this->prepareRequestData($request);
         $relations = $this->extractRelationships($data);
 
         $item = $this->model::query()->create($data);
-
-        if (! empty($relations['relationships'])) {
-            $this->syncRelationships($item, $relations['relationships']);
-        }
+        $this->syncRelationshipsIfPresent($item, $relations);
 
         if ($request->wantsJson()) {
             return Resource::item($item->fresh(), ['status' => 201]);
         }
 
-        return redirect()->route($this->getRouteName('index'))
-            ->with('success', 'Tạo thành công');
+        return $this->redirectToIndex(__('core::messages.created'));
     }
 
     public function destroy($id)
     {
         $item = $this->model::query()->findOrFail($id);
 
-        $deleteRules = $this->getValidationRules('delete', $id);
-        if (! empty($deleteRules)) {
-            request()->validate($deleteRules);
-        }
+        $this->validateRequest(request(), 'delete', $id);
 
         $item->delete();
 
         if (request()->wantsJson()) {
-            return response()->json(['message' => 'Xóa thành công']);
+            return response()->json(['message' => __('core::messages.deleted')]);
         }
 
-        return redirect()->route($this->getRouteName('index'))
-            ->with('success', 'Xóa thành công');
+        return $this->redirectToIndex(__('core::messages.deleted'));
     }
 
+    public function bulkDestroy(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        if (empty($ids)) {
+            return response()->json(['message' => 'No items selected'], 400);
+        }
+
+        $this->model::query()->whereIn('id', $ids)->delete();
+
+        return response()->json(['message' => __('core::messages.deleted')]);
+    }
+
+    public function bulkDuplicate(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        foreach ($ids as $id) {
+            $this->duplicate($id, $request);
+        }
+
+        return response()->json(['message' => __('core::messages.duplicated')]);
+    }
+
+    public function bulkRestore(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        $this->model::query()->onlyTrashed()->whereIn('id', $ids)->restore();
+
+        return response()->json(['message' => __('core::messages.restored')]);
+    }
+
+    public function bulkForceDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        $this->model::query()->onlyTrashed()->whereIn('id', $ids)->forceDelete();
+
+        return response()->json(['message' => __('core::messages.deleted')]);
+    }
+
+    // =========================================================================
+    // # Protected Core Actions
+    // =========================================================================
+
     /**
-     * Shared logic for edit() and update() - saves an item and returns appropriate response
+     * * Shared logic for edit() and update() - saves an item and returns appropriate response
      */
     protected function saveItem($id, Request $request, bool $redirectToIndex = false)
     {
         $item = $this->model::query()->findOrFail($id);
 
-        $rules = $this->getValidationRules('update', $id);
-        if (! empty($rules)) {
-            $request->validate($rules);
-        }
+        $this->validateRequest($request, 'update', $id);
 
         $data = $this->prepareRequestData($request);
         $relations = $this->extractRelationships($data);
 
         $item->update($data);
-
-        if (! empty($relations['relationships'])) {
-            $this->syncRelationships($item, $relations['relationships']);
-        }
-
-        session()->flash('success', 'Cập nhật thành công');
+        $this->syncRelationshipsIfPresent($item, $relations);
 
         if ($request->wantsJson()) {
             return Resource::item($item->fresh());
         }
 
         if ($redirectToIndex) {
-            return redirect()->route($this->getRouteName('index'))
-                ->with('success', 'Cập nhật thành công');
+            return $this->redirectToIndex(__('core::messages.updated'));
         }
 
-        $views = $this->getViewsConfig('form');
-        $configs = $this->getModelConfigs();
-
-        return Inertia::render($this->getPage('form'), [
-            'views' => $views,
-            'configs' => $configs,
-            'item' => $item->fresh(),
+        return $this->renderInertia('form', [
+            'item'   => $item->fresh(),
             'isEdit' => true,
-        ]);
+        ], flash: __('core::messages.updated'));
     }
 
     /**
-     * Prepare request data by transforming and merging files
+     * * Prepare request data by transforming and merging files
      */
     protected function prepareRequestData(Request $request): array
     {
         $data = $this->autoTransformRequest($request->all());
-        $files = $request->allFiles();
-
         $data = $this->mergeNestedFields($data);
+
+        $files = $request->allFiles();
 
         return ! empty($files) ? array_merge($data, $files) : $data;
     }
 
     /**
-     * Merge nested fields into parent objects
-     * Example: property.type, property.values -> property: { type, values }
+     * * Merge nested dot-notation fields into parent arrays
+     *   Example: "property.type" + "property.values" → property: { type, values }
      */
     protected function mergeNestedFields(array $data): array
     {
         $nestedGroups = [];
-        $toRemove = [];
+        $dotKeys = [];
 
         foreach ($data as $key => $value) {
-            if (str_contains($key, '.')) {
-                [$parentKey, $childKey] = explode('.', $key, 2);
-
-                if (! isset($nestedGroups[$parentKey])) {
-                    $nestedGroups[$parentKey] = [];
-                }
-
-                $this->setNestedValue($nestedGroups[$parentKey], $childKey, $value);
-                $toRemove[] = $key;
+            if (! str_contains($key, '.')) {
+                continue;
             }
+
+            [$parentKey, $childKey] = explode('.', $key, 2);
+
+            $nestedGroups[$parentKey] ??= [];
+            $this->setNestedValue($nestedGroups[$parentKey], $childKey, $value);
+            $dotKeys[] = $key;
         }
 
-        foreach ($toRemove as $key) {
+        foreach ($dotKeys as $key) {
             unset($data[$key]);
         }
 
         foreach ($nestedGroups as $parentKey => $nestedData) {
-            if (isset($data[$parentKey]) && is_array($data[$parentKey])) {
-                $data[$parentKey] = array_merge($data[$parentKey], $nestedData);
-            } else {
-                $data[$parentKey] = $nestedData;
-            }
+            $data[$parentKey] = isset($data[$parentKey]) && is_array($data[$parentKey])
+                ? array_merge($data[$parentKey], $nestedData)
+                : $nestedData;
         }
 
         return $data;
     }
 
     /**
-     * Set nested value in array using dot notation
+     * * Transform items based on view configuration (handle dot notation fields)
      */
-    protected function setNestedValue(array &$array, string $key, $value): void
+    protected function transformItemsForView($items, string $action): array
     {
-        if (! str_contains($key, '.')) {
-            $array[$key] = $value;
+        $dotFields = $this->resolveDotFieldsForAction($action);
 
-            return;
+        $rawItems = $this->extractItemCollection($items);
+
+        if (empty($dotFields)) {
+            return $rawItems->map(fn($item) => $this->itemToArray($item))->values()->toArray();
         }
 
-        $keys = explode('.', $key);
-        $current = &$array;
-
-        foreach ($keys as $i => $k) {
-            if ($i === count($keys) - 1) {
-                $current[$k] = $value;
-            } else {
-                if (! isset($current[$k]) || ! is_array($current[$k])) {
-                    $current[$k] = [];
-                }
-                $current = &$current[$k];
-            }
-        }
+        return $rawItems->map(fn($item) => $this->applyDotFields($item, $dotFields))->values()->toArray();
     }
 
     /**
-     * Get views config for a given action
-     * Extracts UI definitions from controller const views and merges with model configs
+     * * Get views config for a given action
      */
     protected function getViewsConfig(string $action): array
     {
@@ -276,11 +257,7 @@ class BaseController extends Controller
         $viewConfig = $this->getViewConfig($viewKey);
         $baseView = $this->getBaseView($viewKey);
 
-        $views = array_merge($baseView, array_filter([
-            'title' => $baseView['title'] ?? null,
-            'description' => $baseView['description'] ?? null,
-            'icon' => $baseView['icon'] ?? null,
-        ], fn($value) => $value !== null));
+        $views = $baseView;
 
         if (isset($baseView['fields'])) {
             $views['fields'] = $viewKey === 'index'
@@ -302,5 +279,190 @@ class BaseController extends Controller
         }
 
         return $views;
+    }
+
+    // =========================================================================
+    // # Private Helpers - Response Builders
+    // =========================================================================
+
+    /**
+     * * Render an Inertia page with views + configs merged automatically
+     */
+    private function renderInertia(string $action, array $extra = [], ?string $flash = null): InertiaResponse
+    {
+        if ($flash) {
+            session()->flash('success', $flash);
+        }
+
+        return Inertia::render($this->getPage($action), [
+            'views'   => $this->getViewsConfig($action),
+            'configs' => $this->getModelConfigs(),
+            ...$extra,
+        ]);
+    }
+
+    /**
+     * * Redirect to index route with a flash message
+     */
+    private function redirectToIndex(string $message)
+    {
+        return redirect()->route($this->getRouteName('index'))->with('success', $message);
+    }
+
+    /**
+     * * Build pagination meta array (empty if not paginated)
+     */
+    private function buildPaginationMeta($items): array
+    {
+        if (! $items instanceof LengthAwarePaginator) {
+            return [];
+        }
+
+        return ['pagination' => Resource::extractPagination($items)];
+    }
+
+    /**
+     * * Validate request if rules are defined for the given action
+     */
+    private function validateRequest(Request $request, string $action, $id = null): void
+    {
+        $rules = $this->getValidationRules($action, $id);
+
+        if (! empty($rules)) {
+            $request->validate($rules);
+        }
+    }
+
+    /**
+     * * Sync relationships only when present in extracted data
+     */
+    private function syncRelationshipsIfPresent(Model $item, array $relations): void
+    {
+        if (! empty($relations['relationships'])) {
+            $this->syncRelationships($item, $relations['relationships']);
+        }
+    }
+
+    // =========================================================================
+    // # Private Helpers - Item Transformation
+    // =========================================================================
+
+    /**
+     * * Resolve fields with dot notation for a given action
+     */
+    private function resolveDotFieldsForAction(string $action): array
+    {
+        $viewConfig = $this->getViewConfig($action);
+        $fields = $this->extractFieldNames($viewConfig['config']['fields'] ?? $viewConfig['fields'] ?? []);
+
+        return array_values(array_filter($fields, fn($f) => str_contains($f, '.')));
+    }
+
+    /**
+     * * Extract collection of items from paginator, collection, or array
+     */
+    private function extractItemCollection($items): Collection
+    {
+        if ($items instanceof LengthAwarePaginator) {
+            return collect($items->items());
+        }
+
+        return $items instanceof Collection ? $items : collect($items);
+    }
+
+    /**
+     * * Convert a single item to plain array
+     */
+    private function itemToArray($item): array
+    {
+        return $item instanceof Model ? $item->toArray() : (array) $item;
+    }
+
+    /**
+     * * Apply dot-notation field resolution to a single item
+     */
+    private function applyDotFields($item, array $dotFields): array
+    {
+        $data = $this->itemToArray($item);
+
+        foreach ($dotFields as $field) {
+            if (isset($data[$field])) {
+                continue;
+            }
+
+            $data[$field] = $this->resolveFieldValue($item, $field);
+        }
+
+        return $data;
+    }
+
+    /**
+     * * Resolve value for a dot-notation field from a model or array item
+     */
+    private function resolveFieldValue($item, string $field): mixed
+    {
+        $value = data_get($item, $field);
+
+        if ($value !== null) {
+            return $value;
+        }
+
+        $parts    = explode('.', $field);
+        $relation = $parts[0];
+
+        // * Check if the relation is a loaded collection (BelongsToMany / HasMany)
+        $relationData = $item->{$relation} ?? null;
+
+        if ($relationData instanceof Collection || is_array($relationData)) {
+            $property = implode('.', array_slice($parts, 1));
+
+            return collect($relationData)
+                ->map(fn($relItem) => [$property => data_get($relItem, $property)])
+                ->values()
+                ->toArray();
+        }
+
+        return null;
+    }
+
+    /**
+     * * Localize item fields and return as plain array (for JSON response)
+     */
+    private function localizeItemArray(Model $item): array
+    {
+        $itemArray = $item->toArray();
+
+        foreach ($itemArray as $key => $value) {
+            if ($this->isLocalizedField($item, $key)) {
+                $itemArray[$key] = $this->decodeLocalizedValue($item->getRawOriginal($key));
+            }
+        }
+
+        return $itemArray;
+    }
+
+    /**
+     * * Set a deeply nested value in an array using dot notation
+     */
+    protected function setNestedValue(array &$array, string $key, $value): void
+    {
+        if (! str_contains($key, '.')) {
+            $array[$key] = $value;
+            return;
+        }
+
+        $keys    = explode('.', $key);
+        $current = &$array;
+
+        foreach ($keys as $i => $k) {
+            if ($i === count($keys) - 1) {
+                $current[$k] = $value;
+            } else {
+                if (! isset($current[$k]) || ! is_array($current[$k])) {
+                    $current[$k] = [];
+                }
+                $current = &$current[$k];
+            }
+        }
     }
 }

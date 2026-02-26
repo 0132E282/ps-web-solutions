@@ -21,9 +21,11 @@ class Slider extends BaseModel
             'image' => ['ui' => 'attachment', 'config' => ['validation' => 'required|exists:media,id']],
             'image_mobile' => ['ui' => 'attachment', 'config' => ['validation' => 'nullable|exists:media,id']],
             'link' => ['ui' => 'text', 'config' => ['validation' => 'nullable|max:255']],
+            'target' => ['ui' => 'select', 'config' => ['options' => ['_self' => 'Tại trang (_self)', '_blank' => 'Cửa sổ mới (_blank)'], 'validation' => 'required|in:_self,_blank']],
             'status' => ['ui' => 'button-radio', 'config' => ['layout' => 'horizontal', 'options' => ['published' => 'Published', 'draft' => 'Draft'], 'validation' => 'required|in:published,draft']],
             'location' => ['ui' => 'select', 'config' => ['options' => $slidersConfig, 'validation' => "required|in:{$validLocations}"]],
-            'position' => ['ui' => 'number', 'config' => ['validation' => 'nullable|integer']],
+            'priority' => ['ui' => 'number', 'config' => ['validation' => 'nullable|integer']],
+            'position' => ['ui' => 'text', 'config' => ['validation' => 'nullable']],
         ];
     }
 
@@ -32,8 +34,10 @@ class Slider extends BaseModel
         'image',
         'image_mobile',
         'link',
+        'target',
         'status',
         'location',
+        'priority',
         'position',
     ];
 

@@ -17,6 +17,7 @@ return new class extends Migration
             $table->json('image');
             $table->json('image_mobile')->nullable();
             $table->string('link')->nullable();
+            $table->enum('target', ['_self', '_blank'])->default('_self');
             $table->enum('status', ['published', 'draft'])->default('draft');
             $table->text('location')->nullable();
             $table->json('position')->nullable();

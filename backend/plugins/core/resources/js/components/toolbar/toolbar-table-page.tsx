@@ -484,7 +484,7 @@ const HeaderToolbarTable = ({
                             disabled={!hasSelected || isLoading}
                         >
                             <Trash2 className="h-4 w-4" />
-                            {hasSelected ? `${tt("common.delete_selected")} (${selectedCount})` : tt("common.delete_all")}
+                            {tt("common.delete")} {hasSelected && `(${selectedCount})`}
                         </Button>
                     )}
                     {showCreate && (
@@ -516,15 +516,13 @@ const HeaderToolbarTable = ({
                             </div>
                             <div className="text-center sm:ml-4 sm:text-left">
                                 <DialogTitle className="text-lg font-semibold text-foreground">
-                                    {hasSelected ? tt("common.delete_selected") : tt("common.delete_all")}
+                                    {tt("common.delete_selected")}
                                 </DialogTitle>
                                 <DialogDescription className="text-muted-foreground mt-2">
-                                    {hasSelected ? tt("common.confirm_delete_selected") : tt("common.confirm_delete_all")}
-                                    {hasSelected && (
-                                        <span className="block mt-2 font-medium text-foreground">
-                                            {tt("common.selected_items")}: {selectedCount}
-                                        </span>
-                                    )}
+                                    {tt("common.confirm_delete_selected")}
+                                    <span className="block mt-2 font-medium text-foreground">
+                                        {tt("common.selected_items")}: {selectedCount}
+                                    </span>
                                 </DialogDescription>
                             </div>
                         </div>

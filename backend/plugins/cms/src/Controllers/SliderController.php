@@ -18,6 +18,7 @@ class SliderController extends BaseController
                 ['name' => 'title', 'config' => ['primary' => true]],
                 'status',
                 'location',
+                'priority',
                 'created_at',
             ],
         ],
@@ -26,15 +27,15 @@ class SliderController extends BaseController
                 'main' => [
                     [
                         'header' => [
-                            'title' => 'Thông tin Slider',
-                            'description' => 'Cấu hình thông tin cơ bản của slider',
+                            'title' => 'Thông tin Slider & Banner',
+                            'description' => 'Cấu hình thông tin cơ bản của slider và banner',
                         ],
-                        'fields' => ['title', 'link', 'status'],
+                        'fields' => ['title', 'link', 'target', 'status'],
                     ],
                     [
                         'header' => [
                             'title' => 'Hình ảnh',
-                            'description' => 'Hình ảnh hiển thị trên slider',
+                            'description' => 'Hình ảnh hiển thị trên slider hoặc banner',
                         ],
                         'fields' => ['image', 'image_mobile'],
                     ],
@@ -45,7 +46,7 @@ class SliderController extends BaseController
                             'title' => 'Cài đặt hiển thị',
                             'description' => 'Trạng thái và vị trí hiển thị',
                         ],
-                        'fields' => ['location', 'position'],
+                        'fields' => ['location', 'priority'],
                     ],
                 ],
             ],

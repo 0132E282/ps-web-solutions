@@ -69,10 +69,18 @@ class ModuleRouteRegistrar
                 Route::delete('/{id}', 'destroy')->name('destroy')->middleware($routeMw('destroy'));
                 Route::post('/{id}/duplicate', 'duplicate')->name('duplicate')->middleware($routeMw('duplicate'));
 
+                // Bulk Actions
+                Route::post('/bulk/delete', 'bulkDestroy')->name('bulk-delete')->middleware($routeMw('destroy'));
+                Route::post('/bulk/duplicate', 'bulkDuplicate')->name('bulk-duplicate')->middleware($routeMw('duplicate'));
+
                 if ($hasSoftDeletes) {
                     Route::get('/trash', 'trash')->name('trash')->middleware($routeMw('trash'));
                     Route::post('/{id}/restore', 'restore')->name('restore')->middleware($routeMw('restore'));
                     Route::delete('/{id}/force-delete', 'forceDelete')->name('force-delete')->middleware($routeMw('forceDelete'));
+
+                    // Bulk Soft Delete Actions
+                    Route::post('/bulk/restore', 'bulkRestore')->name('bulk-restore')->middleware($routeMw('restore'));
+                    Route::post('/bulk/force-delete', 'bulkForceDelete')->name('bulk-force-delete')->middleware($routeMw('forceDelete'));
                 }
 
                 if ($hasExport) {

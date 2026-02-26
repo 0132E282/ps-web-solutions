@@ -51,6 +51,7 @@ import {
 
   // Misc
   Circle, Layers, Inbox, Paperclip,
+  FolderKanban,
 
   type LucideIcon
 } from "lucide-react"
@@ -119,7 +120,7 @@ export const iconMap: Record<string, LucideIcon> = {
   Wifi, WifiOff, Bluetooth, Battery, BatteryCharging,
 
   // Misc
-  Circle, Layers, Inbox, Paperclip,
+  Circle, Layers, Inbox, Paperclip, FolderKanban,
 }
 
 /**

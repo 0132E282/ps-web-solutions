@@ -390,7 +390,7 @@ const Index = () => {
 
         setIsSavingPermissions(true);
         try {
-            await router.put(`/roles/${selectedRole.id}/permissions`, {
+            await router.put(route('admin.settings.roles.permissions', { id: selectedRole.id }), {
                 permissions: Array.from(checkedPermissions)
             }, {
                 onSuccess: () => router.reload(),
@@ -417,7 +417,7 @@ const Index = () => {
         setIsLoading(true);
         try {
             const roleData = { name: data.name as string };
-            const routeName = editingRole ? 'admin.roles.update' : 'admin.roles.store';
+            const routeName = editingRole ? 'admin.settings.roles.update' : 'admin.settings.roles.store';
             const method = editingRole ? 'put' : 'post';
             const routeParams = editingRole ? { id: editingRole.id } : undefined;
 
@@ -433,7 +433,7 @@ const Index = () => {
     const confirmDeleteRole = useCallback(async () => {
         if (!selectedRole) return;
 
-        await router.delete(route('admin.roles.delete', { id: selectedRole.id }), {
+        await router.delete(route('admin.settings.roles.delete', { id: selectedRole.id }), {
             onSuccess: () => {
                 setSelectedRole(null);
                 setIsDeleteDialogOpen(false);

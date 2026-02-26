@@ -221,13 +221,13 @@ export function* resourceSaga(): Generator {
 
     // Bulk
     yield takeLatest(actions.bulkDeleteResourceRequest.type, (a: PayloadAction<IdsPayload>) =>
-        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], undefined, 'delete')) as (...args: unknown[]) => Promise<unknown>, actions.bulkDeleteResourceSuccess, actions.bulkDeleteResourceFailure, { msg: 'common.deleted_success', refetch: true }));
+        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], 'bulk/delete')) as (...args: unknown[]) => Promise<unknown>, actions.bulkDeleteResourceSuccess, actions.bulkDeleteResourceFailure, { msg: 'common.deleted_success', refetch: true }));
     yield takeLatest(actions.bulkDuplicateResourceRequest.type, (a: PayloadAction<IdsPayload>) =>
-        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], 'duplicate')) as (...args: unknown[]) => Promise<unknown>, actions.bulkDuplicateResourceSuccess, actions.bulkDuplicateResourceFailure, { refetch: true }));
+        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], 'bulk/duplicate')) as (...args: unknown[]) => Promise<unknown>, actions.bulkDuplicateResourceSuccess, actions.bulkDuplicateResourceFailure, { refetch: true }));
     yield takeLatest(actions.bulkRestoreResourceRequest.type, (a: PayloadAction<IdsPayload>) =>
-        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], 'restore')) as (...args: unknown[]) => Promise<unknown>, actions.bulkRestoreResourceSuccess, actions.bulkRestoreResourceFailure, { refetch: true }));
+        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], 'bulk/restore')) as (...args: unknown[]) => Promise<unknown>, actions.bulkRestoreResourceSuccess, actions.bulkRestoreResourceFailure, { refetch: true }));
     yield takeLatest(actions.bulkForceDeleteResourceRequest.type, (a: PayloadAction<IdsPayload>) =>
-        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], 'force-delete', 'delete')) as (...args: unknown[]) => Promise<unknown>, actions.bulkForceDeleteResourceSuccess, actions.bulkForceDeleteResourceFailure, { refetch: true }));
+        runSaga(a, ((r: unknown, ids: unknown) => api.bulk(r as string, ids as ResourceId[], 'bulk/force-delete')) as (...args: unknown[]) => Promise<unknown>, actions.bulkForceDeleteResourceSuccess, actions.bulkForceDeleteResourceFailure, { refetch: true }));
 
     // Files
     yield takeLatest(actions.importResourceRequest.type, (a: PayloadAction<FormDataPayload>) =>
