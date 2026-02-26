@@ -68,10 +68,6 @@ class AdminController extends BaseController
 
     public function store(Request $request)
     {
-        $request->merge([
-            'password' => Hash::make($request->input('password')),
-        ]);
-
         $request->request->remove('confirm_password');
 
         return parent::store($request);
@@ -79,15 +75,10 @@ class AdminController extends BaseController
 
     public function update($id, Request $request)
     {
-        if ($request->filled('password')) {
-            $request->merge([
-                'password' => Hash::make($request->input('password')),
-            ]);
-            $request->request->remove('confirm_password');
-        } else {
+        if (! $request->filled('password')) {
             $request->request->remove('password');
-            $request->request->remove('confirm_password');
         }
+        $request->request->remove('confirm_password');
 
         return parent::update($id, $request);
     }

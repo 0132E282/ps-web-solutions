@@ -25,7 +25,7 @@ type ActionType = 'delete' | 'duplicate' | 'restore' | 'forceDelete' | null;
 
 const ToolbarDataTableRow = ({ row }: ToolbarDataTableRowProps) => {
     const dispatch = useDispatch();
-    const { crudRoutes } = useModule();
+    const { crudRoutes, views } = useModule();
     const [confirmAction, setConfirmAction] = useState<ActionType>(null);
     const { props } = usePage();
 
@@ -82,35 +82,45 @@ const ToolbarDataTableRow = ({ row }: ToolbarDataTableRowProps) => {
 
     return <>
         <div className="flex items-center justify-end gap-1">
-            <Button
-                variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-primary hover:text-white"
-                onClick={() => setConfirmAction('duplicate')} title={actions.duplicate.label}
-            >
-                {actions.duplicate.icon}
-            </Button>
+            {views?.actions?.duplicate !== false && (
+                <Button
+                    variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-primary hover:text-white"
+                    onClick={() => setConfirmAction('duplicate')} title={actions.duplicate.label}
+                >
+                    {actions.duplicate.icon}
+                </Button>
+            )}
 
             {isTrash ? (
                 <>
-                    <Button
-                        variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-green-100 hover:text-green-600"
-                        onClick={() => setConfirmAction('restore')} title={actions.restore.label}
-                    >
-                        {actions.restore.icon}
-                    </Button>
-                    <Button
-                        variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => setConfirmAction('forceDelete')} title={actions.forceDelete.label}
-                    >
-                        {actions.forceDelete.icon}
-                    </Button>
+                    {views?.actions?.restore !== false && (
+                        <Button
+                            variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-green-100 hover:text-green-600"
+                            onClick={() => setConfirmAction('restore')} title={actions.restore.label}
+                        >
+                            {actions.restore.icon}
+                        </Button>
+                    )}
+                    {views?.actions?.['force-delete'] !== false && (
+                        <Button
+                            variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => setConfirmAction('forceDelete')} title={actions.forceDelete.label}
+                        >
+                            {actions.forceDelete.icon}
+                        </Button>
+                    )}
                 </>
             ) : (
-                <Button
-                    variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => setConfirmAction('delete')} title={actions.delete.label}
-                >
-                    {actions.delete.icon}
-                </Button>
+                <>
+                    {views?.actions?.delete !== false && (
+                        <Button
+                            variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => setConfirmAction('delete')} title={actions.delete.label}
+                        >
+                            {actions.delete.icon}
+                        </Button>
+                    )}
+                </>
             )}
         </div>
 

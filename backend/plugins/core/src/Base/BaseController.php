@@ -274,8 +274,45 @@ class BaseController extends Controller
             $views['sections'] = $merged['sections'] ?? [];
         }
 
-        if (isset($viewConfig['actions']) || isset($baseView['actions'])) {
-            $views['actions'] = $viewConfig['actions'] ?? $baseView['actions'];
+        $actions = $viewConfig['actions'] ?? $baseView['actions'] ?? null;
+
+        if (is_array($actions) || $actions === null) {
+            $actions = $actions ?? [];
+            if (auth()->check()) {
+                $user = auth()->user();
+                $routeName = request()->route()?->getName() ?? '';
+                $resourceGroup = explode('.', str_replace('admin.', '', $routeName))[0] ?? '';
+
+                if ($resourceGroup) {
+                    $actionMapping = [
+                        'create' => 'create',
+                        'edit' => 'edit',
+                        'delete' => 'destroy',
+                        'import' => 'import',
+                        'export' => 'export',
+                        'duplicate' => 'duplicate',
+                        'trash' => 'trash',
+                        'restore' => 'restore',
+                        'force-delete' => 'force-delete'
+                    ];
+
+                    foreach ($actionMapping as $actionKey => $routeSuffix) {
+                        if (!isset($actions[$actionKey]) || $actions[$actionKey] !== false) {
+                            $permissionName = "{$resourceGroup}.{$routeSuffix}";
+                            if (! $user->can($permissionName)) {
+                                $actions[$actionKey] = false;
+                            }
+                        }
+                    }
+                    $views['actions'] = $actions;
+                } elseif (isset($viewConfig['actions']) || isset($baseView['actions'])) {
+                    $views['actions'] = $actions;
+                }
+            } elseif (isset($viewConfig['actions']) || isset($baseView['actions'])) {
+                $views['actions'] = $actions;
+            }
+        } elseif (isset($viewConfig['actions']) || isset($baseView['actions'])) {
+            $views['actions'] = $actions;
         }
 
         return $views;

@@ -43,6 +43,7 @@ const Index = () => {
                 importTemplateRoute={crudRoutes.importTemplate || undefined}
                 duplicate={views?.actions?.duplicate}
                 duplicateRoute={crudRoutes.duplicate || undefined}
+                delete={views?.actions?.delete as boolean | undefined}
                 tabnavs={
                     crudRoutes.trash && route.has(crudRoutes.trash) ? [
                         {

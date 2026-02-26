@@ -14,6 +14,11 @@ class Admin extends User
         'inactive' => 'Inactive',
     ];
 
+    public function getMorphClass()
+    {
+        return User::class;
+    }
+
     function configs()
     {
         return [

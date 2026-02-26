@@ -4,6 +4,7 @@ import { tt } from "@core/lib/i18n";
 import { route, getCurrentRouteName } from "@core/lib/route";
 import { toast } from "@core/lib/toast";
 import { useAppSelector, useAppDispatch, useAPI, setSubmitting, setDeleting } from "@core/redux";
+import { useModule } from "@core/hooks/use-module";
 
 import type { BasePageProps } from "@core/types/common";
 import type { FormProps, FormRef, FormData } from "@core/types/forms";
@@ -108,6 +109,7 @@ export const FormPages = forwardRef<FormRef, FormProps>(({
   const { currentRouteName, prefix, resourceName, isShowPage } = useFormRouteInfo();
   const { itemId, itemData } = useFormItemInfo(defaultValues);
   const isEdit = !!itemId;
+  const { views } = useModule();
 
   const reactHookForm = useReactHookForm<FormData>({
     resolver: formSchema ? zodResolver(formSchema as never) : undefined,
@@ -276,7 +278,7 @@ export const FormPages = forwardRef<FormRef, FormProps>(({
               {title || routeTitle}
             </h1>
           )}
-          <ToolbarFormPage className="ml-auto" isEdit={isEdit} onSave={handleSave} onDelete={handleDelete} onDuplicate={handleDuplicate} onCancel={handleBack} />
+          <ToolbarFormPage className="ml-auto" isEdit={isEdit} onSave={handleSave} onDelete={handleDelete} onDuplicate={handleDuplicate} onCancel={handleBack} showDelete={views?.actions?.delete !== false} showDuplicate={views?.actions?.duplicate !== false} />
         </div>
       )}
       {children}

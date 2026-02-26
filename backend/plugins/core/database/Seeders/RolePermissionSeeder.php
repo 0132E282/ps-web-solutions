@@ -2,100 +2,116 @@
 
 namespace PS0132E282\Core\Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RolePermissionSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
+    private array $admins = [
+        [
+            'email' => 'admin@gmail.com',
+            'password' => 'admin@gmail.com',
+            'name' => 'Super Admin',
+            'roles' => ['super-admin'],
+        ],
+        [
+            'email' => 'subadmin@gmail.com',
+            'password' => 'subadmin@gmail.com',
+            'name' => 'Sub Admin',
+            'roles' => ['admin'],
+        ],
+    ];
+
     public function run(): void
     {
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        // 1. Reset cached roles and permissions
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        // Tạo permissions từ admin routes
-        $adminRoutes = $this->getAdminRouteNames();
-        $adminCount = 0;
-
-        foreach ($adminRoutes as $routeName) {
+        // 2. Generate permissions from 'admin.' routes
+        $adminCount = $this->seedPermissionsFromRoutes('admin.', function ($routeName) {
             $permission = str_replace('admin.', '', $routeName);
-            $group = explode('.', $permission)[0] ?? '';
-
-            Permission::firstOrCreate([
+            return [
                 'name' => $permission,
-                'group' => $group,
-            ]);
-            $adminCount++;
-        }
+                'group' => explode('.', $permission)[0] ?? '',
+            ];
+        });
 
-        $apiRoutes = $this->getApiRouteNames();
-        $apiCount = 0;
-        foreach ($apiRoutes as $routeName) {
-            $permission = $routeName;
-            Permission::firstOrCreate([
-                'name' => $permission,
+        // 3. Generate permissions from 'api.' routes
+        $apiCount = $this->seedPermissionsFromRoutes('api.', function ($routeName) {
+            return [
+                'name' => $routeName,
                 'group' => 'api',
-            ]);
-            $apiCount++;
+            ];
+        });
+
+        // 4. Create base roles and assign ALL permissions
+        $allPermissions = Permission::pluck('name')->toArray();
+        foreach (['admin', 'super-admin'] as $roleName) {
+            $role = Role::firstOrCreate(['name' => $roleName]);
+            $role->syncPermissions($allPermissions);
         }
 
-        foreach (['admin', 'super-admin'] as $role) {
-            $role = Role::firstOrCreate(['name' => $role]);
-            $role->syncPermissions(Permission::pluck('name')->toArray());
+        // 5. Create users from the $admins array and assign roles
+        foreach ($this->admins as $adminData) {
+            $user = User::firstOrCreate(
+                ['email' => $adminData['email']],
+                [
+                    'name' => $adminData['name'],
+                    'password' => $adminData['password'],
+                    'email_verified_at' => now(),
+                ]
+            );
+
+            // Assign defined roles to user
+            $user->syncRoles($adminData['roles'] ?? []);
         }
 
-        $this->command->info('✅ Permissions đã được tạo từ routes!');
-        $this->command->info('📊 Tổng số Admin Permissions: '.$adminCount);
-        $this->command->info('🔑 Tổng số API Permissions: '.$apiCount);
-        $this->command->info('👥 Roles đã tạo: admin, super-admin');
+        // 6. Output statistics
+        $this->command->info('✅ Setup Roles & Permissions hoàn tất!');
+        $this->command->info('📊 Admin Permissions: ' . $adminCount);
+        $this->command->info('🔑 API Permissions: ' . $apiCount);
+        $this->command->info('👥 Roles: admin, super-admin');
+
+        $this->command->info('👤 Tài khoản đã tạo:');
+        foreach ($this->admins as $admin) {
+            $this->command->info('  - ' . $admin['email'] . ' (Mật khẩu: ' . $admin['password'] . ') - Roles: ' . implode(',', $admin['roles']));
+        }
     }
 
     /**
-     * Lấy tất cả route names bắt đầu bằng "admin."
-     *
-     * @return array<string>
+     * Helper pattern to extract route names starting with a specific prefix
+     * and create permissions with a callback mapping format.
      */
-    protected function getAdminRouteNames(): array
+    protected function seedPermissionsFromRoutes(string $prefix, \Closure $formatCallback): int
     {
         $routes = Route::getRoutes();
-        $adminRouteNames = [];
+        $routeNames = [];
 
         foreach ($routes as $route) {
-            $routeName = $route->getName();
-            if ($routeName && str_starts_with($routeName, 'admin.')) {
-                $adminRouteNames[] = $routeName;
+            $name = $route->getName();
+            if ($name && str_starts_with($name, $prefix)) {
+                $routeNames[] = $name;
             }
         }
 
-        $adminRouteNames = array_unique($adminRouteNames);
-        sort($adminRouteNames);
+        $routeNames = array_unique($routeNames);
+        sort($routeNames);
 
-        return $adminRouteNames;
-    }
-
-    /**
-     * Lấy tất cả route names bắt đầu bằng "api."
-     *
-     * @return array<string>
-     */
-    protected function getApiRouteNames(): array
-    {
-        $routes = Route::getRoutes();
-        $apiRouteNames = [];
-
-        foreach ($routes as $route) {
-            $routeName = $route->getName();
-            if ($routeName && str_starts_with($routeName, 'api.')) {
-                $apiRouteNames[] = $routeName;
-            }
+        $count = 0;
+        foreach ($routeNames as $routeName) {
+            $data = $formatCallback($routeName);
+            Permission::firstOrCreate(
+                ['name' => $data['name']],
+                ['group' => $data['group']]
+            );
+            $count++;
         }
 
-        $apiRouteNames = array_unique($apiRouteNames);
-        sort($apiRouteNames);
-
-        return $apiRouteNames;
+        return $count;
     }
 }
