@@ -19,7 +19,7 @@ class RoleController extends Controller
             ]);
         }
 
-        $permissions = Permission::select('name', 'id', 'group')->get()->groupBy('group');
+        $permissions = Permission::select('name', 'id', 'group')->where('group', '!=', 'api')->get()->groupBy('group');
 
         return Inertia::render('cms/settings/roles', [
             'roles' => $roles,
@@ -44,14 +44,14 @@ class RoleController extends Controller
     public function permissions(int $id, Request $request)
     {
         $request->validate([
-            'permissions' => 'required|array',
+            'permissions' => 'nullable|array',
             'permissions.*' => 'integer|exists:permissions,id',
         ]);
 
         $role = Role::findOrFail($id);
-        $role->syncPermissions($request->permissions);
+        $role->syncPermissions($request->permissions ?? []);
 
-        return Inertia::location(route('admin.settings.roles.index'));
+        return redirect()->route('admin.settings.roles.index');
     }
 
     public function update(int $id, Request $request)

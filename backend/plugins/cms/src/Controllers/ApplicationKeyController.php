@@ -6,23 +6,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use PS0132E282\Cms\Models\ApplicationKey;
-use PS0132E282\Core\Services\PermissionService;
 use Spatie\Permission\Models\Permission;
 
 class ApplicationKeyController extends \Illuminate\Routing\Controller
 {
-    protected PermissionService $permissionService;
-
-    public function __construct(PermissionService $permissionService)
-    {
-        $this->permissionService = $permissionService;
-    }
-
     public function index()
     {
         $keys = ApplicationKey::query()
             ->select('id', 'name', 'last_used_at', 'created_at', 'user_id')
-            ->with(['user:id,name', 'permissions']) // Include permissions
+            ->with(['user:id,name', 'permissions'])
             ->latest()
             ->get();
 
@@ -32,13 +24,10 @@ class ApplicationKeyController extends \Illuminate\Routing\Controller
             ]);
         }
 
-        // Add a permission with group 'api' if it doesn't exist
-        Permission::firstOrCreate(
-            ['name' => 'api.access'],
-            ['group' => 'api', 'guard_name' => 'api', 'description' => 'Access API']
-        );
-
-        $permissions = Permission::where('guard_name', 'api')->get()->groupBy('group');
+        $permissions = Permission::select('name', 'id', 'group')
+            ->where('group', 'api')
+            ->get()
+            ->groupBy('group');
 
         return Inertia::render('cms/settings/application_keys', [
             'applicationKeys' => $keys,
@@ -61,11 +50,7 @@ class ApplicationKeyController extends \Illuminate\Routing\Controller
         ]);
 
         return redirect()->route('admin.settings.application-keys.index')
-            ->with('flash', [
-                'type' => 'success',
-                'message' => 'Application key created successfully.',
-                'token' => $plainToken,
-            ]);
+            ->with('success', 'Tạo khóa API thành công. Token: ' . $plainToken);
     }
 
     public function update($id, Request $request)
@@ -74,26 +59,37 @@ class ApplicationKeyController extends \Illuminate\Routing\Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $key = ApplicationKey::findOrFail($id);
-        $key->update([
+        ApplicationKey::findOrFail($id)->update([
             'name' => $request->name,
         ]);
 
-        return redirect()->route('admin.settings.application-keys.index')
-            ->with('flash', [
-                'type' => 'success',
-                'message' => 'Application key updated successfully.',
-            ]);
+        return redirect()->route('admin.settings.application-keys.index');
+    }
+
+    public function permissions($id, Request $request)
+    {
+        $request->validate([
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'integer|exists:permissions,id',
+        ]);
+
+        $key = ApplicationKey::findOrFail($id);
+        $permissionIds = $request->permissions ?? [];
+
+        if (empty($permissionIds)) {
+            $key->permissions()->detach();
+        } else {
+            $permissions = Permission::whereIn('id', $permissionIds)->get();
+            $key->syncPermissions($permissions);
+        }
+
+        return redirect()->route('admin.settings.application-keys.index');
     }
 
     public function destroy($id)
     {
         ApplicationKey::findOrFail($id)->delete();
 
-        return redirect()->route('admin.settings.application-keys.index')
-            ->with('flash', [
-                'type' => 'success',
-                'message' => 'Application key deleted successfully.',
-            ]);
+        return redirect()->route('admin.settings.application-keys.index');
     }
 }

@@ -104,7 +104,7 @@ trait HasValidation
             if (str_ends_with($field, '.*')) {
                 $baseField = str_replace('.*', '', $field);
                 foreach ($actionRules as $key => $rule) {
-                    if ($key === $field || str_starts_with($key, $baseField.'.')) {
+                    if ($key === $field || str_starts_with($key, $baseField . '.')) {
                         $filteredRules[$key] = $rule;
                     }
                 }
@@ -136,6 +136,17 @@ trait HasValidation
 
         foreach ($modelConfigs as $fieldName => $fieldConfig) {
             $config = $fieldConfig['config'] ?? [];
+
+            if (isset($fieldConfig['validation'])) {
+                $validationRules[$fieldName] = $fieldConfig['validation'];
+                continue;
+            }
+
+            if (isset($config['validation'])) {
+                $validationRules[$fieldName] = $config['validation'];
+                continue;
+            }
+
             $rules = [];
 
             if (isset($config['required']) && $config['required'] === true) {
@@ -145,14 +156,14 @@ trait HasValidation
             }
 
             if (isset($config['minLength'])) {
-                $rules[] = 'min:'.$config['minLength'];
+                $rules[] = 'min:' . $config['minLength'];
             }
             if (isset($config['maxLength'])) {
-                $rules[] = 'max:'.$config['maxLength'];
+                $rules[] = 'max:' . $config['maxLength'];
             }
 
             if (isset($config['pattern'])) {
-                $rules[] = 'regex:'.$config['pattern'];
+                $rules[] = 'regex:' . $config['pattern'];
             }
 
             if (! empty($rules)) {

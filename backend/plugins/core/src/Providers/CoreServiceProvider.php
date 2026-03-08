@@ -33,6 +33,10 @@ class CoreServiceProvider extends ServiceProvider
             $this->mergeConfigFrom(__DIR__ . '/../../config/plugins.php', 'core.plugins');
         }
 
+        if (file_exists(__DIR__ . '/../../config/permission.php')) {
+            $this->mergeConfigFrom(__DIR__ . '/../../config/permission.php', 'permission');
+        }
+
         $this->bindPluginOverrides();
     }
 

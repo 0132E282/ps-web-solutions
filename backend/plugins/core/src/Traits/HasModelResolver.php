@@ -202,7 +202,7 @@ trait HasModelResolver
                 continue;
             }
 
-            $fieldId = $fieldName.'_id';
+            $fieldId = $fieldName . '_id';
             if ($this->isDirectColumn($fieldId, $fillable, $tableName)) {
                 $mappedFields[] = $fieldId;
 
@@ -348,6 +348,10 @@ trait HasModelResolver
             }
 
             $query->select($fields);
+        }
+
+        if (method_exists($this->model, 'withTrashed')) {
+            $query->withTrashed();
         }
 
         $item = $query->findOrFail($id);

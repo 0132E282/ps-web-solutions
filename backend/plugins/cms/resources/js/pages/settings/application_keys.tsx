@@ -1,17 +1,25 @@
-import { Card, CardHeader, CardTitle, CardContent, CardDescription} from "@core/components/ui/card";
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@core/components/ui/table";
-import { Checkbox } from "@core/components/ui/checkbox";
-import { Input } from "@core/components/ui/input";
-import { Button } from "@core/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@core/components/ui/dialog";
-import AppLayout from "@core/layouts/app-layout";
+import { memo, useState, useMemo, useCallback } from "react";
 import { usePage, router } from "@inertiajs/react";
-import { useState, useMemo, useCallback } from "react";
-import { Plus, Users, Edit, Search, Loader2, Trash2, Save } from "lucide-react";
-import { Field } from "@core/components/form/field";
+import { Plus, Key, Edit, Search, Loader2, Trash2, Save } from "lucide-react";
+
 import { FormPages } from "@core/components/form";
+import { Field } from "@core/components/form/field";
+import { Button } from "@core/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@core/components/ui/card";
+import { Checkbox } from "@core/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@core/components/ui/dialog";
+import { Input } from "@core/components/ui/input";
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@core/components/ui/table";
+import AppLayout from "@core/layouts/app-layout";
 import { route } from "@core/lib/route";
+import { toast } from "@core/lib/toast";
+
 import type { FormData } from "@core/types/forms";
+import type { MouseEvent } from "react";
+
+// ============================================================================
+// Types
+// ============================================================================
 
 interface Permission {
     id: number;
@@ -31,381 +39,345 @@ interface ApplicationKey {
 interface PageProps {
     permissions: Record<string, Permission[]>;
     applicationKeys: ApplicationKey[];
+    [key: string]: unknown;
 }
+
+// ============================================================================
+// Utilities
+// ============================================================================
 
 const formatPermissionName = (name: string): string => {
     return name.split('.').pop()?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || '';
 };
-interface RoleCardProps {
-    role: ApplicationKey;
+
+const filterPermissions = (
+    permissions: Record<string, Permission[]>,
+    searchTerm: string
+): Record<string, Permission[]> => {
+    if (!searchTerm.trim()) return permissions;
+    const searchLower = searchTerm.toLowerCase();
+    return Object.entries(permissions).reduce((acc, [groupName, groupPermissions]) => {
+        const filteredGroup = groupPermissions.filter((p) => {
+            return p.name.toLowerCase().includes(searchLower) ||
+                formatPermissionName(p.name).toLowerCase().includes(searchLower);
+        });
+        if (filteredGroup.length > 0) acc[groupName] = filteredGroup;
+        return acc;
+    }, {} as Record<string, Permission[]>);
+};
+
+// ============================================================================
+// Components
+// ============================================================================
+
+const KeyCard = memo<{
+    appKey: ApplicationKey;
     isSelected: boolean;
-    onSelect: (role: ApplicationKey) => void;
-    onEdit: (role: ApplicationKey) => void;
-}
+    onSelect: (key: ApplicationKey) => void;
+    onEdit: (key: ApplicationKey) => void;
+}>(({ appKey, isSelected, onSelect, onEdit }) => {
+    const handleClick = useCallback(() => onSelect(appKey), [onSelect, appKey]);
+    const handleEdit = useCallback((e: MouseEvent<HTMLButtonElement>) => {
+        e.stopPropagation();
+        onEdit(appKey);
+    }, [onEdit, appKey]);
 
-const RoleCard = ({ role, isSelected, onSelect, onEdit }: RoleCardProps) => (
-    <div
-        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-            isSelected
-                ? 'bg-primary/10 border-primary'
-                : 'hover:bg-muted/50'
-        }`}
-        onClick={() => onSelect(role)}
-    >
-        <div className="flex items-center gap-3">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <div>
-                <span className="font-medium">{role.name}</span>
-                <span className="text-sm ml-2 text-muted-foreground">
-                    {role.permissions.length} quyền
-                </span>
+    return (
+        <div
+            className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                isSelected ? 'bg-primary/10 border-primary' : 'hover:bg-muted/50'
+            }`}
+            onClick={handleClick}
+        >
+            <div className="flex items-center gap-3">
+                <Key className="h-4 w-4 text-muted-foreground" />
+                <div>
+                    <span className="font-medium">{appKey.name}</span>
+                    <span className="text-sm ml-2 text-muted-foreground">
+                        {appKey.permissions.length} quyền
+                    </span>
+                </div>
             </div>
+            {isSelected && (
+                <Button size="sm" variant="ghost" onClick={handleEdit}>
+                    <Edit className="h-4 w-4" />
+                </Button>
+            )}
         </div>
-        {isSelected && (
-            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onEdit(role); }}>
-                <Edit className="h-4 w-4" />
-            </Button>
-        )}
-    </div>
-);
+    );
+});
+KeyCard.displayName = 'KeyCard';
 
-// Permission Table Component
-interface PermissionTableProps {
-    permissions: Record<string, Permission[]>;
-    filteredPermissions: Record<string, Permission[]>;
+const PermissionGroup = memo<{
+    groupName: string;
+    groupPermissions: Permission[];
+    originalGroupPermissions: Permission[];
     checkedPermissions: Set<number>;
-    onPermissionToggle: (permissionId: number) => void;
-    onGroupToggle: (groupPermissions: Permission[], checkAll: boolean) => void;
-    isGroupFullyChecked: (groupName: string) => boolean;
-}
+    onPermissionToggle: (id: number) => void;
+    onGroupToggle: (permissions: Permission[], checkAll: boolean) => void;
+}>(({ groupName, groupPermissions, originalGroupPermissions, checkedPermissions, onPermissionToggle, onGroupToggle }) => {
+    const isFullyChecked = useMemo(() =>
+        originalGroupPermissions.length > 0 &&
+        originalGroupPermissions.every(p => checkedPermissions.has(p.id)),
+        [originalGroupPermissions, checkedPermissions]
+    );
+    const handleGroupToggle = useCallback(() =>
+        onGroupToggle(originalGroupPermissions, !isFullyChecked),
+        [onGroupToggle, originalGroupPermissions, isFullyChecked]
+    );
 
-const PermissionTable = ({
-    permissions,
-    filteredPermissions,
-    checkedPermissions,
-    onPermissionToggle,
-    onGroupToggle,
-    isGroupFullyChecked
-}: PermissionTableProps) => (
-    <div className="space-y-4">
-        {Object.entries(filteredPermissions || {}).map(([groupName, groupPermissions]) => (
-            <Card key={groupName}>
-                <CardHeader>
-                    <div className="flex items-center justify-between px-4">
-                        <CardTitle className="text-lg">{groupName}</CardTitle>
-                        <div className="flex items-center space-x-2">
-                            <span className="text-sm text-muted-foreground">Chọn tất cả</span>
-                            <Checkbox
-                                checked={isGroupFullyChecked(groupName)}
-                                onCheckedChange={() =>
-                                    onGroupToggle(permissions[groupName] || groupPermissions, !isGroupFullyChecked(groupName))
-                                }
-                            />
-                        </div>
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center justify-between px-4">
+                    <CardTitle className="text-lg">{groupName}</CardTitle>
+                    <div className="flex items-center space-x-2">
+                        <span className="text-sm text-muted-foreground">Chọn tất cả</span>
+                        <Checkbox checked={isFullyChecked} onCheckedChange={handleGroupToggle} />
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Code</TableHead>
-                                <TableHead>Tên</TableHead>
-                                <TableHead>Mô tả</TableHead>
-                                <TableHead className="w-[50px]">Chọn</TableHead>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Code</TableHead>
+                            <TableHead>Tên</TableHead>
+                            <TableHead>Mô tả</TableHead>
+                            <TableHead className="w-[50px]">Chọn</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {groupPermissions.map((permission) => (
+                            <TableRow key={permission.id}>
+                                <TableCell className="font-mono text-sm">{permission.name}</TableCell>
+                                <TableCell>{formatPermissionName(permission.name)}</TableCell>
+                                <TableCell>{permission.description ?? ''}</TableCell>
+                                <TableCell>
+                                    <Checkbox
+                                        checked={checkedPermissions.has(permission.id)}
+                                        onCheckedChange={() => onPermissionToggle(permission.id)}
+                                    />
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {groupPermissions.map((permission) => (
-                                <TableRow key={permission.id}>
-                                    <TableCell className="font-mono text-sm">
-                                        {permission.name}
-                                    </TableCell>
-                                    <TableCell>
-                                        {formatPermissionName(permission.name)}
-                                    </TableCell>
-                                    <TableCell>
-                                        {permission.description ?? ''}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Checkbox
-                                            checked={checkedPermissions.has(permission.id)}
-                                            onCheckedChange={() => onPermissionToggle(permission.id)}
-                                        />
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        ))}
-    </div>
-);
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    );
+});
+PermissionGroup.displayName = 'PermissionGroup';
 
-// Role Dialog Component
-interface RoleDialogProps {
+const KeyDialog = memo<{
     isOpen: boolean;
-    editingRole: Role | null;
+    editingKey: ApplicationKey | null;
     onClose: () => void;
     onSave: (data: FormData) => void;
     isLoading?: boolean;
-}
-
-const RoleDialog = ({ isOpen, editingRole, onClose, onSave, isLoading = false }: RoleDialogProps) => {
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>
-                        {editingRole ? 'Cập nhật vai trò' : 'Thêm vai trò mới'}
-                    </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                    <FormPages
-                        onSubmit={onSave}
-                        showHeader={false}
-                        defaultValues={{ name: editingRole?.name || "" }}
-                        className="space-y-4"
-                    >
-                        <Field
-                            name="name"
-                            label="Tên vai trò"
-                            placeholder="Nhập tên vai trò..."
-                            type="text"
-                        />
-                        <div className="flex justify-end space-x-2 mt-4">
-                            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
-                                Hủy
-                            </Button>
-                            <Button type="submit" className="cursor-pointer" disabled={isLoading}>
-                                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                {editingRole ? <Save className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                                {editingRole ? 'Cập nhật vai trò' : 'Thêm vai trò mới'}
-                            </Button>
-                        </div>
-                    </FormPages>
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-};
-
-const DeleteConfirmationDialog = ({
-    isOpen,
-    onClose,
-    onConfirm,
-    roleName
-}: {
-    isOpen: boolean;
-    onClose: () => void;
-    onConfirm: () => void;
-    roleName: string;
-}) => (
+}>(({ isOpen, editingKey, onClose, onSave, isLoading = false }) => (
     <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent>
             <DialogHeader>
-                <DialogTitle>Xác nhận xóa vai trò</DialogTitle>
+                <DialogTitle>{editingKey ? 'Cập nhật khóa API' : 'Thêm khóa API mới'}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+                <FormPages
+                    onSubmit={onSave}
+                    showHeader={false}
+                    defaultValues={{ name: editingKey?.name || "" }}
+                    className="space-y-4"
+                >
+                    <Field
+                        name="name"
+                        label="Tên khóa API"
+                        placeholder="Nhập tên khóa API..."
+                        type="text"
+                    />
+                    <div className="flex justify-end space-x-2 mt-4">
+                        <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+                            Hủy
+                        </Button>
+                        <Button type="submit" className="cursor-pointer" disabled={isLoading}>
+                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {editingKey ? <Save className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                            {editingKey ? 'Cập nhật' : 'Tạo khóa API'}
+                        </Button>
+                    </div>
+                </FormPages>
+            </div>
+        </DialogContent>
+    </Dialog>
+));
+KeyDialog.displayName = 'KeyDialog';
+
+const DeleteConfirmationDialog = memo<{
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    keyName: string;
+}>(({ isOpen, onClose, onConfirm, keyName }) => (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Xác nhận xóa khóa API</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                    Bạn có chắc chắn muốn xóa vai trò <strong>"{roleName}"</strong> không?
+                    Bạn có chắc chắn muốn xóa khóa API <strong>"{keyName}"</strong> không?
                 </p>
                 <p className="text-sm text-muted-foreground">
-                    Hành động này không thể hoàn tác và sẽ xóa tất cả quyền liên quan đến vai trò này.
+                    Hành động này không thể hoàn tác.
                 </p>
                 <div className="flex justify-end space-x-2">
-                    <Button variant="outline" onClick={onClose}>
-                        Hủy
-                    </Button>
-                    <Button variant="destructive" onClick={onConfirm}>
-                        Xóa vai trò
-                    </Button>
+                    <Button variant="outline" onClick={onClose}>Hủy</Button>
+                    <Button variant="destructive" onClick={onConfirm}>Xóa khóa API</Button>
                 </div>
             </div>
         </DialogContent>
     </Dialog>
-);
+));
+DeleteConfirmationDialog.displayName = 'DeleteConfirmationDialog';
 
+// ============================================================================
+// Main Component
+// ============================================================================
 
 const Index = () => {
-    const { permissions, applicationKeys } = usePage().props as unknown as {
-        permissions: Record<string, Permission[]>;
-        applicationKeys: ApplicationKey[];
-    };
-    const [checkedPermissions, setCheckedPermissions] = useState<Set<number>>(new Set());
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedRole, setSelectedRole] = useState<ApplicationKey | null>(applicationKeys?.[0] || null);
+    const { permissions, applicationKeys } = usePage<PageProps>().props;
 
-    const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
-    const [editingRole, setEditingRole] = useState<ApplicationKey | null>(null);
+    const [checkedPermissions, setCheckedPermissions] = useState<Set<number>>(
+        () => new Set(applicationKeys[0]?.permissions.map(p => p.id) ?? [])
+    );
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedKey, setSelectedKey] = useState<ApplicationKey | null>(applicationKeys[0] || null);
+    const [isKeyDialogOpen, setIsKeyDialogOpen] = useState(false);
+    const [editingKey, setEditingKey] = useState<ApplicationKey | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSavingPermissions, setIsSavingPermissions] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-    const syncPermissionsWithRole = useCallback((role: ApplicationKey | null) => {
-        setCheckedPermissions(role ? new Set(role.permissions.map(p => p.id)) : new Set());
+    const filteredPermissions = useMemo(() =>
+        filterPermissions(permissions, searchTerm),
+        [permissions, searchTerm]
+    );
+
+    const syncPermissionsWithKey = useCallback((key: ApplicationKey | null) => {
+        setCheckedPermissions(key ? new Set(key.permissions.map(p => p.id)) : new Set());
     }, []);
 
-    const handleRoleSelect = useCallback((role: ApplicationKey) => {
-        setSelectedRole(role);
-        syncPermissionsWithRole(role);
-    }, [syncPermissionsWithRole]);
-
-    const saveRolePermissions = useCallback(async () => {
-        if (!selectedRole) return;
-        setIsSavingPermissions(true);
-        try {
-            await router.put(`/application-keys/${selectedRole.id}/permissions`, {
-                permissions: Array.from(checkedPermissions)
-            }, {
-                onSuccess: () => {
-                    // Refresh page to get updated data
-                    router.reload();
-                },
-                onError: (errors) => {
-                    console.error('Có lỗi xảy ra khi lưu quyền:', errors);
-                }
-            });
-        } catch (error) {
-            console.error('Có lỗi xảy ra khi lưu quyền:', error);
-        } finally {
-            setIsSavingPermissions(false);
-        }
-    }, [selectedRole, checkedPermissions]);
-
-
-    const filteredPermissions = useMemo(() => {
-        if (!searchTerm.trim()) return permissions;
-
-        const searchLower = searchTerm.toLowerCase();
-        return Object.entries(permissions).reduce((acc, [groupName, groupPermissions]) => {
-            const filteredGroup = groupPermissions.filter((permission) => {
-                const nameLower = permission.name.toLowerCase();
-                const formattedName = formatPermissionName(permission.name).toLowerCase();
-                return nameLower.includes(searchLower) || formattedName.includes(searchLower);
-            });
-
-            if (filteredGroup.length > 0) {
-                acc[groupName] = filteredGroup;
-            }
-
-            return acc;
-        }, {} as Record<string, Permission[]>);
-    }, [permissions, searchTerm]);
-
-    const openRoleDialog = useCallback((role: ApplicationKey | null = null) => {
-        setEditingRole(role);
-        setIsRoleDialogOpen(true);
-    }, []);
-
-    const closeRoleDialog = useCallback(() => {
-        setIsRoleDialogOpen(false);
-        setEditingRole(null);
-    }, []);
-
-    const saveRole = useCallback(async (data: FormData) => {
-        setIsLoading(true);
-        try {
-            const roleData = { name: data.name as string };
-            if (editingRole) {
-                await router.put(route('admin.application-keys.update', { id: editingRole.id }), roleData, {
-                    onSuccess: closeRoleDialog,
-                    onError: (errors) => {
-                        console.error('Có lỗi xảy ra khi cập nhật application key:', errors);
-                    }
-                });
-            } else {
-                await router.post(route('admin.application-keys.store'), roleData, {
-                    onSuccess: closeRoleDialog,
-                    onError: (errors) => {
-                        console.error('Có lỗi xảy ra khi tạo application key:', errors);
-                    }
-                });
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    }, [editingRole, closeRoleDialog]);
-
-    const confirmDeleteRole = useCallback(async () => {
-        if (!selectedRole) return;
-        await router.delete(route('admin.application-keys.destroy', { id: selectedRole.id }), {
-            onSuccess: () => {
-                setSelectedRole(null);
-                setIsDeleteDialogOpen(false);
-            },
-            onError: (error) => {
-                console.error('Có lỗi xảy ra khi xóa vai trò:', error);
-            }
-        });
-    }, [selectedRole]);
+    const handleKeySelect = useCallback((key: ApplicationKey) => {
+        setSelectedKey(key);
+        syncPermissionsWithKey(key);
+    }, [syncPermissionsWithKey]);
 
     const handlePermissionToggle = useCallback((permissionId: number) => {
         setCheckedPermissions(prev => {
-            const newChecked = new Set(prev);
-            if (newChecked.has(permissionId)) {
-                newChecked.delete(permissionId);
-            } else {
-                newChecked.add(permissionId);
-            }
-            return newChecked;
+            const next = new Set(prev);
+            next.has(permissionId) ? next.delete(permissionId) : next.add(permissionId);
+            return next;
         });
     }, []);
 
     const handleGroupToggle = useCallback((groupPermissions: Permission[], checkAll: boolean) => {
         setCheckedPermissions(prev => {
-            const newChecked = new Set(prev);
-            groupPermissions.forEach(permission => {
-                if (checkAll) {
-                    newChecked.add(permission.id);
-                } else {
-                    newChecked.delete(permission.id);
-                }
-            });
-            return newChecked;
+            const next = new Set(prev);
+            groupPermissions.forEach(p => checkAll ? next.add(p.id) : next.delete(p.id));
+            return next;
         });
     }, []);
 
     const isGroupFullyChecked = useCallback((groupName: string) => {
-        const originalGroupPermissions = permissions[groupName] || [];
-        return originalGroupPermissions.length > 0 &&
-               originalGroupPermissions.every(p => checkedPermissions.has(p.id));
+        const original = permissions[groupName] || [];
+        return original.length > 0 && original.every(p => checkedPermissions.has(p.id));
     }, [permissions, checkedPermissions]);
 
+    const savePermissions = useCallback(() => {
+        if (!selectedKey) return;
+        setIsSavingPermissions(true);
+        router.put(
+            route('admin.settings.application-keys.permissions', { id: selectedKey.id }),
+            { permissions: Array.from(checkedPermissions) },
+            {
+                onSuccess: () => { toast('Lưu quyền thành công!', 'success'); router.reload(); },
+                onError: () => toast('Có lỗi xảy ra khi lưu quyền.', 'error'),
+                onFinish: () => setIsSavingPermissions(false),
+            }
+        );
+    }, [selectedKey, checkedPermissions]);
+
+    const openKeyDialog = useCallback((key: ApplicationKey | null = null) => {
+        setEditingKey(key);
+        setIsKeyDialogOpen(true);
+    }, []);
+
+    const closeKeyDialog = useCallback(() => {
+        setIsKeyDialogOpen(false);
+        setEditingKey(null);
+    }, []);
+
+    const saveKey = useCallback((data: FormData) => {
+        setIsLoading(true);
+        const keyData = { name: data.name as string };
+        if (editingKey) {
+            router.put(route('admin.settings.application-keys.update', { id: editingKey.id }), keyData, {
+                onSuccess: () => { toast('Cập nhật khóa API thành công!', 'success'); closeKeyDialog(); },
+                onError: () => toast('Có lỗi xảy ra khi cập nhật khóa API.', 'error'),
+                onFinish: () => setIsLoading(false),
+            });
+        } else {
+            router.post(route('admin.settings.application-keys.store'), keyData, {
+                onSuccess: () => { toast('Tạo khóa API thành công!', 'success'); closeKeyDialog(); },
+                onError: () => toast('Có lỗi xảy ra khi tạo khóa API.', 'error'),
+                onFinish: () => setIsLoading(false),
+            });
+        }
+    }, [editingKey, closeKeyDialog]);
+
+    const confirmDelete = useCallback(() => {
+        if (!selectedKey) return;
+        router.delete(route('admin.settings.application-keys.destroy', { id: selectedKey.id }), {
+            onSuccess: () => {
+                toast('Xóa khóa API thành công!', 'success');
+                setSelectedKey(null);
+                setIsDeleteDialogOpen(false);
+            },
+            onError: () => toast('Có lỗi xảy ra khi xóa khóa API.', 'error'),
+        });
+    }, [selectedKey]);
 
     return (
         <AppLayout>
             <div className="flex gap-4">
                 <Card className="max-w-[400px] w-full">
-                 <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle>Vai trò</CardTitle>
-                            <CardDescription>Quản lý vai trò của người dùng</CardDescription>
-                        </div>
-                        <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => openRoleDialog()}>
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <CardTitle>Khóa API</CardTitle>
+                                <CardDescription>Quản lý khóa API và phân quyền</CardDescription>
+                            </div>
+                            <Button size="sm" variant="outline" onClick={() => openKeyDialog()}>
                                 <Plus className="h-4 w-4 mr-1" />
                                 Thêm mới
                             </Button>
                         </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        {applicationKeys.map(role => (
-                            <RoleCard
-                                key={role.id}
-                                role={role}
-                                isSelected={selectedRole?.id === role.id}
-                                onSelect={handleRoleSelect}
-                                onEdit={openRoleDialog}
-                            />
-                        ))}
-                    </div>
-                </CardContent>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            {applicationKeys.map(key => (
+                                <KeyCard
+                                    key={key.id}
+                                    appKey={key}
+                                    isSelected={selectedKey?.id === key.id}
+                                    onSelect={handleKeySelect}
+                                    onEdit={openKeyDialog}
+                                />
+                            ))}
+                        </div>
+                    </CardContent>
                 </Card>
-                <div className="flex-1 w-full space-y-4  overflow-y-auto gap-4">
+
+                <div className="flex-1 w-full space-y-4 overflow-y-auto gap-4">
                     <div className="flex items-center justify-between">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -418,8 +390,8 @@ const Index = () => {
                             />
                         </div>
                         <Button
-                            onClick={saveRolePermissions}
-                            disabled={!selectedRole || isSavingPermissions}
+                            onClick={savePermissions}
+                            disabled={!selectedKey || isSavingPermissions}
                             className="ml-4 cursor-pointer"
                         >
                             <Save className="h-4 w-4 mr-2" />
@@ -428,35 +400,41 @@ const Index = () => {
                         </Button>
                         <Button
                             onClick={() => setIsDeleteDialogOpen(true)}
-                            disabled={!selectedRole || isSavingPermissions}
+                            disabled={!selectedKey || isSavingPermissions}
                             className="ml-4 bg-red-500 hover:bg-red-600 cursor-pointer text-white"
                         >
                             <Trash2 className="h-4 w-4" />
-                            Xóa vai trò
+                            Xóa khóa API
                         </Button>
                     </div>
+
                     <div className="space-y-4 max-h-[calc(100vh-150px)] overflow-y-auto">
-                        <PermissionTable
-                            permissions={permissions}
-                            filteredPermissions={filteredPermissions}
-                            checkedPermissions={checkedPermissions}
-                            onPermissionToggle={handlePermissionToggle}
-                            onGroupToggle={handleGroupToggle}
-                            isGroupFullyChecked={isGroupFullyChecked}
-                        />
+                        {Object.entries(filteredPermissions).map(([groupName, groupPermissions]) => (
+                            <PermissionGroup
+                                key={groupName}
+                                groupName={groupName}
+                                groupPermissions={groupPermissions}
+                                originalGroupPermissions={permissions[groupName] || groupPermissions}
+                                checkedPermissions={checkedPermissions}
+                                onPermissionToggle={handlePermissionToggle}
+                                onGroupToggle={handleGroupToggle}
+                            />
+                        ))}
                     </div>
-                    <RoleDialog
-                        isOpen={isRoleDialogOpen}
-                        editingRole={editingRole}
-                        onClose={closeRoleDialog}
-                        onSave={saveRole}
+
+                    <KeyDialog
+                        isOpen={isKeyDialogOpen}
+                        editingKey={editingKey}
+                        onClose={closeKeyDialog}
+                        onSave={saveKey}
                         isLoading={isLoading}
                     />
+
                     <DeleteConfirmationDialog
                         isOpen={isDeleteDialogOpen}
                         onClose={() => setIsDeleteDialogOpen(false)}
-                        onConfirm={confirmDeleteRole}
-                        roleName={selectedRole?.name || ''}
+                        onConfirm={confirmDelete}
+                        keyName={selectedKey?.name || ''}
                     />
                 </div>
             </div>

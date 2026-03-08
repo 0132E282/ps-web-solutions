@@ -81,7 +81,7 @@ trait HasDuplication
                     if (is_string($val)) {
                         $copyText = $translations[$locale] ?? 'Copy';
                         $localizedValue[$locale] = $suffix
-                            ? $val.$suffix
+                            ? $val . $suffix
                             : $this->addCopySuffix($val, $copyText);
                     }
                 }
@@ -90,18 +90,18 @@ trait HasDuplication
             } elseif (is_string($value)) {
                 $copyText = $translations[app()->getLocale()] ?? 'Copy';
 
-                return $suffix ? $value.$suffix : $this->addCopySuffix($value, $copyText);
+                return $suffix ? $value . $suffix : $this->addCopySuffix($value, $copyText);
             }
         } else {
             if (is_string($value)) {
                 $copyText = $translations[app()->getLocale()] ?? 'Copy';
 
-                return $suffix ? $value.$suffix : $this->addCopySuffix($value, $copyText);
+                return $suffix ? $value . $suffix : $this->addCopySuffix($value, $copyText);
             } elseif (is_array($value)) {
                 foreach ($value as $k => $v) {
                     if (is_string($v)) {
                         $copyText = $translations[$k] ?? 'Copy';
-                        $value[$k] = $suffix ? $v.$suffix : $this->addCopySuffix($v, $copyText);
+                        $value[$k] = $suffix ? $v . $suffix : $this->addCopySuffix($v, $copyText);
                     }
                 }
 
@@ -145,7 +145,7 @@ trait HasDuplication
      */
     protected function addCopySuffix(string $value, string $copyText): string
     {
-        $pattern = '/\s*\(('.preg_quote($copyText, '/').')(\s+(\d+))?\)\s*$/i';
+        $pattern = '/\s*\((' . preg_quote($copyText, '/') . ')(\s+(\d+))?\)\s*$/i';
 
         if (preg_match($pattern, $value, $matches)) {
             $currentNumber = isset($matches[3]) && is_numeric($matches[3]) ? (int) $matches[3] : 1;
@@ -153,9 +153,9 @@ trait HasDuplication
 
             $baseValue = preg_replace($pattern, '', $value);
 
-            return $baseValue.' ('.$copyText.' '.$nextNumber.')';
+            return $baseValue . ' (' . $copyText . ' ' . $nextNumber . ')';
         }
 
-        return $value.' ('.$copyText.')';
+        return $value . ' (' . $copyText . ')';
     }
 }

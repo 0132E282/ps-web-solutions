@@ -14,13 +14,15 @@ return new class extends Migration
         Schema::create('posts', function (Blueprint $table) {
             $table->id();
             $table->json('title');
-            $table->json('content');
+            $table->json('content')->nullable();
             $table->json('description')->nullable();
             $table->json('position')->nullable();
             $table->enum('status', ['published', 'draft', 'archived'])->nullable()->default('published');
+            $table->boolean('is_featured')->default(false);
+            $table->integer('featured_position')->default(0);
             $table->json('slug');
             $table->json('image')->nullable();
-            $table->json('published_at')->nullable();
+            $table->timestamp('published_at')->nullable();
             $table->json('attribute_data')->nullable();
             $table->timestamps();
         });

@@ -33,7 +33,8 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
-            "PS0132E282\\Core\\Database\\": "plugins/core/database/"
+            "PS0132E282\\Core\\Database\\": "plugins/core/database/",
+            "PS0132E282\\Cms\\Database\\": "plugins/cms/database/"
         }
     },
     "autoload-dev": {

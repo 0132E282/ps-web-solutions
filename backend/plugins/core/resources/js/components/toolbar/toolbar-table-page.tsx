@@ -413,7 +413,7 @@ const HeaderToolbarTable = ({
 
     return (
         <>
-        <div className={cn("flex flex-col md:flex-row md:items-center justify-end gap-4 mb-4", className)}>
+        <div className={cn("flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4", className)}>
             {hasTabs && (
                 <div className="flex items-center gap-1 border-b w-full md:w-auto md:border-none overflow-x-auto">
                     {tabnavs.map((tab, index) => {
@@ -441,7 +441,7 @@ const HeaderToolbarTable = ({
             )}
 
             {hasActions && (
-                <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end">
+                <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end ml-auto">
                     {showImport && (
                         <>
                             <input

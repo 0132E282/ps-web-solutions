@@ -15,9 +15,9 @@ class PostCategory extends BaseTerm
       'name' => ['ui' => 'text', 'config' => ['validation' => 'required|max:255', 'placeholder' => 'e.g. Electronics']],
       'slug' => ['ui' => 'text', 'config' => ['validation' => 'required|max:255|unique:taxonomies,slug,' . ($this->id ?? 'NULL') . ',id', 'placeholder' => 'e.g. electronics']],
       'description' => ['ui' => 'textarea', 'config' => ['validation' => 'nullable|max:255', 'placeholder' => 'e.g. Electronics category']],
-      'image' => ['ui' => 'image', 'config' => ['validation' => 'nullable|image|max:2048', 'placeholder' => 'e.g. electronics.jpg']],
+      'property.image' => ['ui' => 'attachment', 'config' => ['validation' => 'nullable|image|max:2048', 'placeholder' => 'e.g. electronics.jpg']],
       'status' => ['ui' => 'button-radio', 'config' => ['options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft']], 'validation' => 'required|in:published,draft']],
-      'parent' => ['ui' => 'select', 'config' => ['options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft']], 'validation' => 'required|in:published,draft']],
+      'parent' => ['ui' => 'select', 'config' => ['query' => ['collection' => 'post-category', 'filters' => ['type' => 'post_categories']], 'validation' => 'nullable|exists:taxonomies,id']],
     ];
   }
 
@@ -25,7 +25,7 @@ class PostCategory extends BaseTerm
     'name',
     'slug',
     'description',
-    'image',
+    'property',
     'status',
   ];
 

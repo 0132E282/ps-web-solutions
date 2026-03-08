@@ -12,7 +12,6 @@ abstract class BaseTerm extends Taxonomy
 {
     protected $table = 'taxonomies';
 
-    protected $appends = ['status'];
 
     /**
      * Boot the model.
@@ -82,7 +81,6 @@ abstract class BaseTerm extends Taxonomy
         'lft',
         'rgt',
         'depth',
-
     ];
 
     /**
@@ -103,7 +101,6 @@ abstract class BaseTerm extends Taxonomy
      * Override this in child classes
      */
     abstract public function configs(): array;
-
     /**
      * Get the taxonomy name for this term type
      * Default: converts ThemeOption -> theme_options
@@ -115,26 +112,6 @@ abstract class BaseTerm extends Taxonomy
             ->plural();
     }
 
-    /**
-     * Get status attribute (published/draft)
-     */
-    public function getStatusAttribute()
-    {
-        return $this->deleted_at ? 'draft' : 'published';
-    }
-
-    /**
-     * Set status attribute
-     */
-    public function setStatusAttribute($value)
-    {
-        // This will be handled by soft deletes
-        if ($value === 'draft' && ! $this->deleted_at) {
-            $this->delete(); // Soft delete
-        } elseif ($value === 'published' && $this->deleted_at) {
-            $this->restore();
-        }
-    }
 
     /**
      * Boot the model

@@ -28,6 +28,8 @@ import InputSingleCondition, { type InputSingleConditionProps } from "./input/in
 import InputSlug from "./input/InputSlug";
 import Textarea from "./input/textarea";
 
+import { parseValidationRules } from "../../utils/validation-parser";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const customFieldComponents: Record<string, React.ComponentType<any>> = {};
 
@@ -241,11 +243,10 @@ const renderLabel = (
 /**
  * Render description and message components
  */
-const renderFieldMeta = (description?: string): React.ReactElement | null => {
-  if (!description) return null;
+const renderFieldMeta = (description?: string): React.ReactElement => {
   return (
     <>
-      <FormDescription>{description}</FormDescription>
+      {description && <FormDescription>{description}</FormDescription>}
       <FormMessage />
     </>
   );
@@ -286,7 +287,11 @@ export const Field: React.FC<FieldProps> = ({
   ...props
 }) => {
   const { control } = useFormContext();
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
+
+  const mergedRules = React.useMemo(() => {
+    return parseValidationRules(props.validation, required, t, props.rules as Record<string, unknown>);
+  }, [props.rules, props.validation, required, t]);
 
   // Fetch options from source/query/collection
   const { options: sourceOptions, isLoading: isLoadingOptions } = useQuerySource(
@@ -351,12 +356,12 @@ export const Field: React.FC<FieldProps> = ({
         <FormFieldUI
           control={control}
           name={name}
-          rules={props.rules as any}
+          rules={mergedRules}
           render={renderFn}
         />
       </FormItem>
     ),
-    [labelComponent, control, name, className, type, props.rules]
+    [labelComponent, control, name, className, type, mergedRules]
   );
 
   // Render custom field component with type-safe renderer
@@ -403,7 +408,7 @@ export const Field: React.FC<FieldProps> = ({
       return (
         <FormItem className={cn(className)}>
           {labelComponent}
-          <FormFieldUI control={control} name={name} render={() => renderCustomField(complexProps, type)} />
+          <FormFieldUI control={control} name={name} rules={mergedRules} render={() => renderCustomField(complexProps, type)} />
           {renderFieldMeta(description)}
         </FormItem>
       );

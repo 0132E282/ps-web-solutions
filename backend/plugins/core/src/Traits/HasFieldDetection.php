@@ -25,43 +25,47 @@ trait HasFieldDetection
         $tableName = $modelInstance->getTable();
 
         return array_map(function ($field) use ($casts, $tableName, $modelInstance) {
-            if (is_array($field)) {
+            $isFieldArray = is_array($field);
+            $fieldName = $isFieldArray ? ($field['name'] ?? null) : $field;
+
+            if (! $fieldName) {
                 return $field;
             }
 
             // * Auto-detect: dot notation field (e.g. "roles.name") → badge
-            if (str_contains($field, '.')) {
-                $relationName = explode('.', $field)[0];
-
-                return [
-                    'name'   => $field,
+            if (str_contains($fieldName, '.')) {
+                $relationName = explode('.', $fieldName)[0];
+                $detected = [
+                    'name'   => $fieldName,
                     'type'   => 'string',
                     'ui'     => 'badge',
                     'size'   => $this->getDefaultFieldWidth('badge', $relationName),
                     'label'  => ucfirst($relationName),
                 ];
+                return $isFieldArray ? array_merge($detected, $field) : $detected;
             }
 
             // * Auto-detect: model relationship method (e.g. "roles") → badge
-            if (method_exists($modelInstance, $field)) {
-                return [
-                    'name'  => $field,
+            if (method_exists($modelInstance, $fieldName)) {
+                $detected = [
+                    'name'  => $fieldName,
                     'type'  => 'string',
                     'ui'    => 'badge',
-                    'size'  => $this->getDefaultFieldWidth('badge', $field),
-                    'label' => ucfirst($field),
+                    'size'  => $this->getDefaultFieldWidth('badge', $fieldName),
+                    'label' => ucfirst($fieldName),
                 ];
+                return $isFieldArray ? array_merge($detected, $field) : $detected;
             }
 
-            $fieldConfig = $this->detectFieldType($field, $casts, $tableName);
-            $resolved = $fieldConfig ?? ['name' => $field];
+            $fieldConfig = $this->detectFieldType($fieldName, $casts, $tableName);
+            $resolved = $fieldConfig ?? ['name' => $fieldName];
 
             // * Auto-detect: "name" or "title" → primary = true
-            if (is_array($resolved) && in_array($field, $this->primaryFields, true)) {
+            if (is_array($resolved) && in_array($fieldName, $this->primaryFields, true)) {
                 $resolved['primary'] = true;
             }
 
-            return $resolved;
+            return $isFieldArray ? array_merge($resolved, $field) : $resolved;
         }, $fields);
     }
 
@@ -72,16 +76,21 @@ trait HasFieldDetection
     {
         // Priority 1: Check model casts
         if (isset($casts[$fieldName])) {
-            $castType = ! empty($casts[$fieldName]) ? class_basename($casts[$fieldName]) : null;
+            $castVal = $casts[$fieldName];
+            $castType = ! empty($castVal) ? class_basename($castVal) : null;
+            $fullClass = is_string($castVal) && class_exists($castVal) ? $castVal : null;
+
+            $isFileMedia = $castType === 'FileMedia' || ($fullClass && is_a($fullClass, \PS0132E282\Core\Cats\FileMedia::class, true));
+            $isLocalization = $castType === 'Localization' || ($fullClass && is_a($fullClass, \PS0132E282\Core\Cats\Localization::class, true));
 
             $fieldConfig = match (true) {
-                $castType === 'FileMedia' => [
+                $isFileMedia => [
                     'name' => $fieldName,
                     'type' => 'string',
                     'ui' => Str::plural($fieldName) === $fieldName ? 'attachments' : 'attachment',
                 ],
-                $castType === 'Localization' => ['name' => $fieldName, 'type' => 'string', 'ui' => 'text'],
-                $castType === 'boolean' || $castType === 'bool' => ['name' => $fieldName, 'type' => 'boolean', 'ui' => 'switch'],
+                $isLocalization => ['name' => $fieldName, 'type' => 'string', 'ui' => 'text'],
+                in_array($castType, ['boolean', 'bool', 'hashed']) => ['name' => $fieldName, 'type' => 'boolean', 'ui' => 'switch'],
                 in_array($castType, ['integer', 'int']) => $this->detectIntegerFieldType($fieldName),
                 in_array($castType, ['real', 'float', 'double', 'decimal']) => ['name' => $fieldName, 'type' => 'number', 'ui' => 'number'],
                 in_array($castType, ['datetime', 'date', 'timestamp']) => ['name' => $fieldName, 'type' => 'date', 'ui' => 'date'],

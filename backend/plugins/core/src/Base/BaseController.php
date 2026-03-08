@@ -330,7 +330,6 @@ class BaseController extends Controller
         if ($flash) {
             session()->flash('success', $flash);
         }
-
         return Inertia::render($this->getPage($action), [
             'views'   => $this->getViewsConfig($action),
             'configs' => $this->getModelConfigs(),

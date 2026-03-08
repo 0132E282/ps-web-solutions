@@ -12,6 +12,7 @@ import { Input } from "@core/components/ui/input";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@core/components/ui/table";
 import AppLayout from "@core/layouts/app-layout";
 import { route } from "@core/lib/route";
+import { toast } from "@core/lib/toast";
 
 import type { FormData } from "@core/types/forms";
 import type { MouseEvent } from "react";
@@ -328,7 +329,9 @@ const Index = () => {
     const { permissions, roles } = usePage<PageProps>().props;
 
     // State
-    const [checkedPermissions, setCheckedPermissions] = useState<Set<number>>(new Set());
+    const [checkedPermissions, setCheckedPermissions] = useState<Set<number>>(
+        () => new Set(roles[0]?.permissions.map(p => p.id) ?? [])
+    );
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedRole, setSelectedRole] = useState<Role | null>(roles[0] || null);
     const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
@@ -385,22 +388,19 @@ const Index = () => {
                originalGroupPermissions.every(p => checkedPermissions.has(p.id));
     }, [permissions, checkedPermissions]);
 
-    const saveRolePermissions = useCallback(async () => {
+    const saveRolePermissions = useCallback(() => {
         if (!selectedRole) return;
 
         setIsSavingPermissions(true);
-        try {
-            await router.put(route('admin.settings.roles.permissions', { id: selectedRole.id }), {
-                permissions: Array.from(checkedPermissions)
-            }, {
-                onSuccess: () => router.reload(),
-                onError: (errors) => console.error('Có lỗi xảy ra khi lưu quyền:', errors)
-            });
-        } catch (error) {
-            console.error('Có lỗi xảy ra khi lưu quyền:', error);
-        } finally {
-            setIsSavingPermissions(false);
-        }
+        router.put(
+            route('admin.settings.roles.permissions', { id: selectedRole.id }),
+            { permissions: Array.from(checkedPermissions) },
+            {
+                onSuccess: () => { toast('Lưu quyền thành công!', 'success'); router.reload(); },
+                onError: () => toast('Có lỗi xảy ra khi lưu quyền.', 'error'),
+                onFinish: () => setIsSavingPermissions(false),
+            }
+        );
     }, [selectedRole, checkedPermissions]);
 
     const openRoleDialog = useCallback((role: Role | null = null) => {
@@ -413,32 +413,30 @@ const Index = () => {
         setEditingRole(null);
     }, []);
 
-    const saveRole = useCallback(async (data: FormData) => {
+    const saveRole = useCallback((data: FormData) => {
         setIsLoading(true);
-        try {
-            const roleData = { name: data.name as string };
-            const routeName = editingRole ? 'admin.settings.roles.update' : 'admin.settings.roles.store';
-            const method = editingRole ? 'put' : 'post';
-            const routeParams = editingRole ? { id: editingRole.id } : undefined;
+        const roleData = { name: data.name as string };
+        const routeName = editingRole ? 'admin.settings.roles.update' : 'admin.settings.roles.store';
+        const method = editingRole ? 'put' : 'post';
+        const routeParams = editingRole ? { id: editingRole.id } : undefined;
 
-            await router[method](route(routeName, routeParams), roleData, {
-                onSuccess: closeRoleDialog,
-                onError: (errors) => console.error('Có lỗi xảy ra khi lưu vai trò:', errors)
-            });
-        } finally {
-            setIsLoading(false);
-        }
+        router[method](route(routeName, routeParams), roleData, {
+            onSuccess: () => { toast(editingRole ? 'Cập nhật vai trò thành công!' : 'Thêm vai trò thành công!', 'success'); closeRoleDialog(); },
+            onError: () => toast('Có lỗi xảy ra khi lưu vai trò.', 'error'),
+            onFinish: () => setIsLoading(false),
+        });
     }, [editingRole, closeRoleDialog]);
 
-    const confirmDeleteRole = useCallback(async () => {
+    const confirmDeleteRole = useCallback(() => {
         if (!selectedRole) return;
 
-        await router.delete(route('admin.settings.roles.delete', { id: selectedRole.id }), {
+        router.delete(route('admin.settings.roles.delete', { id: selectedRole.id }), {
             onSuccess: () => {
+                toast('Xóa vai trò thành công!', 'success');
                 setSelectedRole(null);
                 setIsDeleteDialogOpen(false);
             },
-            onError: (error) => console.error('Có lỗi xảy ra khi xóa vai trò:', error)
+            onError: () => toast('Có lỗi xảy ra khi xóa vai trò.', 'error'),
         });
     }, [selectedRole]);
 

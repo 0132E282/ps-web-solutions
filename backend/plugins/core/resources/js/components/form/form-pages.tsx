@@ -210,17 +210,34 @@ export const FormPages = forwardRef<FormRef, FormProps>(({
     }
   }, [itemId, routes, isDeleting, dispatch, api]);
 
-  const handleDuplicate = useCallback(() => {
-    if (!itemId || !resourceName) return;
-    const cloneData = { ...reactHookForm.getValues() } as Record<string, unknown>;
-    delete cloneData.id;
-    reactHookForm.reset(cloneData as Partial<FormData>);
-    toast(tt('common.duplicated_success') || 'Data duplicated!', 'info');
+  const handleDuplicate = useCallback(async () => {
+    if (!itemId || !resourceName || isSubmitting) return;
+
+    dispatch(setSubmitting(true));
     try {
-        const createRoute = prefix ? `${prefix}.${resourceName}.create` : `${resourceName}.create`;
-        router.get(route(createRoute));
-    } catch { toast(tt('common.error') || 'Error!', 'error'); }
-  }, [itemId, resourceName, reactHookForm, prefix]);
+        const duplicateRoute = prefix ? `${prefix}.${resourceName}.bulk-duplicate` : `${resourceName}.bulk-duplicate`;
+        await api.create({
+            url: route(duplicateRoute),
+            data: { ids: [itemId] }
+        });
+
+        toast(tt('common.duplicated_success') || 'Data duplicated successfully!', 'success');
+
+        if (routes.index) {
+            router.get(route(routes.index));
+        } else {
+            router.reload();
+        }
+    } catch (error: unknown) {
+        let message = tt('common.error') || 'Error occurred!';
+        if (isAxiosError(error) && error.response?.data?.message) {
+            message = String(error.response.data.message);
+        }
+        toast(message, 'error');
+    } finally {
+        dispatch(setSubmitting(false));
+    }
+  }, [itemId, resourceName, prefix, isSubmitting, dispatch, api, routes.index]);
 
   const handleAutoSubmit = useCallback(async (data: FormData) => {
     if (!currentRouteName || !resourceName) {
