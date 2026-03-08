@@ -41,6 +41,7 @@ export interface DataTableProps<TData, TValue> {
     route?: string;
     resource?: Resource<TData>;
     toolbarRow?: (row: TData) => React.ReactNode;
+    viewMode?: string;
 }
 
 type TreeItem<T> = T & { _level: number; _hasChildren: boolean; _parentId: string | number | null; _id: string | number };
@@ -288,8 +289,8 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
     const columnFiltersRef = useRef<ColumnFiltersState>(columnFilters);
 
     const isTreeMode = useMemo(() =>
-        checkTreeMode(routeInfo.props.configs) || checkTreeMode(routeInfo.props.views),
-    [routeInfo.props.configs, routeInfo.props.views]);
+        props.viewMode === 'tree' || checkTreeMode(routeInfo.props.configs) || checkTreeMode(routeInfo.props.views),
+    [routeInfo.props.configs, routeInfo.props.views, props.viewMode]);
 
     const { items, pagination, fetchData, updateUrlParams, setApiItemsRaw, lastFetchedUrlRef, apiColumns, apiFilters, isLoading, error, isFetchingRef, setApiColumns, setApiFilters } =
         useDataTableData<TData, TValue>(routeInfo, { itemsProp, dataProp, paginationProp, resourceProp: props.resource }, { isTreeMode, expandedRows, columnFiltersRef });

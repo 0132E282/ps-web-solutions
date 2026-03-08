@@ -20,6 +20,8 @@ import {
 } from "@core/components/ui/dialog";
 import { Checkbox } from "@core/components/ui/checkbox";
 import { Label } from "@core/components/ui/label";
+import { ToggleGroup, ToggleGroupItem } from "@core/components/ui/toggle-group";
+import { List, Network } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -85,6 +87,9 @@ interface HeaderToolbarTableProps {
     importTemplateRoute?: string;
     importTypes?: ImportType[];
     tabnavs?: TabNav[];
+    layouts?: string[];
+    viewMode?: string;
+    onViewModeChange?: (mode: string) => void;
 }
 
 type FileFormat = 'xlsx' | 'csv';
@@ -122,6 +127,9 @@ const HeaderToolbarTable = ({
     importTemplateRoute,
     importTypes,
     tabnavs,
+    layouts = ['table'],
+    viewMode = 'table',
+    onViewModeChange,
 }: HeaderToolbarTableProps) => {
     const dispatch = useDispatch();
     const { current: currentRouteName, crudRoutes } = useModule();
@@ -407,7 +415,7 @@ const HeaderToolbarTable = ({
     };
 
     const hasTabs = tabnavs && tabnavs.length > 0;
-    const hasActions = showDelete || showCreate || showExport || showImport || showDuplicate;
+    const hasActions = showDelete || showCreate || showExport || showImport || showDuplicate || (layouts && layouts.length > 1);
 
     if (!hasTabs && !hasActions) return null;
 
@@ -442,6 +450,7 @@ const HeaderToolbarTable = ({
 
             {hasActions && (
                 <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end ml-auto">
+
                     {showImport && (
                         <>
                             <input
@@ -501,6 +510,39 @@ const HeaderToolbarTable = ({
                                 {tt("common.add_new")}
                             </Button>
                         )
+                        )}
+                                            {layouts && layouts.length > 1 && (
+                        <div className="mr-2">
+                            <ToggleGroup
+                                type="single"
+                                value={viewMode}
+                                onValueChange={(val) => {
+                                    if (val && onViewModeChange) onViewModeChange(val);
+                                }}
+                                className="bg-muted/50 p-1 rounded-lg border shadow-sm h-9"
+                            >
+                                {layouts.includes('table') && (
+                                    <ToggleGroupItem
+                                        value="table"
+                                        aria-label="Table View"
+                                        size="sm"
+                                        className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all"
+                                    >
+                                        <List className="h-4 w-4" />
+                                    </ToggleGroupItem>
+                                )}
+                                {layouts.includes('tree') && (
+                                    <ToggleGroupItem
+                                        value="tree"
+                                        aria-label="Tree View"
+                                        size="sm"
+                                        className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all"
+                                    >
+                                        <Network className="h-4 w-4" />
+                                    </ToggleGroupItem>
+                                )}
+                            </ToggleGroup>
+                        </div>
                     )}
                 </div >
             )}

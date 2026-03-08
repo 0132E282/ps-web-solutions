@@ -13,6 +13,7 @@ class PostCategoryController extends BaseController
         'index' => [
             'title' => 'Post Categories',
             'load-items' => 'tree',
+            'layouts' => ['table', 'tree'],
             'fields' => [
                 ['name' => 'name', 'config' => ['primary' => true]],
                 ['name' => 'status', 'config' => ['type' => 'badge']],

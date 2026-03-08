@@ -20,7 +20,7 @@ const EMPTY_CELL = <span className="text-sm text-muted-foreground">-</span>;
 
 const MEDIA_SIZES = {
     sm: "h-10 w-10",
-    md: "h-12 w-12",
+    md: "h-[60px] w-[60px]",
     lg: "h-16 w-16",
 } as const;
 

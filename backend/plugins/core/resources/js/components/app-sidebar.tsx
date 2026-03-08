@@ -15,7 +15,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@core/components/ui/sidebar"
-import { tt } from '@core/lib/i18n'
+import { tt, getLocalized } from '@core/lib/i18n'
 import { getIconComponent } from "@core/lib/icons"
 import { cn } from "@core/lib/utils"
 import { type NavItem, type User as UserType } from '@core/types'
@@ -53,9 +53,10 @@ interface SidebarPageProps {
 
 const convertItem = (item: SidebarItem, unreadCount?: number): NavItemWithItems => {
   const isNotificationRoute = item.route_name === 'admin.notifications.index' || item.url?.includes('notifications');
+  const title = getLocalized(item.title || (item.route_name ? tt(item.route_name) : ''));
 
   return {
-    title: item.title || (item.route_name ? tt(item.route_name) : ''),
+    title,
     href: item.url || '#',
     icon: item.icon ? getIconComponent(item.icon) : null,
     items: item.children?.map(child => convertItem(child, unreadCount)),
@@ -76,11 +77,11 @@ function SidebarLogo() {
     >
       <Link href="/">
         <img
-          src={collapsed ? "/logo-icon.svg" : "/logo.svg"}
+          src={collapsed ? "/logo-icon.svg" : "/logo.jpg"}
           alt="Web Solutions"
           className={cn(
             !collapsed
-              ? "h-20 w-auto max-w-[280px] object-contain"
+              ? "h-15 w-auto max-w-[280px] object-contain"
               : "size-12 object-contain"
           )}
         />

@@ -50,8 +50,26 @@ class BaseController extends Controller
             return Resource::items($itemsArray, $this->buildPaginationMeta($items));
         }
 
-        return $this->renderInertia('index', [
+        $extra = [
             'items' => $itemsArray,
+            ...$this->buildPaginationMeta($items),
+        ];
+
+        return $this->renderInertia('index', $extra);
+    }
+
+    public function tree()
+    {
+        $items = $this->loadItems();
+        $itemsArray = $this->transformItemsForView($items, 'index');
+
+        if (request()->wantsJson()) {
+            return Resource::items($itemsArray, $this->buildPaginationMeta($items));
+        }
+
+        return $this->renderInertia('tree', [
+            'items' => $itemsArray,
+            'form_views' => $this->getViewsConfig('form'),
             ...$this->buildPaginationMeta($items),
         ]);
     }
@@ -260,9 +278,37 @@ class BaseController extends Controller
         $views = $baseView;
 
         if (isset($baseView['fields'])) {
-            $views['fields'] = $viewKey === 'index'
+            $processedFields = $viewKey === 'index'
                 ? $this->processIndexFields($baseView['fields'])
                 : $baseView['fields'];
+
+            $modelConfigs = $this->getModelConfigs();
+
+            $views['fields'] = array_map(function ($field) use ($modelConfigs) {
+                $isString = is_string($field);
+                $fieldName = $isString ? $field : ($field['name'] ?? null);
+
+                if ($fieldName && isset($modelConfigs[$fieldName])) {
+                    $modelCfg = $modelConfigs[$fieldName];
+                    $mergeCfg = [];
+
+                    if (isset($modelCfg['ui'])) {
+                        $mergeCfg['ui'] = $modelCfg['ui'];
+                        $mergeCfg['type'] = $modelCfg['ui']; // fallback type to ui
+                    }
+                    if (isset($modelCfg['type'])) {
+                        $mergeCfg['type'] = $modelCfg['type'];
+                    }
+
+                    if ($isString) {
+                        return array_merge(['name' => $fieldName], $mergeCfg);
+                    }
+
+                    return array_merge($mergeCfg, $field);
+                }
+
+                return $field;
+            }, $processedFields);
         }
 
         if (isset($baseView['filters']) || isset($viewConfig['filters'])) {
@@ -365,6 +411,13 @@ class BaseController extends Controller
         $rules = $this->getValidationRules($action, $id);
 
         if (! empty($rules)) {
+            // For update, add `sometimes` so only present fields are validated (supports partial updates)
+            if ($action === 'update') {
+                $rules = array_map(function ($rule) {
+                    $ruleStr = is_array($rule) ? implode('|', $rule) : (string) $rule;
+                    return str_starts_with($ruleStr, 'sometimes') ? $rule : 'sometimes|' . $ruleStr;
+                }, $rules);
+            }
             $request->validate($rules);
         }
     }

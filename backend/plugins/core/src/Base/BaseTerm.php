@@ -168,6 +168,23 @@ abstract class BaseTerm extends Taxonomy
     }
 
     /**
+     * Get taxonomy options for select fields.
+     */
+    public function getTaxonomyOptions(): array
+    {
+        return static::query()
+            ->byTaxonomy()
+            ->get()
+            ->map(function ($term) {
+                return [
+                    'label' => $term->name,
+                    'value' => $term->id,
+                ];
+            })
+            ->toArray();
+    }
+
+    /**
      * Scope: Only active/published terms (not soft deleted)
      */
     public function scopeActive($query)

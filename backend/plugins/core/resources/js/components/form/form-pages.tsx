@@ -105,6 +105,7 @@ function useFormItemInfo(defaultValues?: unknown) {
 
 export const FormPages = forwardRef<FormRef, FormProps>(({
   onSubmit, onError, children, defaultValues, className, formSchema, title, showHeader = true,
+  layouts = [], viewMode = "table", onViewModeChange,
 }, ref) => {
   const { currentRouteName, prefix, resourceName, isShowPage } = useFormRouteInfo();
   const { itemId, itemData } = useFormItemInfo(defaultValues);
@@ -295,7 +296,7 @@ export const FormPages = forwardRef<FormRef, FormProps>(({
               {title || routeTitle}
             </h1>
           )}
-          <ToolbarFormPage className="ml-auto" isEdit={isEdit} onSave={handleSave} onDelete={handleDelete} onDuplicate={handleDuplicate} onCancel={handleBack} showDelete={views?.actions?.delete !== false} showDuplicate={views?.actions?.duplicate !== false} />
+          <ToolbarFormPage className="ml-auto" isEdit={isEdit} onSave={handleSave} onDelete={handleDelete} onDuplicate={handleDuplicate} onCancel={handleBack} showDelete={views?.actions?.delete !== false} showDuplicate={views?.actions?.duplicate !== false} layouts={layouts} viewMode={viewMode} onViewModeChange={onViewModeChange} />
         </div>
       )}
       {children}

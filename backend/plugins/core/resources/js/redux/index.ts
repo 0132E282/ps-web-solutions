@@ -45,7 +45,8 @@ export {
     fetchItemRequest, fetchItemSuccess, fetchItemFailure,
     createResourceRequest, createResourceSuccess, createResourceFailure,
     updateResourceRequest, updateResourceSuccess, updateResourceFailure,
-    deleteResourceRequest, deleteResourceSuccess, deleteResourceFailure
+    deleteResourceRequest, deleteResourceSuccess, deleteResourceFailure,
+    duplicateResourceRequest, bulkDeleteResourceRequest
 } from './slices/resourceSlice';
 
 export type {

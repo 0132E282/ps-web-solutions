@@ -124,6 +124,9 @@ export interface FormProps {
     formSchema?: ZodSchema;
     title?: string;
     showHeader?: boolean;
+    layouts?: string[];
+    viewMode?: string;
+    onViewModeChange?: (mode: string) => void;
 }
 
 /**

@@ -170,6 +170,33 @@ export const tt = (key: string, options?: Record<string, unknown>): string => {
     return key;
 };
 
+/**
+ * Safely extract a string from a potentially localized object or value.
+ * Supports:
+ * 1. String: returns as is
+ * 2. Object: returns value for current locale or first available locale
+ * 3. Null/Undefined: returns empty string
+ */
+export const getLocalized = (value: unknown): string => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object' && value !== null) {
+        const obj = value as Record<string, unknown>;
+        const currentLocale = i18n.language || 'en';
+
+        // Try current locale
+        if (typeof obj[currentLocale] === 'string') return obj[currentLocale] as string;
+
+        // Try fallback locale (first key)
+        const firstKey = Object.keys(obj)[0];
+        if (firstKey && typeof obj[firstKey] === 'string') return obj[firstKey] as string;
+
+        // Last resort: stringify
+        return JSON.stringify(value);
+    }
+    return String(value);
+};
+
 if (typeof window !== 'undefined') {
     (window as unknown as { tt: unknown }).tt = tt;
 }

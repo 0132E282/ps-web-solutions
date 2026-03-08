@@ -7,7 +7,7 @@ import { getCurrentRouteName, route } from "@core/lib/route";
 import { fetchResourceRequest } from "@core/redux";
 import type { RootState } from "@core/redux/store";
 import type { Resource } from "@core/types/resource";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 interface Item extends Record<string, unknown> {
@@ -19,7 +19,12 @@ const Index = () => {
     const dispatch = useDispatch();
     const resourceName = getCurrentRouteName() || '';
 
+    // Default to table
+    const [viewMode, setViewMode] = useState<string>('table');
+
     const resource = useSelector((state: RootState) => resourceName ? state.resource[resourceName] : undefined);
+
+    const { views, crudRoutes } = useModule();
 
     useEffect(() => {
         if (resourceName) {
@@ -27,11 +32,10 @@ const Index = () => {
         }
     }, [dispatch, resourceName]);
 
-    const { views, crudRoutes } = useModule();
-
     if (!resourceName) {
         return null;
     }
+
     return (
         <div className="flex flex-col gap-4">
             <HeaderToolbarTable
@@ -58,9 +62,21 @@ const Index = () => {
                         }
                     ] : undefined
                 }
+                layouts={Array.isArray(views?.layouts) ? views.layouts : ['table']}
+                viewMode={viewMode}
+                onViewModeChange={(val) => {
+                    if (val === 'tree' && route.has(resourceName.replace('.index', '.tree'))) {
+                        window.location.href = route(resourceName.replace('.index', '.tree'));
+                    } else {
+                        setViewMode(val);
+                    }
+                }}
             />
             <Card className="p-4">
-                <DataTable resource={resource as unknown as Resource<Item>}/>
+                <DataTable
+                    resource={resource as unknown as Resource<Item>}
+                    viewMode={viewMode}
+                />
             </Card>
         </div>
     );

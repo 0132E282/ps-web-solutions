@@ -14,7 +14,7 @@ class PostController extends BaseController
             'filters' => ['status'],
             'actions' => ['import' => true, 'export' => true, 'duplicate' => true],
             'fields' => [
-                'image',
+                'prototype.image',
                 ['name' => 'title', 'config' => ['primary' => true]],
                 'status',
                 'created_at',

@@ -15,7 +15,7 @@ class Project extends BaseModel
       'content' => ['ui' => 'textarea', 'config' => ['validation' => 'nullable|max:255', 'placeholder' => 'e.g. Electronics category']],
       'image' => ['ui' => 'image', 'config' => ['validation' => 'nullable|image|max:2048', 'placeholder' => 'e.g. electronics.jpg']],
       'status' => ['ui' => 'button-radio', 'config' => ['options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft']], 'validation' => 'required|in:published,draft']],
-      'parent' => ['ui' => 'select', 'config' => ['options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft']], 'validation' => 'required|in:published,draft']],
+      'parent_id' => ['ui' => 'select', 'config' => ['options' => [], 'validation' => 'nullable|exists:projects,id']],
     ];
   }
 
@@ -26,6 +26,7 @@ class Project extends BaseModel
     'content',
     'image',
     'status',
+    'parent_id',
   ];
 
   public function categories()

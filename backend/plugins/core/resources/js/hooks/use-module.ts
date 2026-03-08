@@ -23,7 +23,7 @@ import {
 // CONSTANTS
 // ============================================================================
 
-const CRUD_ACTIONS = ['index', 'create', 'store', 'show', 'edit', 'update', 'destroy', 'import', 'export', 'importTemplate', 'duplicate', 'trash', 'restore', 'force-delete'] as const;
+const CRUD_ACTIONS = ['index', 'tree', 'create', 'store', 'show', 'edit', 'update', 'destroy', 'import', 'export', 'importTemplate', 'duplicate', 'trash', 'restore', 'force-delete'] as const;
 
 const EMPTY_ROUTES: CrudRoutes = {
     index: null,
@@ -45,7 +45,7 @@ const EMPTY_ROUTES: CrudRoutes = {
 // ============================================================================
 // HELPERS
 // ============================================================================
-
+ 
 /**
  * Shared helper to resolve module action URLs via Ziggy or hardcoded fallback
  */

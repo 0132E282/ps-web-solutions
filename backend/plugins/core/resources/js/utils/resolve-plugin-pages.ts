@@ -64,8 +64,11 @@ function matchesTarget(extractedPath: string, targetPath: string, isCore: boolea
     const normalized = extractedPath.replace(/\\/g, '/');
     const target = targetPath.replace(/\\/g, '/');
 
+    // Normalize target by removing 'core/' prefix if it's there
+    const cleanTarget = target.startsWith('core/') ? target.substring(5) : target;
+    const targetWithoutExt = cleanTarget.replace(/\.tsx$/, '');
+
     if (isCore) {
-        const targetWithoutExt = target.replace(/\.tsx$/, '');
         return normalized === targetWithoutExt ||
                normalized === `${targetWithoutExt}/index` ||
                normalized === `${targetWithoutExt}.tsx` ||
@@ -77,16 +80,15 @@ function matchesTarget(extractedPath: string, targetPath: string, isCore: boolea
     }
 
     const normalizedLower = normalized.toLowerCase();
-    const targetLower = target.toLowerCase();
-    const targetWithoutExt = targetLower.replace(/\.tsx$/, '');
-    return normalizedLower === targetWithoutExt ||
-           normalizedLower === `${targetWithoutExt}/index` ||
-           normalizedLower === `${targetWithoutExt}.tsx` ||
-           normalizedLower === `${targetWithoutExt}/index.tsx` ||
-           normalizedLower.endsWith(`/${targetWithoutExt}`) ||
-           normalizedLower.endsWith(`/${targetWithoutExt}/index`) ||
-           normalizedLower.endsWith(`/${targetWithoutExt}.tsx`) ||
-           normalizedLower.endsWith(`/${targetWithoutExt}/index.tsx`);
+    const targetLower = targetWithoutExt.toLowerCase();
+    return normalizedLower === targetLower ||
+           normalizedLower === `${targetLower}/index` ||
+           normalizedLower === `${targetLower}.tsx` ||
+           normalizedLower === `${targetLower}/index.tsx` ||
+           normalizedLower.endsWith(`/${targetLower}`) ||
+           normalizedLower.endsWith(`/${targetLower}/index`) ||
+           normalizedLower.endsWith(`/${targetLower}.tsx`) ||
+           normalizedLower.endsWith(`/${targetLower}/index.tsx`);
 }
 
 /**

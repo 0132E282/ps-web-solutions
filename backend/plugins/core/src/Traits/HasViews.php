@@ -19,7 +19,15 @@ trait HasViews
             }
         }
 
-        return ($action === 'index') ? 'core/items/index' : 'core/items/form';
+        if ($action === 'index') {
+            return 'core/items/index';
+        }
+
+        if ($action === 'tree') {
+            return 'core/items/tree';
+        }
+
+        return 'core/items/form';
     }
 
     /**

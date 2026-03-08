@@ -18,8 +18,8 @@ class PostCategoryController extends BaseController
     'index' => [
       'title' => 'Post Categories',
       'description' => 'Manage blog post categories',
+      'layouts' => ['table', 'tree'],
       'fields' => [
-        ['name' => 'image', 'width' => 20],
         ['name' => 'name', 'primary' => true],
         ['name' => 'status'],
         ['name' => 'created_at'],
@@ -34,7 +34,6 @@ class PostCategoryController extends BaseController
               'description' => 'Basic information about the category',
             ],
             'fields' => [
-              'image',
               'name',
               'description',
             ],
