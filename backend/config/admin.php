@@ -103,7 +103,7 @@ return [
       ],
     ],
   ],
-  'configs' => [
+  'settings' => [
     'sections' => [
       [
         'title' => 'Thiết lập hệ thống',

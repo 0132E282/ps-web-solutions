@@ -14,17 +14,16 @@ import {
 } from './dropdown-menu';
 import {
     DndContext,
-    DragOverlay,
     closestCenter,
     DragEndEvent,
     DragStartEvent,
     DragOverEvent,
+    DragMoveEvent,
     useSensor,
     useSensors,
     PointerSensor,
     KeyboardSensor,
 } from '@dnd-kit/core';
-import { restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers';
 // Sortable imports
 import {
     SortableContext,
@@ -95,6 +94,7 @@ const TreeNode = ({
     expandedKeys: Set<string | number>;
     toggleExpand: (id: string | number) => void;
     isOver?: boolean;
+    dragDeltaX?: number;
 }) => {
     const isExpanded = expandedKeys.has(node.id);
     const hasChildren = node.children && node.children.length > 0;
@@ -114,15 +114,16 @@ const TreeNode = ({
     const style = {
         transform: CSS.Translate.toString(transform),
         transition,
-        opacity: isDragging ? 0.3 : 1,
     };
 
+    const showIndicator = isOver && !isDragging;
+
     return (
-        <div className="w-full relative" ref={setNodeRef} style={style}>
-            {/* Drop indicator line */}
-            {isOver && !isDragging && (
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary rounded-full z-20 shadow-[0_0_6px_2px_hsl(var(--primary)/0.4)]" />
-            )}
+        <div
+            className={cn("w-full relative", showIndicator && "border-b-2 border-primary")}
+            ref={setNodeRef}
+            style={style}
+        >
             {/* Hierarchy Guides */}
             {level > 0 && Array.from({ length: level }).map((_, i) => (
                 <div
@@ -258,6 +259,7 @@ export const TreeSidebar = ({
     const [expandedKeys, setExpandedKeys] = useState<Set<string | number>>(new Set());
     const [activeId, setActiveId] = useState<string | number | null>(null);
     const [overId, setOverId] = useState<string | number | null>(null);
+    const [dragDeltaX, setDragDeltaX] = useState(0);
 
     const flatVisible = useMemo(() => {
         const flatten = (nodes: any[], level = 0): Array<{ node: any; level: number }> => {
@@ -309,15 +311,21 @@ export const TreeSidebar = ({
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(event.active.id);
         setOverId(null);
+        setDragDeltaX(0);
     };
 
     const handleDragOver = (event: DragOverEvent) => {
         setOverId(event.over?.id ?? null);
     };
 
+    const handleDragMove = (event: DragMoveEvent) => {
+        setDragDeltaX(event.delta.x);
+    };
+
     const handleDragEnd = (event: DragEndEvent) => {
         setActiveId(null);
         setOverId(null);
+        setDragDeltaX(0);
         const { active, over, delta } = event;
 
         if (over && active.id !== over.id) {
@@ -327,12 +335,13 @@ export const TreeSidebar = ({
             if (activeItem && overItem) {
                 let newParentId: string | number | null = overItem.parent_id ?? null;
 
-                // delta.x > 25 means moved to the right (become child of the item below/above)
-                if (delta.x > 25) {
+                if (delta.x > 30) {
+                    // Indent right → become child of overItem
                     newParentId = overItem.id;
-                } else if (delta.x < -25) {
-                    // Logic for moving out could be added here, currently defaults to overItem.parent_id
-                    newParentId = overItem.parent_id ?? null;
+                } else if (delta.x < -30) {
+                    // Indent left → go up one level from activeItem's current parent, max = null
+                    const activeParent = items.find(i => i.id === activeItem.parent_id);
+                    newParentId = activeParent ? (activeParent.parent_id ?? null) : null;
                 }
 
                 if (activeItem.parent_id !== newParentId) {
@@ -488,6 +497,7 @@ export const TreeSidebar = ({
                         collisionDetection={closestCenter}
                         onDragStart={handleDragStart}
                         onDragOver={handleDragOver}
+                        onDragMove={handleDragMove}
                         onDragEnd={handleDragEnd}
                     >
                         <SortableContext
@@ -509,23 +519,11 @@ export const TreeSidebar = ({
                                         expandedKeys={expandedKeys}
                                         toggleExpand={toggleExpand}
                                         isOver={overId === node.id && activeId !== node.id}
+                                        dragDeltaX={dragDeltaX}
                                     />
                                 ))}
                             </div>
                         </SortableContext>
-                        <DragOverlay dropAnimation={null} modifiers={[restrictToFirstScrollableAncestor]}>
-                            {activeId ? (() => {
-                                const entry = flatVisible.find(f => f.node.id === activeId);
-                                if (!entry) return null;
-                                const label = getLocalized(entry.node.name || entry.node.title || `Item ${activeId}`);
-                                return (
-                                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground shadow-lg text-sm font-medium w-64 opacity-90">
-                                        <GripVertical className="w-4 h-4 shrink-0 opacity-60" />
-                                        <span className="truncate">{label}</span>
-                                    </div>
-                                );
-                            })() : null}
-                        </DragOverlay>
                     </DndContext>
                 )}
             </ScrollArea>

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
-use PS0132E282\Core\Models\Media;
+use PS0132E282\Core\Models\Files;
 
 trait Relationships
 {
@@ -165,7 +165,7 @@ trait Relationships
         foreach ($relationValue as $key => $value) {
             if ($value instanceof UploadedFile) {
                 // Upload file và tạo Media record
-                $media = Media::uploadFile($value);
+                $media = Files::uploadFile($value);
                 if ($media) {
                     // Chuyển Media thành format array để lưu vào database
                     $processed[$key] = $media->toArray();

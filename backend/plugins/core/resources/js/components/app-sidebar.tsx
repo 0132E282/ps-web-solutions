@@ -81,7 +81,7 @@ function SidebarLogo() {
           alt="Web Solutions"
           className={cn(
             !collapsed
-              ? "h-15 w-auto max-w-[280px] object-contain"
+              ? "h-20 w-auto max-w-[280px] object-contain"
               : "size-12 object-contain"
           )}
         />

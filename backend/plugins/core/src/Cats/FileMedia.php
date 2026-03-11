@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use PS0132E282\Core\Models\Media;
+use PS0132E282\Core\Models\Files;
 
 class FileMedia implements CastsAttributes
 {
@@ -344,7 +344,7 @@ class FileMedia implements CastsAttributes
      * Checks if file already exists by hash to avoid duplicates
      * Uses cache to prevent multiple uploads in same request
      */
-    protected function handleFileUpload(UploadedFile $file, ?int $parentId = null, ?string $disk = null): ?Media
+    protected function handleFileUpload(UploadedFile $file, ?int $parentId = null, ?string $disk = null): ?Files
     {
         try {
             $disk = $disk ?? $this->defaultDisk;
@@ -359,7 +359,7 @@ class FileMedia implements CastsAttributes
             }
 
             // Check if file with same hash already exists in database
-            $existingMedia = Media::where('hash', $fileHash)
+            $existingMedia = Files::where('hash', $fileHash)
                 ->where('disk', $disk)
                 ->first();
 
@@ -371,7 +371,7 @@ class FileMedia implements CastsAttributes
             }
 
             // File doesn't exist, upload and create new record
-            $media = Media::uploadFile($file, $parentId, $disk);
+            $media = Files::uploadFile($file, $parentId, $disk);
 
             // Cache the result
             if ($media) {
@@ -389,7 +389,7 @@ class FileMedia implements CastsAttributes
     /**
      * Convert Media model to FileMedia format
      */
-    protected function convertMediaToFileMediaFormat(Media $media): array
+    protected function convertMediaToFileMediaFormat(Files $media): array
     {
         return [
             'id' => $media->id,

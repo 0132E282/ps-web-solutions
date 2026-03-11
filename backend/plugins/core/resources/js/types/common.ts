@@ -27,6 +27,7 @@ export interface User {
 export interface SharedData extends BasePageProps {
     auth: {
         user: User;
+        permissions?: string[];
     };
     sidebarOpen?: boolean;
     name: string;

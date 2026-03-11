@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
-use PS0132E282\Core\Models\Media;
+use PS0132E282\Core\Models\Files;
 use ZipArchive;
 
 class FileController extends Controller
@@ -19,7 +19,7 @@ class FileController extends Controller
         $sortBy = $request->get('sort_by', 'name');
         $sortOrder = $request->get('sort_order', 'asc');
 
-        $query = Media::query();
+        $query = Files::query();
 
         if ($parentId) {
             $query->where('parent_id', $parentId);
@@ -52,7 +52,7 @@ class FileController extends Controller
         ];
 
         if ($parentId) {
-            $currentFolder = Media::find($parentId);
+            $currentFolder = Files::find($parentId);
             $path = [];
 
             $folder = $currentFolder;
@@ -92,7 +92,7 @@ class FileController extends Controller
         $request->validate([
             'files' => 'required|array',
             'files.*' => 'file|max:10240',
-            'parent_id' => 'nullable|integer|exists:media,id',
+            'parent_id' => 'nullable|integer|exists:files,id',
         ]);
 
         $parentId = $request->get('parent_id');
@@ -100,7 +100,7 @@ class FileController extends Controller
 
         foreach ($request->file('files') as $file) {
             try {
-                $media = Media::uploadFile($file, $parentId);
+                $media = Files::uploadFile($file, $parentId);
                 $uploadedFiles[] = [
                     'id' => (string) $media->id,
                     'name' => $media->name,
@@ -127,11 +127,11 @@ class FileController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'parent_id' => 'nullable|integer|exists:media,id',
+            'parent_id' => 'nullable|integer|exists:files,id',
         ]);
 
         try {
-            $media = Media::createFolder($request->name, $request->parent_id);
+            $media = Files::createFolder($request->name, $request->parent_id);
 
             return response()->json([
                 'message' => 'Tạo thư mục thành công',
@@ -156,7 +156,7 @@ class FileController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $media = Media::findOrFail($id);
+        $media = Files::findOrFail($id);
 
         try {
             $media->rename($request->name);
@@ -184,8 +184,8 @@ class FileController extends Controller
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'integer|exists:media,id',
-            'parent_id' => 'nullable|integer|exists:media,id',
+            'ids.*' => 'integer|exists:files,id',
+            'parent_id' => 'nullable|integer|exists:files,id',
         ]);
 
         $ids = $request->get('ids');
@@ -193,7 +193,7 @@ class FileController extends Controller
 
         try {
             foreach ($ids as $id) {
-                $media = Media::findOrFail($id);
+                $media = Files::findOrFail($id);
                 $media->move($parentId);
             }
 
@@ -211,10 +211,10 @@ class FileController extends Controller
     {
         $request->validate([
             'name' => 'nullable|string|max:255',
-            'parent_id' => 'nullable|integer|exists:media,id',
+            'parent_id' => 'nullable|integer|exists:files,id',
         ]);
 
-        $media = Media::findOrFail($id);
+        $media = Files::findOrFail($id);
 
         try {
             $newMedia = $media->duplicate($request->name, $request->parent_id);
@@ -248,13 +248,13 @@ class FileController extends Controller
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'integer|exists:media,id',
+            'ids.*' => 'integer|exists:files,id',
         ]);
 
         $ids = $request->get('ids');
 
         try {
-            Media::deleteFiles($ids);
+            Files::deleteFiles($ids);
 
             return response()->json([
                 'message' => 'Xóa thành công',
@@ -268,7 +268,7 @@ class FileController extends Controller
 
     public function download($id)
     {
-        $media = Media::findOrFail($id);
+        $media = Files::findOrFail($id);
 
         if ($media->type === 'folder') {
             return response()->json([
@@ -291,11 +291,11 @@ class FileController extends Controller
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'integer|exists:media,id',
+            'ids.*' => 'integer|exists:files,id',
         ]);
 
         $ids = $request->get('ids');
-        $items = Media::whereIn('id', $ids)->get();
+        $items = Files::whereIn('id', $ids)->get();
 
         if ($items->isEmpty()) {
             return response()->json([
@@ -333,7 +333,7 @@ class FileController extends Controller
         return response()->download($zipPath, $zipFileName)->deleteFileAfterSend(true);
     }
 
-    protected function addFolderToZip(ZipArchive $zip, Media $folder, string $basePath): void
+    protected function addFolderToZip(ZipArchive $zip, Files $folder, string $basePath): void
     {
         $children = $folder->children;
 
@@ -356,7 +356,7 @@ class FileController extends Controller
     {
         $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'integer|exists:media,id',
+            'ids.*' => 'integer|exists:files,id',
             'name' => 'nullable|string|max:255',
         ]);
 
@@ -367,7 +367,7 @@ class FileController extends Controller
             $zipName .= '.zip';
         }
 
-        $items = Media::whereIn('id', $ids)->get();
+        $items = Files::whereIn('id', $ids)->get();
 
         if ($items->isEmpty()) {
             return response()->json([
@@ -411,10 +411,10 @@ class FileController extends Controller
         $storage->put($zipPath, file_get_contents($tempZipPath));
         unlink($tempZipPath);
 
-        $mediaHelper = new Media;
+        $mediaHelper = new Files;
         $absoluteUrl = $mediaHelper->buildUrl($zipPath, 'public');
 
-        $media = Media::create([
+        $media = Files::create([
             'name' => $zipName,
             'path' => $zipPath,
             'type' => 'file',
@@ -441,7 +441,7 @@ class FileController extends Controller
 
     public function extract(Request $request, $id)
     {
-        $media = Media::findOrFail($id);
+        $media = Files::findOrFail($id);
 
         if ($media->type !== 'file' || ! in_array($media->extension, ['zip', 'rar', '7z'], true)) {
             return response()->json([
@@ -497,10 +497,10 @@ class FileController extends Controller
             $storage->put($filePath, $fileContent);
 
             $fileInfo = pathinfo($filename);
-            $mediaHelper = new Media;
+            $mediaHelper = new Files;
             $absoluteUrl = $mediaHelper->buildUrl($filePath, $media->disk);
 
-            Media::create([
+            Files::create([
                 'name' => $fileInfo['basename'],
                 'path' => $filePath,
                 'type' => $fileInfo['extension'] ? 'file' : 'folder',
@@ -529,7 +529,7 @@ class FileController extends Controller
             $excludeIds = [];
         }
 
-        $folders = Media::where('type', 'folder')
+        $folders = Files::where('type', 'folder')
             ->whereNotIn('id', $excludeIds)
             ->orderBy('name', 'asc')
             ->get();

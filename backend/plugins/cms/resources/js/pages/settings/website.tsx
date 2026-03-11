@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@core/components/ui/ta
 import AppLayout from '@core/layouts/app-layout';
 import { route } from '@core/lib/route';
 import { cn } from '@core/lib/utils';
+import type { SharedData } from '@core/types/common';
 import { router, usePage } from '@inertiajs/react';
 import { Globe, Mail, Clock, Bell, type LucideIcon } from 'lucide-react';
 import { useCallback, useMemo, type ReactNode } from 'react';
@@ -30,10 +31,9 @@ interface WebsiteData {
     receive_notifications?: boolean;
 }
 
-interface PageProps {
+interface PageProps extends SharedData {
     website?: WebsiteData;
     timezones?: string[];
-    [key: string]: unknown;
 }
 
 const DEFAULT_VALUES: WebsiteData = {
@@ -108,7 +108,19 @@ const SectionCard = ({ id, icon: Icon, title, description, children }: SectionCa
 
 const Website = () => {
     const { props } = usePage<PageProps>();
-    const { website, timezones = COMMON_TIMEZONES } = props;
+    const { website, timezones = COMMON_TIMEZONES, auth } = props;
+    const permissions = auth?.permissions ?? [];
+
+    // Filter tabs by permission; if user has no admin.setting.* permissions → show all
+    const visibleMenuItems = useMemo(() => {
+        const hasSettingRestrictions = permissions.some((p) => p.startsWith('admin.setting.'));
+        if (!hasSettingRestrictions) return MENU_ITEMS;
+        return MENU_ITEMS.filter((item) => permissions.includes(`admin.setting.${item.id}`));
+    }, [permissions]);
+
+    const visibleTabIds = useMemo(() => new Set(visibleMenuItems.map((item) => item.id)), [visibleMenuItems]);
+
+    const defaultTab = visibleMenuItems[0]?.id ?? 'general';
 
     // Memoized default values
     const defaultValues = useMemo(
@@ -122,7 +134,7 @@ const Website = () => {
         [timezones]
     );
 
-    // Handle form submission
+    // Handle form submission — pass active tab as _tab
     const handleSubmit = useCallback((data: Record<string, unknown>) => {
         router.post(route('admin.settings.show', { key: 'website' }), data as never);
     }, []);
@@ -141,11 +153,11 @@ const Website = () => {
                 showHeader={false}
                 defaultValues={defaultValues}
             >
-                <Tabs defaultValue="general" className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start" orientation="vertical">
+                <Tabs defaultValue={defaultTab} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start" orientation="vertical">
                     <aside className="lg:col-span-3">
                         <div className="sticky top-[172px]">
                             <TabsList className="flex flex-col h-auto bg-transparent p-0 space-y-1 w-full">
-                                {MENU_ITEMS.map((item) => {
+                                {visibleMenuItems.map((item) => {
                                     const Icon = item.icon;
                                     return (
                                         <TabsTrigger
@@ -169,6 +181,7 @@ const Website = () => {
 
                     <div className="lg:col-span-9">
                         <Card className="p-6">
+                            {visibleTabIds.has('general') && (
                             <TabsContent value="general" className="m-0 mt-0">
                                 <SectionCard
                                     id="general"
@@ -177,171 +190,64 @@ const Website = () => {
                                     description="Cấu hình thông tin cơ bản của website"
                                 >
                                     <>
-                                        <Field
-                                            name="name"
-                                            label="Tên trang web"
-                                            placeholder="Việt Nam Solar"
-                                            required
-                                        />
-
-                                        <Field
-                                            name="description"
-                                            label="Mô tả trang web"
-                                            placeholder="Mô tả ngắn gọn về trang web"
-                                            type="textarea"
-                                            description="Mô tả này sẽ hiển thị trong kết quả tìm kiếm"
-                                        />
-
-                                        <Field
-                                            name="domain"
-                                            label="URL trang web"
-                                            placeholder="https://vietnamsolar.jamstack.vn"
-                                            required
-                                        />
-
-                                        <Field
-                                            name="logo"
-                                            label="Logo trang web"
-                                            type="attachment"
-                                            description="Logo chính của website, khuyến nghị kích thước 200x50px"
-                                        />
-
-                                        <Field
-                                            name="favicon"
-                                            label="Biểu tượng trang web (Favicon)"
-                                            type="attachment"
-                                            description="Icon hiển thị trên tab trình duyệt, khuyến nghị 32x32px hoặc 64x64px"
-                                        />
-
-                                        <Field
-                                            name="featured_image"
-                                            label="Hình ảnh trang web"
-                                            type="attachment"
-                                            description="Hình ảnh đại diện khi chia sẻ trên mạng xã hội (OG Image), khuyến nghị 1200x630px"
-                                        />
+                                        <Field name="name" label="Tên trang web" placeholder="Việt Nam Solar" required />
+                                        <Field name="description" label="Mô tả trang web" placeholder="Mô tả ngắn gọn về trang web" type="textarea" description="Mô tả này sẽ hiển thị trong kết quả tìm kiếm" />
+                                        <Field name="domain" label="URL trang web" placeholder="https://vietnamsolar.jamstack.vn" required />
+                                        <Field name="logo" label="Logo trang web" type="attachment" description="Logo chính của website, khuyến nghị kích thước 200x50px" />
+                                        <Field name="favicon" label="Biểu tượng trang web (Favicon)" type="attachment" description="Icon hiển thị trên tab trình duyệt, khuyến nghị 32x32px hoặc 64x64px" />
+                                        <Field name="featured_image" label="Hình ảnh trang web" type="attachment" description="Hình ảnh đại diện khi chia sẻ trên mạng xã hội (OG Image), khuyến nghị 1200x630px" />
                                     </>
                                 </SectionCard>
                             </TabsContent>
+                            )}
 
+                            {visibleTabIds.has('smtp') && (
                             <TabsContent value="smtp" className="m-0 mt-0">
-                                <SectionCard
-                                    id="smtp"
-                                    icon={Mail}
-                                    title="Cấu hình SMTP"
-                                    description="Thiết lập máy chủ email để gửi thông báo"
-                                >
+                                <SectionCard id="smtp" icon={Mail} title="Cấu hình SMTP" description="Thiết lập máy chủ email để gửi thông báo">
                                     <>
-                                        <Field
-                                            name="smtp_host"
-                                            label="SMTP Host"
-                                            placeholder="smtp.gmail.com"
-                                        />
-
+                                        <Field name="smtp_host" label="SMTP Host" placeholder="smtp.gmail.com" />
                                         <div className="grid grid-cols-2 gap-4">
-                                            <Field
-                                                name="smtp_port"
-                                                label="Port"
-                                                placeholder="587"
-                                                type="number"
-                                            />
-
-                                            <Field
-                                                name="smtp_encryption"
-                                                label="Mã hóa"
-                                                type="select"
-                                                options={[
-                                                    { value: 'tls', label: 'TLS' },
-                                                    { value: 'ssl', label: 'SSL' },
-                                                    { value: 'none', label: 'Không' },
-                                                ]}
-                                            />
+                                            <Field name="smtp_port" label="Port" placeholder="587" type="number" />
+                                            <Field name="smtp_encryption" label="Mã hóa" type="select" options={[{ value: 'tls', label: 'TLS' }, { value: 'ssl', label: 'SSL' }, { value: 'none', label: 'Không' }]} />
                                         </div>
-
-                                        <Field
-                                            name="smtp_username"
-                                            label="Username"
-                                            placeholder="your-email@gmail.com"
-                                        />
-
-                                        <Field
-                                            name="smtp_password"
-                                            label="Password"
-                                            type="password"
-                                            placeholder="••••••••"
-                                        />
-
+                                        <Field name="smtp_username" label="Username" placeholder="your-email@gmail.com" />
+                                        <Field name="smtp_password" label="Password" type="password" placeholder="••••••••" />
                                         <div className="grid grid-cols-2 gap-4">
-                                            <Field
-                                                name="smtp_from_email"
-                                                label="Email người gửi"
-                                                placeholder="noreply@example.com"
-                                            />
-
-                                            <Field
-                                                name="smtp_from_name"
-                                                label="Tên người gửi"
-                                                placeholder="Website Name"
-                                            />
+                                            <Field name="smtp_from_email" label="Email người gửi" placeholder="noreply@example.com" />
+                                            <Field name="smtp_from_name" label="Tên người gửi" placeholder="Website Name" />
                                         </div>
                                     </>
                                 </SectionCard>
                             </TabsContent>
+                            )}
 
+                            {visibleTabIds.has('timezone') && (
                             <TabsContent value="timezone" className="m-0 mt-0">
-                                <SectionCard
-                                    id="timezone"
-                                    icon={Clock}
-                                    title="Múi giờ"
-                                    description="Chọn múi giờ mặc định cho hệ thống"
-                                >
+                                <SectionCard id="timezone" icon={Clock} title="Múi giờ" description="Chọn múi giờ mặc định cho hệ thống">
                                     <>
-                                        <Field
-                                            name="timezone"
-                                            label="Múi giờ"
-                                            type="select"
-                                            options={timezoneOptions}
-                                        />
-
+                                        <Field name="timezone" label="Múi giờ" type="select" options={timezoneOptions} />
                                         <div className="p-4 bg-muted rounded-lg flex items-start gap-3">
                                             <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
                                             <div>
-                                                <p className="text-sm text-muted-foreground">
-                                                    <strong>Lưu ý:</strong> Múi giờ ảnh hưởng đến cách hiển thị thời gian trong toàn bộ hệ thống.
-                                                </p>
-                                                <p className="text-sm text-muted-foreground mt-1">
-                                                    Thời gian hiện tại: {new Date().toLocaleString('vi-VN', {
-                                                        timeZone: website?.timezone || 'Asia/Ho_Chi_Minh'
-                                                    })}
-                                                </p>
+                                                <p className="text-sm text-muted-foreground"><strong>Lưu ý:</strong> Múi giờ ảnh hưởng đến cách hiển thị thời gian trong toàn bộ hệ thống.</p>
+                                                <p className="text-sm text-muted-foreground mt-1">Thời gian hiện tại: {new Date().toLocaleString('vi-VN', { timeZone: website?.timezone || 'Asia/Ho_Chi_Minh' })}</p>
                                             </div>
                                         </div>
                                     </>
                                 </SectionCard>
                             </TabsContent>
+                            )}
 
+                            {visibleTabIds.has('notifications') && (
                             <TabsContent value="notifications" className="m-0 mt-0">
-                                <SectionCard
-                                    id="notifications"
-                                    icon={Bell}
-                                    title="Cấu hình thông báo"
-                                    description="Quản lý email nhận thông báo từ hệ thống"
-                                >
+                                <SectionCard id="notifications" icon={Bell} title="Cấu hình thông báo" description="Quản lý email nhận thông báo từ hệ thống">
                                     <>
-                                        <Field
-                                            name="notification_emails"
-                                            label="Email nhận thông báo"
-                                            placeholder="admin@example.com, user@example.com"
-                                            type="textarea"
-                                            description="Nhập các email cách nhau bởi dấu phẩy. Các email này sẽ nhận thông báo về hoạt động quan trọng của hệ thống"
-                                        />
-
+                                        <Field name="notification_emails" label="Email nhận thông báo" placeholder="admin@example.com, user@example.com" type="textarea" description="Nhập các email cách nhau bởi dấu phẩy. Các email này sẽ nhận thông báo về hoạt động quan trọng của hệ thống" />
                                         <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                                             <div className="flex gap-3">
                                                 <Bell className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                                                 <div className="space-y-1">
-                                                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                                                        Loại thông báo
-                                                    </p>
+                                                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Loại thông báo</p>
                                                     <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
                                                         <li>Đơn hàng mới</li>
                                                         <li>Đăng ký tài khoản mới</li>
@@ -354,6 +260,8 @@ const Website = () => {
                                     </>
                                 </SectionCard>
                             </TabsContent>
+                            )}
+
                             <div className="flex justify-end mt-6">
                                 <Button type="submit" size="lg">
                                     Lưu tất cả thay đổi

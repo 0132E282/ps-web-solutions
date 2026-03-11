@@ -4,7 +4,6 @@ namespace PS0132E282\Cms\Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -26,7 +25,6 @@ class RolePermissionSeeder extends Seeder
       'roles' => ['admin'],
     ],
   ];
-  
 
   public function run(): void
   {
@@ -36,6 +34,9 @@ class RolePermissionSeeder extends Seeder
     // 2. Generate permissions from 'admin.' routes
     $adminCount = $this->seedPermissionsFromRoutes('admin.', function ($routeName) {
       $permission = str_replace('admin.', '', $routeName);
+      if (str_starts_with($permission, 'setting')) {
+        return null;
+      }
       return [
         'name' => $permission,
         'group' => explode('.', $permission)[0] ?? '',
@@ -50,14 +51,30 @@ class RolePermissionSeeder extends Seeder
       ];
     });
 
-    // 4. Create base roles and assign ALL permissions
+    // 4. Generate permissions from plugin settings (only keys with a defined view)
+    $seen = [];
+    foreach (config('plugins', []) as $pluginConfig) {
+      if (empty($pluginConfig['enabled'])) continue;
+      foreach ($pluginConfig['settings'] ?? [] as $setting) {
+        $key = $setting['key'] ?? null;
+        if ($key && !empty($setting['view']) && !isset($seen[$key])) {
+          $seen[$key] = true;
+          Permission::firstOrCreate(
+            ['name' => "admin.setting.{$key}"],
+            ['group' => 'setting']
+          );
+        }
+      }
+    }
+
+    // 5. Create roles and assign ALL permissions
     $allPermissions = Permission::pluck('name')->toArray();
     foreach (['admin', 'super-admin'] as $roleName) {
       $role = Role::firstOrCreate(['name' => $roleName]);
       $role->syncPermissions($allPermissions);
     }
 
-    // 5. Create users from the $admins array and assign roles
+    // 6. Create users and assign roles
     foreach ($this->admins as $adminData) {
       $user = User::firstOrCreate(
         ['email' => $adminData['email']],
@@ -106,6 +123,9 @@ class RolePermissionSeeder extends Seeder
     $count = 0;
     foreach ($routeNames as $routeName) {
       $data = $formatCallback($routeName);
+      if ($data === null) {
+        continue;
+      }
       Permission::firstOrCreate(
         ['name' => $data['name']],
         ['group' => $data['group']]

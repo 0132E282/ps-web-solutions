@@ -153,11 +153,27 @@ export const FileItem = memo(({
     <div className="relative z-50" style={{ pointerEvents: 'auto' }}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <ContextMenuButton className={viewMode === "list" ? "h-8 w-8" : "h-6 w-6 shrink-0"} />
+          <Button
+            variant="ghost"
+            size="icon"
+            type="button"
+            data-context-menu-button
+            className="h-8 w-8 bg-transparent text-gray-500 hover:bg-transparent hover:text-gray-900 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 transition-none [&:hover]:bg-transparent"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
           {item.type === "file" && (
             <DropdownMenuItem onClick={() => onDownload?.(item)}>Download</DropdownMenuItem>
+          )}
+          {item.type === "file" && (item.absolute_url || item.path) && (
+            <DropdownMenuItem onClick={() => {
+              const url = item.absolute_url || item.path || "";
+              navigator.clipboard.writeText(url);
+            }}>
+              Copy path
+            </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => onRename?.(item)}>Rename</DropdownMenuItem>
           <DropdownMenuItem onClick={() => onMoveItem?.(item)}>Move</DropdownMenuItem>
@@ -166,23 +182,28 @@ export const FileItem = memo(({
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-  ), [item, viewMode, onDownload, onRename, onMoveItem, onDuplicate, onDelete]);
+  ), [item, onDownload, onRename, onMoveItem, onDuplicate, onDelete]);
 
   // Folder layout
   if (item.type === "folder") {
     return (
       <Card
-        className={cn(cardBaseClasses, "py-4")}
+        className={cn(cardBaseClasses, "p-0 overflow-hidden")}
         onClick={handleItemClick}
         onDoubleClick={handleItemDoubleClick}
         onMouseDown={onMouseDown}
       >
-        <div className="file-manager-item-header flex items-center gap-2 px-3 relative">
+        <div className="flex items-center gap-3 px-3 py-2.5">
           {checkbox}
-          <Folder className="h-5 w-5 text-blue-500 shrink-0" />
-          <span className="text-sm truncate flex-1" title={item.name}>
-            {item.name}
-          </span>
+          <div className="flex items-center justify-center w-9 h-9 rounded-md bg-blue-50 shrink-0">
+            <Folder className="h-5 w-5 text-blue-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate" title={item.name}>{item.name}</p>
+            {item.createdAt && (
+              <p className="text-xs text-muted-foreground">{item.createdAt}</p>
+            )}
+          </div>
           {itemMenu}
         </div>
       </Card>
@@ -194,23 +215,35 @@ export const FileItem = memo(({
     const fileUrl = getFileUrl(item, true);
     return (
       <Card
-        className={cn(cardBaseClasses, "relative p-2 flex flex-col gap-2 border")}
+        className={cn(cardBaseClasses, "relative p-2 border-muted rounded-xl")}
         onClick={handleItemClick}
         onDoubleClick={handleItemDoubleClick}
         onMouseDown={onMouseDown}
       >
-        <div className="flex items-center justify-between relative">
-          <p className="text-xs text-start truncate w-full flex-1" title={item.name}>
+        {/* Top: name + menu */}
+        <div className="flex justify-between items-start">
+          <div className="text-xs text-muted-foreground truncate max-w-[70%]" title={item.name}>
             {item.name}
-          </p>
-          {itemMenu}
+          </div>
+          <div className="absolute top-1 right-1 z-10">
+            {itemMenu}
+          </div>
         </div>
-        <div className="flex flex-col items-center justify-center rounded-md overflow-hidden">
-          <FilePreview 
+        {/* Thumbnail */}
+        <div className="relative aspect-square mt-2 flex items-center justify-center bg-muted/30 rounded w-full overflow-hidden">
+          <FilePreview
             url={fileUrl}
             {...filePreviewProps}
             size="lg"
+            className="w-full h-full"
           />
+          {(item.size || item.createdAt) && (
+            <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm pointer-events-none flex gap-1.5">
+              {item.size && <span>{item.size}</span>}
+              {item.size && item.createdAt && <span className="opacity-50">|</span>}
+              {item.createdAt && <span>{item.createdAt}</span>}
+            </div>
+          )}
         </div>
       </Card>
     );

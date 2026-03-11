@@ -215,20 +215,22 @@ export const FileGrid = memo(({
   // Render section helper
   const renderSection = useCallback((
     title: string,
-    items: FileItem[],
-    gridCols: 5 | 6 = 5
+    sectionItems: FileItem[],
+    isFolder = false
   ) => {
-    if (items.length === 0) return null;
-    
-    const gridClass = gridCols === 6 ? "grid-cols-6" : "grid-cols-5";
-    
+    if (sectionItems.length === 0) return null;
+
+    const gridClass = isFolder
+      ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+      : "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3";
+
     return (
       <div>
-        <h3 className="text-sm font-medium text-muted-foreground mb-3">
-          {title} ({items.length})
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          {title} ({sectionItems.length})
         </h3>
-        <div className={`grid ${gridClass} gap-4`}>
-          {items.map(renderItem)}
+        <div className={gridClass}>
+          {sectionItems.map(renderItem)}
         </div>
       </div>
     );
@@ -237,7 +239,7 @@ export const FileGrid = memo(({
   return (
     <div
       ref={containerRef}
-      className="space-y-6 relative select-none"
+      className="space-y-5 relative select-none"
       onMouseDown={handleContainerMouseDown}
       onMouseMove={handleContainerMouseMove}
       onMouseUp={handleContainerMouseUp}
@@ -254,8 +256,8 @@ export const FileGrid = memo(({
           }}
         />
       )}
-      {renderSection("Thư mục", filteredFolders, 5)}
-      {renderSection("Tệp", filteredFiles, 5)}
+      {renderSection("Thư mục", filteredFolders, true)}
+      {renderSection("Tệp", filteredFiles, false)}
     </div>
   );
 });

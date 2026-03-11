@@ -8,9 +8,9 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class Media extends Model
+class Files extends Model
 {
-    protected $table = 'media';
+    protected $table = 'files';
 
     protected $fillable = [
         'name',
@@ -65,12 +65,12 @@ class Media extends Model
 
     public function parent(): BelongsTo
     {
-        return $this->belongsTo(Media::class, 'parent_id');
+        return $this->belongsTo(Files::class, 'parent_id');
     }
 
     public function children()
     {
-        return $this->hasMany(Media::class, 'parent_id');
+        return $this->hasMany(Files::class, 'parent_id');
     }
 
     public static function uploadFile(

@@ -97,7 +97,7 @@ export const FilePreview = ({
 }: FilePreviewProps) => {
   const fileExtension = extractExtension(name, extension);
   const isImage = mimeType?.startsWith("image/") || IMAGE_EXTENSIONS.includes(fileExtension?.toLowerCase() || "");
-  const containerSize = size === "lg" ? "h-[180px] w-[180px]" : "w-full h-full";
+  const containerSize = size === "lg" ? "w-full h-full" : "w-full h-full";
 
   // Render image preview
   if (url && isImage) {
@@ -126,7 +126,7 @@ export const FilePreview = ({
       containerSize,
       className
     )}>
-      <IconComponent className={cn("w-16 h-16", color)} />
+      <IconComponent className={cn(size === "lg" ? "w-12 h-12" : "w-8 h-8", color)} />
     </div>
   );
 };
