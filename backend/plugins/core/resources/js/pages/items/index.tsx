@@ -1,5 +1,4 @@
 import { DataTable } from "@core/components/table";
-import Toolbar from "@core/components/toolbar/toolbar-table-page";
 import { Card } from "@core/components/ui/card";
 import { useModule } from "@core/hooks/use-module";
 import AppLayout from "@core/layouts/app-layout";

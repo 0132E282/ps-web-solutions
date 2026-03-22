@@ -271,6 +271,8 @@ const Toolbar = ({
         return () => clearInterval(interval);
     }, [tableInstance]);
 
+
+
     const getSelectedRows = React.useCallback((): TableRowData[] => {
         if (!tableInstance) return [];
         try {

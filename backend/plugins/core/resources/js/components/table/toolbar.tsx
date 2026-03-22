@@ -24,6 +24,7 @@ interface DataTableToolbarProps<TData, TValue> {
     onAdvancedFilterApply: () => void;
     onAdvancedFilterClear: () => void;
     effectiveUseApi: boolean;
+    resourceName?: string | null;
 }
 
 export function DataTableToolbar<TData, TValue>({
@@ -39,6 +40,7 @@ export function DataTableToolbar<TData, TValue>({
     onAdvancedFilterApply,
     onAdvancedFilterClear,
     effectiveUseApi,
+    resourceName,
 }: DataTableToolbarProps<TData, TValue>) {
     const hasSearchValue = Boolean(searchValue);
     const { views: viewsData, configs } = useModule();
@@ -69,75 +71,64 @@ export function DataTableToolbar<TData, TValue>({
     }, [viewsData?.filters]);
 
     const filterFields: AdvancedFilterField[] = useMemo(() => {
+        const NON_FILTERABLE_TYPES = ['attachment', 'attachments', 'image', 'media', 'file'];
+
+        const buildFilterField = (
+            id: string,
+            initialLabel: string,
+            initialType: string | undefined,
+            initialOptions: any[] | undefined
+        ): AdvancedFilterField | null => {
+            const fieldConfig = configs?.[id]?.config as Record<string, unknown> | undefined;
+            const viewFilter = viewFiltersMap.get(id) as Record<string, any> | undefined;
+
+            const effectiveType = (viewFilter?.ui || viewFilter?.type || fieldConfig?.ui || fieldConfig?.type || initialType) as string;
+
+            if (NON_FILTERABLE_TYPES.includes(effectiveType) || NON_FILTERABLE_TYPES.includes(id)) {
+                return null;
+            }
+
+            const rawOptions = initialOptions || fieldConfig?.options || viewFilter?.config?.options || viewFilter?.options;
+            const options = normalizeOptions(rawOptions);
+            const collection = (fieldConfig?.collection || viewFilter?.config?.collection || viewFilter?.collection) as AdvancedFilterField['collection'];
+
+            let type = initialType || effectiveType || 'text';
+
+            if (['string', 'text', 'varchar'].includes(type) && collection) {
+                type = 'select';
+            } else if (['string', 'text', 'varchar'].includes(type) && options && options.length > 0) {
+                type = 'select';
+            } else if (!['text', 'select', 'date', 'boolean', 'number'].includes(type)) {
+                type = 'text';
+            }
+
+            return {
+                key: id,
+                label: initialLabel,
+                type: type as AdvancedFilterField['type'],
+                options,
+                collection
+            };
+        };
+
         if (apiFilters.length > 0) {
-            return apiFilters.map((f) => {
-                const fieldConfig = configs?.[f.key]?.config as Record<string, unknown> | undefined;
-                const viewFilter = viewFiltersMap.get(f.key);
-
-                const rawOptions = (f.options) ||
-                                   (fieldConfig?.options) ||
-                                   (viewFilter?.config?.options) ||
-                                   (viewFilter?.options);
-
-                const options = normalizeOptions(rawOptions);
-                const collection = (fieldConfig?.collection || viewFilter?.config?.collection || viewFilter?.collection) as AdvancedFilterField['collection'];
-
-                let type = (f.type as AdvancedFilterField['type']) || 'text';
-
-                if (collection && (type === 'text' || !type)) {
-                    type = 'select';
-                } else if (options && options.length > 0 && (type === 'text' || !type)) {
-                    type = 'select';
-                }
-
-                return {
-                    key: f.key,
-                    label: f.label || f.key,
-                    type: type as AdvancedFilterField['type'],
-                    options,
-                    collection
-                };
-            });
+            return apiFilters
+                .map(f => buildFilterField(f.key, f.label || f.key, f.type, f.options))
+                .filter((f): f is AdvancedFilterField => f !== null);
         }
 
         return mergedColumns
-            .filter(col => {
-                const colId = getColumnKey(col);
-                const colProps = col as unknown as Record<string, unknown>;
-                const colType = colProps.type as string | undefined;
-                return colId &&
-                    colId !== 'select' &&
-                    colId !== 'actions' &&
-                    colProps.filterable !== false &&
-                    colType !== 'attachment' &&
-                    colType !== 'attachments';
-            })
             .map(col => {
-                const colId = getColumnKey(col) || '';
+                const colId = getColumnKey(col);
+                if (!colId || colId === 'select' || colId === 'actions') return null;
+
                 const colProps = col as unknown as Record<string, unknown>;
-                const header = typeof col.header === 'string' ? col.header : String(colId || '');
+                if (colProps.filterable === false) return null;
 
-                const fieldConfig = configs?.[colId]?.config as Record<string, unknown> | undefined;
-                const rawOptions = (colProps.options) || (fieldConfig?.options);
-                const options = normalizeOptions(rawOptions);
-                const collection = (fieldConfig?.collection) as AdvancedFilterField['collection'];
-
-                let type = (colProps.type as AdvancedFilterField['type']) || 'text';
-
-                if (collection && (type === 'text' || !type)) {
-                    type = 'select';
-                } else if (options && options.length > 0 && (type === 'text' || !type)) {
-                    type = 'select';
-                }
-
-                return {
-                    key: colId,
-                    label: header,
-                    type,
-                    options,
-                    collection,
-                };
-            });
+                const header = typeof col.header === 'string' ? col.header : String(colId);
+                return buildFilterField(colId, header, colProps.type as string | undefined, colProps.options as any[] | undefined);
+            })
+            .filter((f): f is AdvancedFilterField => f !== null);
     }, [apiFilters, mergedColumns, configs, viewFiltersMap, normalizeOptions]);
 
     return (
@@ -173,7 +164,7 @@ export function DataTableToolbar<TData, TValue>({
                         onClear={onAdvancedFilterClear}
                     />
                 )}
-                <ColumnVisibilityDropdown table={table} />
+                <ColumnVisibilityDropdown table={table} resourceName={resourceName} />
             </div>
         </div>
     );

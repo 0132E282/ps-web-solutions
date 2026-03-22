@@ -7,8 +7,8 @@ import type { DataTableProps } from "@core/hooks/use-datatable";
 import { tt } from "@core/lib/i18n";
 import { cn } from "@core/lib/utils";
 import { flexRender } from "@tanstack/react-table";
-import { ChevronRight } from "lucide-react";
-import { Fragment } from "react";
+import { ChevronRight, GripVertical } from "lucide-react";
+import { Fragment, useState, useRef } from "react";
 import { getWidthStyle } from "./helpers";
 import { DataTablePagination } from "./pagination";
 import { DataTableToolbar } from "./toolbar";
@@ -30,6 +30,16 @@ export { tableRegistry } from "./table-registry";
 export { DataTablePagination } from "./pagination";
 export { DataTableToolbar } from "./toolbar";
 
+// Array move helper
+function arrayMove<T>(array: T[], from: number, to: number): T[] {
+    const newArray = [...array];
+    const item = newArray.splice(from, 1)[0];
+    if (item !== undefined) {
+        newArray.splice(to, 0, item);
+    }
+    return newArray;
+}
+
 export function DataTable<TData extends Record<string, unknown>, TValue>(props: DataTableProps<TData, TValue>) {
     const hookData = useDataTable(props);
     const {
@@ -48,6 +58,39 @@ export function DataTable<TData extends Record<string, unknown>, TValue>(props: 
         handleAdvancedFilterClear,
     } = hookData;
 
+    const NON_DRAGGABLE_COLUMNS = ['select', 'id', 'actions'];
+    const [columnDragOver, setColumnDragOver] = useState<string | null>(null);
+    const columnDragRef = useRef<string | null>(null);
+
+    const handleColumnDragStart = (columnId: string) => {
+        columnDragRef.current = columnId;
+    };
+
+    const handleColumnDragOver = (e: React.DragEvent, columnId: string) => {
+        e.preventDefault();
+        setColumnDragOver(columnId);
+    };
+
+    const handleColumnDrop = (targetColumnId: string) => {
+        const from = columnDragRef.current;
+        if (!from || from === targetColumnId || NON_DRAGGABLE_COLUMNS.includes(targetColumnId)) {
+            columnDragRef.current = null;
+            setColumnDragOver(null);
+            return;
+        }
+
+        const currentOrder = table.getState().columnOrder;
+        const newOrder = arrayMove(
+            currentOrder.length > 0 ? currentOrder : table.getAllLeafColumns().map(c => c.id),
+            (currentOrder.length > 0 ? currentOrder : table.getAllLeafColumns().map(c => c.id)).indexOf(from),
+            (currentOrder.length > 0 ? currentOrder : table.getAllLeafColumns().map(c => c.id)).indexOf(targetColumnId)
+        );
+
+        table.setColumnOrder(newOrder);
+        columnDragRef.current = null;
+        setColumnDragOver(null);
+    };
+
     const rows = table.getRowModel().rows;
     const columnsCount = mergedColumns.length;
 
@@ -60,6 +103,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue>(props: 
                 onAdvancedFilterApply={handleAdvancedFilterApply}
                 onAdvancedFilterClear={handleAdvancedFilterClear}
                 onAdvancedFiltersChange={hookData.setAdvancedFilters}
+                resourceName={hookData.resourceName}
             />
 
             <div className="rounded-md border overflow-visible">
@@ -73,22 +117,45 @@ export function DataTable<TData extends Record<string, unknown>, TValue>(props: 
                                             const meta = header.column.columnDef.meta as { width?: string | number } | undefined;
                                             const firstDataHeaderIndex = headerGroup.headers.findIndex(h => h.column.id !== 'select');
                                             const isTreeColumnHeader = i === (firstDataHeaderIndex !== -1 ? firstDataHeaderIndex : 0) && isTreeMode;
+                                            const isDragging = columnDragRef.current === header.column.id;
+                                            const isOver = columnDragOver === header.column.id;
+                                            const isDraggable = !NON_DRAGGABLE_COLUMNS.includes(header.column.id);
 
                                             return (
                                                 <TableHead
                                                     key={header.id + (header.column.id === 'select' ? `-${Object.keys(rowSelection).length}-${JSON.stringify(rowSelection).length}` : '')}
                                                     style={getWidthStyle(meta)}
-                                                    className={cn(meta?.width && "wrap-break-word")}
+                                                    className={cn(
+                                                        isDraggable && "cursor-move select-none",
+                                                        "relative wrap-break-word",
+                                                        isDragging && "opacity-50 grayscale",
+                                                        isOver && !isDragging && (
+                                                            table.getState().columnOrder.indexOf(columnDragRef.current!) < table.getState().columnOrder.indexOf(header.column.id)
+                                                            ? "border-r-2 border-primary" : "border-l-2 border-primary"
+                                                        )
+                                                    )}
+                                                    draggable={isDraggable}
+                                                    onDragStart={isDraggable ? () => handleColumnDragStart(header.column.id) : undefined}
+                                                    onDragOver={isDraggable ? (e) => handleColumnDragOver(e, header.column.id) : undefined}
+                                                    onDragEnd={() => { columnDragRef.current = null; setColumnDragOver(null); }}
+                                                    onDrop={isDraggable ? () => handleColumnDrop(header.column.id) : undefined}
                                                 >
                                                     {!header.isPlaceholder && (
-                                                        isTreeColumnHeader ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <div className="h-6 w-6 shrink-0" />
-                                                                <div className="flex items-center">
-                                                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                                        <div className="flex items-center gap-2">
+                                                            {isDraggable && (
+                                                                <GripVertical className="w-3 h-3 text-muted-foreground/30" />
+                                                            )}
+                                                            {isTreeColumnHeader ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="h-6 w-6 shrink-0" />
+                                                                    <div className="flex items-center">
+                                                                        {flexRender(header.column.columnDef.header, header.getContext())}
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                        ) : flexRender(header.column.columnDef.header, header.getContext())
+                                                            ) : (
+                                                                flexRender(header.column.columnDef.header, header.getContext())
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </TableHead>
                                             );
@@ -106,7 +173,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue>(props: 
                                         <TableCell colSpan={columnsCount} className="h-24 text-center">{tt('common.no_results')}</TableCell>
                                     </TableRow>
                                 ) : (
-                                    rows.map((row) => {
+                                    rows.map((row, index) => {
                                         const rowData = row.original as Record<string, unknown>;
                                         const level = isTreeMode && typeof rowData._level === 'number' ? rowData._level : 0;
                                         const hasChildren = isTreeMode && rowData._hasChildren === true;
@@ -120,19 +187,20 @@ export function DataTable<TData extends Record<string, unknown>, TValue>(props: 
 
                                         return (
                                             <Fragment key={row.id}>
-                                                <TableRow data-state={isSelected && "selected"} className="group/row">
+                                                <TableRow
+                                                    data-state={isSelected && "selected"}
+                                                    className="group/row transition-all"
+                                                >
                                                     {row.getVisibleCells().map((cell, i) => {
                                                         const meta = cell.column.columnDef.meta as { width?: string | number } | undefined;
                                                         const isTreeColumn = i === treeColumnIndex && isTreeMode;
+
 
                                                         return (
                                                             <TableCell
                                                                 key={cell.id}
                                                                 style={getWidthStyle(meta)}
-                                                                className={cn(
-                                                                    "py-3",
-                                                                    meta?.width && "wrap-break-word"
-                                                                )}
+                                                                className={cn("py-3", meta?.width && "wrap-break-word")}
                                                             >
                                                                 {isTreeColumn ? (
                                                                     <div
@@ -152,7 +220,7 @@ export function DataTable<TData extends Record<string, unknown>, TValue>(props: 
                                                                                 >
                                                                                     <ChevronRight className={cn(
                                                                                         "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                                                                                        isExpanded && "rotate-90 text-primary  hover:text-accent-foreground "
+                                                                                        isExpanded && "rotate-90 text-primary hover:text-accent-foreground"
                                                                                     )} />
                                                                                 </button>
                                                                             ) : (

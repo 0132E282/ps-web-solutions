@@ -42,6 +42,8 @@ export interface DataTableProps<TData, TValue> {
     resource?: Resource<TData>;
     toolbarRow?: (row: TData) => React.ReactNode;
     viewMode?: string;
+    reorderable?: boolean;
+    onReorder?: (items: TData[]) => void;
 }
 
 type TreeItem<T> = T & { _level: number; _hasChildren: boolean; _parentId: string | number | null; _id: string | number };
@@ -233,9 +235,11 @@ export function useDataTableColumns<TData extends Record<string, unknown>, TValu
         return (effectiveUseApi && apiColumns.length > 0) ? apiColumns : (props.columns as ColumnDef<TData, TValue>[] || []);
     }, [columnsProp, props, resourceName, effectiveUseApi, apiColumns]);
 
-    const mergedColumns = useMemo(() =>
-        mergeColumns(rawColumns as ColumnDef<TData>[], (baseColumns || []) as ColumnDef<TData>[], resourceName, routeName) as ColumnDef<TData, TValue>[],
-    [rawColumns, baseColumns, resourceName, routeName]);
+    const mergedColumns = useMemo(() => {
+        let cols = mergeColumns(rawColumns as ColumnDef<TData>[], (baseColumns || []) as ColumnDef<TData>[], resourceName, routeName) as ColumnDef<TData, TValue>[];
+        
+        return cols;
+    }, [rawColumns, baseColumns, resourceName, routeName]);
 
     const allColumns = useMemo(() => {
         if (!filters.length) return mergedColumns;
@@ -271,9 +275,9 @@ export function useDataTableColumns<TData extends Record<string, unknown>, TValu
 export function useDataTable<TData extends Record<string, unknown>, TValue = unknown>(props: DataTableProps<TData, TValue>) {
     const { i18n } = useTranslation();
     const [tableId] = useState(() => `table-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
-    const { route: routeProp, pagination: paginationProp, baseColumns, columns: columnsProp, searchKey, globalFilter: propGlobalFilter, onGlobalFilterChange, items: itemsProp, data: dataProp } = props;
+    const { route: routeProp, pagination: paginationProp, baseColumns, columns: columnsProp, searchKey, globalFilter: propGlobalFilter, onGlobalFilterChange, items: itemsProp, data: dataProp, reorderable, onReorder } = props;
     const routeInfo = useDataTableRoute(routeProp);
-    const { effectiveUseApi, effectiveApiUrl, routeName, currentRouteName } = routeInfo;
+    const { effectiveUseApi, effectiveApiUrl, routeName, currentRouteName, resourceName } = routeInfo;
     const initialParams = useMemo(() => getUrlParams(), []);
 
     const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilterCondition[]>([]);
@@ -391,6 +395,30 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
         });
     }, []);
 
+    const [columnOrder, setColumnOrder] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!resourceName) return;
+        const savedOrder = localStorage.getItem(`column_order_${resourceName}`);
+        if (savedOrder) {
+            try {
+                setColumnOrder(JSON.parse(savedOrder));
+            } catch (e) {
+                console.error('Failed to parse column order:', e);
+            }
+        }
+    }, [resourceName]);
+
+    const handleColumnOrderChange = useCallback((updater: string[] | ((prev: string[]) => string[])) => {
+        setColumnOrder(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            if (resourceName) {
+                localStorage.setItem(`column_order_${resourceName}`, JSON.stringify(next));
+            }
+            return next;
+        });
+    }, [resourceName]);
+
     // eslint-disable-next-line react-hooks/incompatible-library
     const tableInstance = useReactTable({
         data: items,
@@ -405,12 +433,20 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
         autoResetExpanded: false,
         enableRowSelection: true,
         globalFilterFn,
-        state: { sorting, columnFilters, columnVisibility, rowSelection, pagination: { pageIndex, pageSize } },
+        state: { 
+            sorting, 
+            columnFilters, 
+            columnVisibility, 
+            rowSelection, 
+            pagination: { pageIndex, pageSize },
+            columnOrder 
+        },
         getRowId: (row, index) => (row as Record<string, unknown>).id ? String((row as Record<string, unknown>).id) : String(index),
         onSortingChange: setSorting,
         onColumnFiltersChange: handleColumnFiltersChange,
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
+        onColumnOrderChange: handleColumnOrderChange,
         onPaginationChange: updater => {
             const next = typeof updater === 'function' ? updater({ pageIndex, pageSize }) : updater;
             setPageSize(next.pageSize);
@@ -481,5 +517,9 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
         paginationInfo,
         toolbarRow: props.toolbarRow,
         rowSelection,
+        columnOrder,
+        reorderable,
+        onReorder,
+        resourceName,
     };
 }
