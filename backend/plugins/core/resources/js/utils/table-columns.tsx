@@ -5,7 +5,7 @@ import { Checkbox } from "@core/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@core/components/ui/select";
 import { tt } from "@core/lib/i18n";
 import { getCurrentRouteName, route } from "@core/lib/route";
-import type { Admin } from "@core/types/table";
+import type { Account } from "@core/types/account";
 import "@core/types/table";
 import { Link, router } from "@inertiajs/react";
 import type { CellContext, Column, ColumnDef, Row, ColumnMeta } from "@tanstack/react-table";
@@ -278,7 +278,7 @@ const withLink = <TData extends BaseData>(
  * Public Exported Collections
  */
 
-export const baseColumns: ColumnDef<Admin>[] = [
+export const baseColumns: ColumnDef<Account>[] = [
     {
         id: "select",
         size: 80,

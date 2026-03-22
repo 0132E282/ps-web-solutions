@@ -1,6 +1,6 @@
 import { Button } from "@core/components/ui/button";
 import { Trash2, Copy, RefreshCcw, XCircle, MoreVertical } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@core/components/ui/dialog";
+import { ConfirmDialog } from "@core/components/dialogs";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -95,13 +95,13 @@ const ACTIONS: ActionDefinition[] = [
 
 const ToolbarDataTableRow = ({ row }: ToolbarDataTableRowProps) => {
     const dispatch = useDispatch();
-    const { crudRoutes, views } = useModule();
+    const { actionRoutes, views } = useModule();
     const [confirmAction, setConfirmAction] = useState<ActionType | null>(null);
     const { props } = usePage() as any;
 
     const currentRouteName = props.ziggy?.route?.name || getCurrentRouteName();
     const isTrash = currentRouteName?.endsWith('.trash');
-    const resourceName = useMemo(() => currentRouteName || crudRoutes.index || crudRoutes.show || '', [currentRouteName, crudRoutes]);
+    const resourceName = useMemo(() => currentRouteName || actionRoutes.index || actionRoutes.show || '', [currentRouteName, actionRoutes]);
 
     const hydratedActions = useMemo(() => {
         return ACTIONS.reduce((acc, action) => {
@@ -154,22 +154,16 @@ const ToolbarDataTableRow = ({ row }: ToolbarDataTableRowProps) => {
             </DropdownMenu>
         </div>
 
-        <Dialog open={!!confirmAction} onOpenChange={open => !open && setConfirmAction(null)}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>{activeConfig?.title}</DialogTitle>
-                    <DialogDescription className={confirmAction === 'forceDelete' ? 'text-destructive' : ''}>
-                        {activeConfig?.description}
-                    </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setConfirmAction(null)}>{tt('common.cancel') || 'Hủy'}</Button>
-                    <Button variant={activeConfig?.variant || 'default'} onClick={() => { activeConfig?.handler(); setConfirmAction(null); }}>
-                        {activeConfig?.label}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        <ConfirmDialog
+            open={!!confirmAction}
+            onOpenChange={open => !open && setConfirmAction(null)}
+            onConfirm={() => { activeConfig?.handler(); setConfirmAction(null); }}
+            title={activeConfig?.title ?? ''}
+            description={activeConfig?.description ?? ''}
+            confirmLabel={activeConfig?.label ?? ''}
+            variant={activeConfig?.variant || 'default'}
+            descriptionClassName={confirmAction === 'forceDelete' ? 'text-destructive' : undefined}
+        />
     </>;
 };
 

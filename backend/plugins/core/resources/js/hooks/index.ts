@@ -7,7 +7,7 @@ export {
 export type {
     UseModuleReturn,
     ViewsConfig,
-    CrudRoutes,
+    ActionRoutes,
     ModelConfigs
 } from "@core/types/module";
 export { useInitials } from './use-initials';

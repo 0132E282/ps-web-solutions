@@ -1,5 +1,8 @@
-import type { RowData } from "@tanstack/react-table";
+import type { RowData, ColumnDef } from "@tanstack/react-table";
 import * as React from "react";
+
+import type { ResourcePagination, Resource } from "./resource";
+import type { PaginationInfo } from "./api";
 
 /**
  * Badge configuration for badge-type columns
@@ -94,16 +97,24 @@ declare module "@tanstack/react-table" {
     }
 }
 
-/**
- * Admin interface for base columns
- * @deprecated Consider using generic type instead
- */
-export interface Admin {
-    id: number;
-    name: string;
-    email: string;
-    email_verified_at: string | null;
-    roles: string[];
-    created_at: string;
-    updated_at: string;
+
+
+export interface DataTableProps<TData, TValue> {
+    columns?: ColumnDef<TData, TValue>[];
+    data?: TData[];
+    items?: TData[];
+    pagination?: PaginationInfo | ResourcePagination | null;
+    baseColumns?: ColumnDef<TData, TValue>[];
+    searchKey?: string;
+    searchPlaceholder?: string;
+    globalFilter?: string;
+    onGlobalFilterChange?: (value: string) => void;
+    route?: string;
+    resource?: Resource<TData>;
+    toolbarRow?: (row: TData) => React.ReactNode;
+    viewMode?: string;
+    reorderable?: boolean;
+    onReorder?: (items: TData[]) => void;
 }
+
+export type TreeItem<T> = T & { _level: number; _hasChildren: boolean; _parentId: string | number | null; _id: string | number };

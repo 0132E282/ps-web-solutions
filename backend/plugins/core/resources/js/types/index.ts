@@ -4,4 +4,7 @@ export * from './forms';
 export * from './api';
 export * from './files';
 export * from './filter';
-export * from './table';export * from './module';
+export * from './table';
+export * from './module';
+export * from './inertia';
+export * from './account';

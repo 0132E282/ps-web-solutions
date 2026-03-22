@@ -7,7 +7,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 import type {
     PagePropsWithViews,
     UseModuleReturn,
-    CrudRoutes
+    ActionRoutes
 } from "@core/types/module";
 import {
     buildUrl,
@@ -25,7 +25,7 @@ import {
 
 const CRUD_ACTIONS = ['index', 'tree', 'create', 'store', 'show', 'edit', 'update', 'destroy', 'import', 'export', 'importTemplate', 'duplicate', 'trash', 'restore', 'force-delete'] as const;
 
-const EMPTY_ROUTES: CrudRoutes = {
+const EMPTY_ROUTES: ActionRoutes = {
     index: null,
     create: null,
     store: null,
@@ -83,18 +83,35 @@ export function useModule(options?: { collection?: string }): UseModuleReturn {
     const { props } = usePage<PagePropsWithViews>();
     const currentRouteName = useMemo(() => props?.ziggy?.route?.name || getCurrentRouteName() || null, [props]);
 
-    const { current, view } = useMemo(() => {
-        if (options?.collection) {
-             const baseRoute = options.collection;
-             return { current: `${baseRoute}.index`, view: { show: `${baseRoute}.show`, edit: `${baseRoute}.edit` } };
-        }
-
-        if (!currentRouteName) return { current: null, view: { show: null, edit: null } };
+    const baseRoute = useMemo(() => {
+        if (options?.collection) return options.collection;
+        if (!currentRouteName) return null;
+        
         const parts = currentRouteName.split('.');
         const lastPart = parts[parts.length - 1] as string;
-        const baseRoute = ([...CRUD_ACTIONS] as string[]).includes(lastPart) ? parts.slice(0, -1).join('.') : currentRouteName;
-        return { current: `${baseRoute}.index`, view: { show: `${baseRoute}.show`, edit: `${baseRoute}.edit` } };
+        // * DRY & KISS: Tránh lặp lại logic lookup baseRoute 2 lần ở current/view và crudRoutes
+        return (CRUD_ACTIONS as readonly string[]).includes(lastPart) ? parts.slice(0, -1).join('.') : currentRouteName;
     }, [currentRouteName, options?.collection]);
+
+    const { current, view, actionRoutes } = useMemo(() => {
+        if (!baseRoute) return { 
+            current: null, 
+            view: { show: null, edit: null }, 
+            actionRoutes: EMPTY_ROUTES 
+        };
+
+        const current = `${baseRoute}.index`;
+        const view = { show: `${baseRoute}.show`, edit: `${baseRoute}.edit` };
+        
+        const actionRoutes = CRUD_ACTIONS.reduce((routes, action) => {
+            const key = action === 'force-delete' ? 'forceDelete' : action;
+            const suffix = action === 'importTemplate' ? 'import-template' : action;
+            routes[key] = `${baseRoute}.${suffix}`;
+            return routes;
+        }, {} as Record<string, string>) as unknown as ActionRoutes;
+
+        return { current, view, actionRoutes };
+    }, [baseRoute]);
 
     const views = useMemo(() => props.views || {}, [props.views]);
     const configs = useMemo(() => props.configs || {}, [props.configs]);
@@ -111,30 +128,7 @@ export function useModule(options?: { collection?: string }): UseModuleReturn {
         return (filterConfig?.options || modelConfig?.config?.options) as Array<{ value: string; label: string }> | undefined;
     }, [configs]);
 
-    const crudRoutes = useMemo<CrudRoutes>(() => {
-        if (options?.collection) {
-            const baseRoute = options.collection;
-             return CRUD_ACTIONS.reduce((routes, action) => {
-                const key = action === 'force-delete' ? 'forceDelete' : action;
-                const suffix = action === 'importTemplate' ? 'import-template' : action;
-                (routes as unknown as Record<string, string>)[key] = `${baseRoute}.${suffix}`;
-                return routes;
-            }, {} as CrudRoutes);
-        }
-
-        if (!currentRouteName) return EMPTY_ROUTES;
-        const parts = currentRouteName.split('.');
-        const lastPart = parts[parts.length - 1] as string;
-        const baseRoute = ([...CRUD_ACTIONS] as string[]).includes(lastPart) ? parts.slice(0, -1).join('.') : currentRouteName;
-        return CRUD_ACTIONS.reduce((routes, action) => {
-            const key = action === 'force-delete' ? 'forceDelete' : action;
-            const suffix = action === 'importTemplate' ? 'import-template' : action;
-            (routes as unknown as Record<string, string>)[key] = `${baseRoute}.${suffix}`;
-            return routes;
-        }, {} as CrudRoutes);
-    }, [currentRouteName, options?.collection]);
-
-    return { current, view, views, configs, getFieldOptions, getFilterOptions, crudRoutes };
+    return { current, view, views, configs, getFieldOptions, getFilterOptions, actionRoutes };
 }
 
 /**

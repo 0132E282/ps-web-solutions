@@ -65,10 +65,10 @@ export interface UseModuleReturn {
         filter: Record<string, unknown>,
         filterKey: string
     ) => Array<{ value: string; label: string }> | undefined;
-    crudRoutes: CrudRoutes;
+    actionRoutes: ActionRoutes;
 }
 
-export interface CrudRoutes {
+export interface ActionRoutes {
     index: string | null;
     create: string | null;
     store: string | null;
