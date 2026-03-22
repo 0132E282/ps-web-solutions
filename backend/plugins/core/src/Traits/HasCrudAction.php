@@ -165,8 +165,10 @@ trait HasCrudAction
         $this->applyFilters($query);
 
         $viewConfig = $this->getViewConfig('index');
-        $loadItems = $viewConfig['config']['load-items'] ?? $viewConfig['load-items'] ?? null;
-        $isTreeMode = ($loadItems === 'tree') || request()->boolean('tree', false);
+        $layouts = $viewConfig['config']['layouts'] ?? $viewConfig['layouts'] ?? [];
+        $layout = request()->query('layout') ?: ($layouts[0] ?? 'table');
+
+        $isTreeMode = ($layout === 'tree');
 
         if (! $isTreeMode) {
             $query->orderBy('created_at', 'desc');

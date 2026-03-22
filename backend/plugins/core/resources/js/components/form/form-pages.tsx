@@ -11,8 +11,11 @@ import type { FormProps, FormRef, FormData } from "@core/types/forms";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { usePage, router } from "@inertiajs/react";
+import { ArrowLeft } from "lucide-react";
 import { isAxiosError } from "axios";
-import { forwardRef, useImperativeHandle, useCallback, useMemo } from "react";
+import { Button } from "@core/components/ui/button";
+import { createPortal } from "react-dom";
+import { forwardRef, useImperativeHandle, useCallback, useMemo, useState, useEffect } from "react";
 import { useForm as useReactHookForm, type UseFormReturn, type SubmitHandler, type FieldErrors, type SetValueConfig } from "react-hook-form";
 
 import ToolbarFormPage from "../toolbar/toolbar-form-page";
@@ -107,6 +110,11 @@ export const FormPages = forwardRef<FormRef, FormProps>(({
   onSubmit, onError, children, defaultValues, className, formSchema, title, showHeader = true,
   layouts = [], viewMode = "table", onViewModeChange,
 }, ref) => {
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setPortalTarget(document.getElementById("header-toolbar"));
+  }, []);
   const { currentRouteName, prefix, resourceName, isShowPage } = useFormRouteInfo();
   const { itemId, itemData } = useFormItemInfo(defaultValues);
   const isEdit = !!itemId;
@@ -291,12 +299,50 @@ export const FormPages = forwardRef<FormRef, FormProps>(({
     <Form form={reactHookForm} onSubmit={submitHandler} className={className} title={title} currentRouteName={currentRouteName} routeTitle={routeTitle} onBack={handleBack}>
       {showHeader && (
         <div className="flex items-center gap-4 mb-6 max-w-full">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleBack}
+            className="h-8 w-8 p-0 rounded-full hover:bg-accent/50 -ml-2 transition-all duration-300"
+            title={tt('common.back') || 'Quay lại'}
+          >
+            <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+          </Button>
           {(title || routeTitle) && (
             <h1 className="text-2xl font-bold truncate whitespace-nowrap max-w-[65%]" title={title || routeTitle}>
               {title || routeTitle}
             </h1>
           )}
-          <ToolbarFormPage className="ml-auto" isEdit={isEdit} onSave={handleSave} onDelete={handleDelete} onDuplicate={handleDuplicate} onCancel={handleBack} showDelete={views?.actions?.delete !== false} showDuplicate={views?.actions?.duplicate !== false} layouts={layouts} viewMode={viewMode} onViewModeChange={onViewModeChange} />
+          {portalTarget ? (
+            createPortal(
+              <ToolbarFormPage 
+                isEdit={isEdit} 
+                onSave={handleSave} 
+                onDelete={handleDelete} 
+                onDuplicate={handleDuplicate} 
+                showDelete={views?.actions?.delete !== false} 
+                showDuplicate={views?.actions?.duplicate !== false} 
+                layouts={layouts} 
+                viewMode={viewMode} 
+                onViewModeChange={onViewModeChange} 
+              />,
+              portalTarget
+            )
+          ) : (
+            <ToolbarFormPage 
+                className="ml-auto" 
+                isEdit={isEdit} 
+                onSave={handleSave} 
+                onDelete={handleDelete} 
+                onDuplicate={handleDuplicate} 
+                showDelete={views?.actions?.delete !== false} 
+                showDuplicate={views?.actions?.duplicate !== false} 
+                layouts={layouts} 
+                viewMode={viewMode} 
+                onViewModeChange={onViewModeChange} 
+            />
+          )}
         </div>
       )}
       {children}

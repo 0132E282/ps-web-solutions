@@ -61,7 +61,6 @@ class ModuleRouteRegistrar
             ->group(function () use ($hasSoftDeletes, $hasImport, $hasExport, $routeMw) {
 
                 Route::get('/', 'index')->name('index')->middleware($routeMw('index'));
-                Route::get('/tree', 'tree')->name('tree')->middleware($routeMw('index'));
                 Route::get('/create', 'form')->name('create')->middleware($routeMw('create'));
                 Route::post('/create', 'store')->name('store')->middleware($routeMw('store'));
                 Route::get('/{id}', 'form')->name('show')->middleware($routeMw('show'));

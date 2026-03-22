@@ -40,6 +40,7 @@ type ExtendedColumnDef<TData extends BaseData = BaseData> = ColumnDef<TData> & {
     link?: boolean | string;
     linkIdKey?: string;
     size?: number | string;
+    width?: number | string;
     imageConfig?: ColumnMeta['imageConfig'];
     checkboxConfig?: ColumnMeta['checkboxConfig'];
     numberConfig?: ColumnMeta['numberConfig'];
@@ -306,6 +307,8 @@ export const baseColumns: ColumnDef<Admin>[] = [
     },
     {
         id: "actions",
+        size: 120,
+        meta: { width: 120 },
         enableSorting: false,
         cell: ({ row }) => <Toolbar form="row" props={{ row: row.original as unknown as Record<string, unknown> }} />,
     },
@@ -329,9 +332,10 @@ export function processColumns<TData extends BaseData>(
             result.header = resolveFieldLabel(key, resource);
         }
 
-        if (p.size) {
-            result.size = Number(p.size);
-            result.meta = { ...((result.meta as Record<string, unknown>) || {}), width: Number(p.size) };
+        const rawWidth = p.size || p.width;
+        if (rawWidth) {
+            result.size = typeof rawWidth === 'number' ? rawWidth : parseInt(String(rawWidth));
+            result.meta = { ...((result.meta as Record<string, unknown>) || {}), width: rawWidth };
         }
 
         if (p.sort) {

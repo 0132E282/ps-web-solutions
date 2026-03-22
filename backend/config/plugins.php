@@ -8,18 +8,7 @@ return [
     ],
     'cms' => [
         'enabled' => true,
-        'settings' => [
-            [
-                'key' => 'cms-general',
-                'view' => 'settings/cms-general',
-                'data' => [],
-            ],
-            [
-                'key' => 'cms-seo',
-                'view' => 'settings/cms-seo',
-                'data' => [],
-            ],
-        ],
+        'settings' => [],
         'sliders' => [
             'home' => 'Slider trang chủ',
             'home-mobile' => 'Slider trang chủ (Mobile)',

@@ -43,6 +43,10 @@ class BaseController extends Controller
 
     public function index()
     {
+        $viewConfig = $this->getViewConfig('index');
+        $layout = request()->query('layout') ?: (($viewConfig['config']['layouts'] ?? $viewConfig['layouts'] ?? [])[0] ?? 'table');
+
+        $isTreeMode = ($layout === 'tree');
         $items = $this->loadItems();
         $itemsArray = $this->transformItemsForView($items, 'index');
 
@@ -55,23 +59,13 @@ class BaseController extends Controller
             ...$this->buildPaginationMeta($items),
         ];
 
-        return $this->renderInertia('index', $extra);
-    }
-
-    public function tree()
-    {
-        $items = $this->loadItems();
-        $itemsArray = $this->transformItemsForView($items, 'index');
-
-        if (request()->wantsJson()) {
-            return Resource::items($itemsArray, $this->buildPaginationMeta($items));
+        if ($isTreeMode) {
+            return $this->renderInertia('tree', array_merge($extra, [
+                'form_views' => $this->getViewsConfig('form'),
+            ]));
         }
 
-        return $this->renderInertia('tree', [
-            'items' => $itemsArray,
-            'form_views' => $this->getViewsConfig('form'),
-            ...$this->buildPaginationMeta($items),
-        ]);
+        return $this->renderInertia('index', $extra);
     }
 
     public function form($id = null)

@@ -13,6 +13,7 @@ class ThemeCategoryController extends BaseController
     'index' => [
       'title' => 'Categories',
       'description' => 'Manage categories list',
+      'layouts' => ['tree', 'table'],
       'fields' => [
         ['name' => 'name', 'primary' => true],
         ['name' => 'status'],

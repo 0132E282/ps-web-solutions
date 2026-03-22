@@ -18,6 +18,7 @@ class ProjectCategoryController extends BaseController
     'index' => [
       'title' => 'Project Categories',
       'description' => 'Manage project categories',
+      'layouts' => ['tree', 'table'],
       'fields' => [
         ['name' => 'image', 'width' => 20],
         ['name' => 'name', 'primary' => true],

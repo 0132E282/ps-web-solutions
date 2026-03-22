@@ -18,7 +18,7 @@ class PostCategoryController extends BaseController
     'index' => [
       'title' => 'Post Categories',
       'description' => 'Manage blog post categories',
-      'layouts' => ['table', 'tree'],
+      'layouts' => ['tree', 'table'],
       'fields' => [
         ['name' => 'name', 'primary' => true],
         ['name' => 'status'],

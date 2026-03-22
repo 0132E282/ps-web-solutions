@@ -12,8 +12,7 @@ class PostCategoryController extends BaseController
     const views = [
         'index' => [
             'title' => 'Post Categories',
-            'load-items' => 'tree',
-            'layouts' => ['table', 'tree'],
+            'layouts' => ['tree', 'table'],
             'fields' => [
                 ['name' => 'name', 'config' => ['primary' => true]],
                 ['name' => 'status', 'config' => ['type' => 'badge']],

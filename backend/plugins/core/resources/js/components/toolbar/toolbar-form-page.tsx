@@ -1,8 +1,9 @@
-import { Save, Trash2, Copy, List, Network } from "lucide-react";
+import { Save, Trash2, Copy, List, Network, LucideIcon } from "lucide-react";
 import { Button } from "@core/components/ui/button";
 import { cn } from "@core/lib/utils";
 import { tt } from "@core/lib/i18n";
 import { ToggleGroup, ToggleGroupItem } from "@core/components/ui/toggle-group";
+import LocaleSwitcher from "../locale-switcher";
 
 interface ToolbarFormPageProps {
     className?: string;
@@ -10,9 +11,9 @@ interface ToolbarFormPageProps {
     onSave?: () => void;
     onDelete?: () => void;
     onDuplicate?: () => void;
-    onCancel?: () => void;
     showDelete?: boolean;
     showDuplicate?: boolean;
+    locale?: boolean;
     disabled?: boolean;
     layouts?: string[];
     viewMode?: string;
@@ -21,93 +22,78 @@ interface ToolbarFormPageProps {
 
 const ToolbarFormPage = ({
     className = "",
-    isEdit: isEditProp,
-    onSave: onSaveProp,
-    onDelete: onDeleteProp,
-    onDuplicate: onDuplicateProp,
+    isEdit = false,
+    onSave,
+    onDelete,
+    onDuplicate,
     showDelete = true,
     showDuplicate = true,
-
+    locale = true,
     disabled = false,
     layouts = [],
     viewMode = "table",
     onViewModeChange,
 }: ToolbarFormPageProps) => {
-    const isEdit = isEditProp;
-    const onSave = onSaveProp;
-    const onDelete = onDeleteProp;
-    const onDuplicate = onDuplicateProp;
-    // const onCancel removed
-
     return (
         <div className={cn("flex items-center gap-2", className)}>
-            {isEdit && showDuplicate && onDuplicate && (
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={onDuplicate}
-                    className="gap-2"
-                    disabled={disabled}
-                >
-                    <Copy className="h-4 w-4" />
-                    {tt('common.duplicate') || 'Nhân bản'}
-                </Button>
-            )}
-            {isEdit && showDelete && onDelete && (
-                <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={onDelete}
-                    className="gap-2 text-white"
-                    disabled={disabled}
-                >
-                    <Trash2 className="h-4 w-4" />
-                    {tt('common.delete') || 'Xóa'}
-                </Button>
-            )}
-            {onSave && (
-                <Button
-                    type="button"
-                    size="sm"
-                    onClick={onSave}
-                    className="gap-2"
-                    disabled={disabled}
-                >
-                    <Save className="h-4 w-4" />
-                    {isEdit ? (tt('common.save_changes') || 'Lưu thay đổi') : (tt('common.create') || 'Tạo mới')}
-                </Button>
-            )}
-            {layouts && layouts.length > 1 && (
-                <div className="mr-auto">
+            <div className="flex items-center gap-1.5 ml-auto">
+                {isEdit && showDuplicate && onDuplicate && (
+                    <ActionButton
+                        onClick={onDuplicate}
+                        disabled={disabled}
+                        variant="outline"
+                        icon={Copy}
+                        label={tt('common.duplicate') || 'Nhân bản'}
+                        className="border-transparent hover:border-border/50 hover:bg-accent/40 shadow-none px-4"
+                        iconClassName="text-muted-foreground"
+                    />
+                )}
+
+                {isEdit && showDelete && onDelete && (
+                    <ActionButton
+                        onClick={onDelete}
+                        disabled={disabled}
+                        variant="ghost"
+                        icon={Trash2}
+                        label={tt('common.delete') || 'Xóa'}
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive px-4"
+                    />
+                )}
+
+                {(onSave || locale) && <Separator />}
+
+                {onSave && (
+                    <ActionButton
+                        onClick={onSave}
+                        disabled={disabled}
+                        icon={Save}
+                        label={isEdit ? (tt('common.save_changes') || 'Lưu thay đổi') : (tt('common.create') || 'Tạo mới')}
+                        className="bg-primary hover:bg-primary/90 shadow-md shadow-primary/20 px-4"
+                        labelClassName="font-bold"
+                    />
+                )}
+
+                {locale && (
+                    <>
+                        <Separator />
+                        <LocaleSwitcher />
+                    </>
+                )}
+            </div>
+
+            {layouts.length > 1 && (
+                <div className="ml-2">
                     <ToggleGroup
                         type="single"
                         value={viewMode}
-                        onValueChange={(val) => {
-                            if (val && onViewModeChange) onViewModeChange(val);
-                        }}
-                        className="bg-muted/50 p-1 rounded-lg border shadow-sm h-9"
+                        onValueChange={(val) => val && onViewModeChange?.(val)}
+                        className="bg-muted/30 p-1 rounded-xl border border-border/50 shadow-sm h-10 backdrop-blur-sm"
                     >
                         {layouts.includes('table') && (
-                            <ToggleGroupItem
-                                value="table"
-                                aria-label="Table View"
-                                size="sm"
-                                className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all"
-                            >
-                                <List className="h-4 w-4" />
-                            </ToggleGroupItem>
+                            <ViewModeItem value="table" icon={List} label="Table View" />
                         )}
                         {layouts.includes('tree') && (
-                            <ToggleGroupItem
-                                value="tree"
-                                aria-label="Tree View"
-                                size="sm"
-                                className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all"
-                            >
-                                <Network className="h-4 w-4" />
-                            </ToggleGroupItem>
+                            <ViewModeItem value="tree" icon={Network} label="Tree View" />
                         )}
                     </ToggleGroup>
                 </div>
@@ -115,5 +101,46 @@ const ToolbarFormPage = ({
         </div>
     );
 };
+
+/**
+ * # Helper Components for Clean Code
+ */
+
+const ActionButton = ({ 
+    icon: Icon, 
+    label, 
+    className, 
+    labelClassName,
+    iconClassName,
+    ...props 
+}: React.ComponentProps<typeof Button> & { 
+    icon: LucideIcon; 
+    label: string; 
+    labelClassName?: string;
+    iconClassName?: string;
+}) => (
+    <Button
+        type="button"
+        size="sm"
+        className={cn("gap-2 transition-all duration-300 rounded-lg", className)}
+        {...props}
+    >
+        <Icon className={cn("h-4 w-4", iconClassName)} />
+        <span className={cn("font-semibold", labelClassName)}>{label}</span>
+    </Button>
+);
+
+const ViewModeItem = ({ value, icon: Icon, label }: { value: string; icon: LucideIcon; label: string }) => (
+    <ToggleGroupItem
+        value={value}
+        aria-label={label}
+        size="sm"
+        className="h-8 w-9 px-0 data-[state=on]:bg-background data-[state=on]:text-primary data-[state=on]:shadow-sm rounded-lg transition-all"
+    >
+        <Icon className="h-4 w-4" />
+    </ToggleGroupItem>
+);
+
+const Separator = () => <div className="h-4 w-px bg-border/40 mx-1" />;
 
 export default ToolbarFormPage;

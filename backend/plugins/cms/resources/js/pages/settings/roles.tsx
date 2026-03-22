@@ -185,7 +185,7 @@ const PermissionGroup = memo<{
     return (
         <Card>
             <CardHeader>
-                <div className="flex items-center justify-between px-4">
+                <div className="flex items-center justify-between ps-2 pr-5">
                     <CardTitle className="text-lg">{groupName}</CardTitle>
                     <div className="flex items-center space-x-2">
                         <span className="text-sm text-muted-foreground">Chọn tất cả</span>

@@ -220,7 +220,8 @@ class CoreServiceProvider extends ServiceProvider
                 if ($user) {
                     $permissionName = str_replace('admin.', '', $item['route']);
                     // Cho phép nhìn thấy dashboard, hoặc những modules có quyền
-                    if ($item['route'] !== 'admin.site.dashboard' && $item['route'] !== 'admin.site.index' && $item['route'] !== 'admin.account.index' && $item['route'] !== 'admin.account.profile') {
+                    $noPermissionRoutes = ['admin.site.dashboard', 'admin.site.index', 'admin.account.index', 'admin.account.profile', 'admin.settings.index'];
+                if (! \in_array($item['route'], $noPermissionRoutes, true)) {
                         if (! $user->can($permissionName)) {
                             $hasAccess = false;
                         }

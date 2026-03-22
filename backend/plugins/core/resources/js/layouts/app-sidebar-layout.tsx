@@ -3,7 +3,6 @@ import { AppContent } from '@core/components/app-content';
 import { AppShell } from '@core/components/app-shell';
 import { AppSidebar } from '@core/components/app-sidebar';
 import { AppSidebarHeader } from '@core/components/app-sidebar-header';
-import LanguageSwitcher from '@core/components/language-switcher';
 import { ReactNode, useMemo } from 'react';
 import { usePage } from '@inertiajs/react';
 import { getCurrentRouteName } from '@core/lib/route';
@@ -37,12 +36,11 @@ export default function AppSidebarLayout({
                 className="flex min-h-screen flex-col overflow-x-hidden"
             >
                 <AppSidebarHeader breadcrumbs={breadcrumbs}>
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div id="header-toolbar" className="flex items-center gap-2 ml-auto">
                         {toolbar}
-                        <LanguageSwitcher />
                     </div>
                 </AppSidebarHeader>
-                <div className="mx-auto w-full flex-1 px-4 py-6 md:px-6 lg:px-8">
+                <div className="mx-auto w-full flex-1 px-4 py-6">
                     {children}
                 </div>
             </AppContent>

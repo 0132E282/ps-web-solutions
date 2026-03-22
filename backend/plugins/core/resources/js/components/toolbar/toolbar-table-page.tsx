@@ -10,6 +10,7 @@ import type { Table } from "@tanstack/react-table";
 import { useModule } from "@core/hooks/use-module";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@core/redux/store";
+import LocaleSwitcher from "@core/components/locale-switcher";
 import {
     Dialog,
     DialogContent,
@@ -67,8 +68,19 @@ interface ColumnInfo {
     label: string;
 }
 
-interface HeaderToolbarTableProps {
+interface ToolbarProps {
+    ui?: "table" | "tree" | "form";
+    variant?: "page" | "toolbar";
     className?: string;
+    actions?: {
+        create?: boolean | string;
+        delete?: boolean | string;
+        destroy?: boolean | string;
+        export?: boolean | string;
+        import?: boolean | string;
+        duplicate?: boolean | string;
+        [key: string]: unknown;
+    };
     create?: boolean | string;
     delete?: boolean | string;
     export?: boolean | string;
@@ -90,6 +102,7 @@ interface HeaderToolbarTableProps {
     layouts?: string[];
     viewMode?: string;
     onViewModeChange?: (mode: string) => void;
+    locale?: boolean;
 }
 
 type FileFormat = 'xlsx' | 'csv';
@@ -107,13 +120,16 @@ const resolveRoute = (prop: boolean | string | undefined, fallback: string | nul
     return fallback;
 };
 
-const HeaderToolbarTable = ({
+const Toolbar = ({
+    ui,
+    variant = "toolbar",
     className = "",
-    create = true,
-    delete: deleteProp = true,
-    export: exportProp = false,
-    import: importProp = false,
-    duplicate: duplicateProp = false,
+    actions,
+    create: createProp,
+    delete: deletePropVal,
+    export: exportPropVal,
+    import: importPropVal,
+    duplicate: duplicatePropVal,
     onCreate,
     onDelete,
     onExport,
@@ -126,19 +142,76 @@ const HeaderToolbarTable = ({
     duplicateRoute: duplicateRouteProp,
     importTemplateRoute,
     importTypes,
-    tabnavs,
+    tabnavs: tabnavsProp,
     layouts = ['table'],
-    viewMode = 'table',
-    onViewModeChange,
-}: HeaderToolbarTableProps) => {
+    viewMode: viewModeProp,
+    onViewModeChange: onViewModeChangeProp,
+    locale,
+}: ToolbarProps) => {
     const dispatch = useDispatch();
     const { current: currentRouteName, crudRoutes } = useModule();
+
+    const [internalViewMode, setInternalViewMode] = React.useState(() => {
+        if (typeof window === 'undefined') return 'table';
+        const params = new URLSearchParams(window.location.search);
+        return params.get('view') || 'table';
+    });
+
+    const viewMode = viewModeProp || internalViewMode;
+
+    const handleViewModeChange = React.useCallback((val: string) => {
+        if (onViewModeChangeProp) {
+            onViewModeChangeProp(val);
+        } else {
+            setInternalViewMode(val);
+            const url = new URL(window.location.href);
+            url.searchParams.set('view', val);
+            window.history.replaceState({}, '', url.toString());
+        }
+
+        // Logic for tree redirection
+        if (val === 'tree' && ui === 'table') {
+            const treeRoute = (crudRoutes.index || '').replace('.index', '.tree');
+            if (route.has(treeRoute)) {
+                window.location.href = route(treeRoute);
+            }
+        }
+    }, [onViewModeChangeProp, ui, crudRoutes.index]);
+
+    // Aggregated props from 'actions' object or individual props
+    const create = createProp ?? actions?.create ?? true;
+    const deleteProp = deletePropVal ?? actions?.delete ?? actions?.destroy ?? true;
+    const exportProp = exportPropVal ?? actions?.export ?? false;
+    const importProp = importPropVal ?? actions?.import ?? false;
+    const duplicateProp = duplicatePropVal ?? actions?.duplicate ?? false;
+
+    const isToolbar = variant === "toolbar" || true; // Default to true if not specified
 
     const resourceName = React.useMemo(() => {
         const route = crudRoutes.index || crudRoutes.show || '';
         const parts = route.split('.');
-        return parts.length > 2 ? parts[parts.length - 2] : parts[0];
+        return parts.slice(0, parts.length - 1).join('.');
     }, [crudRoutes]);
+
+    const tabnavs = React.useMemo(() => {
+        if (tabnavsProp) return tabnavsProp;
+        if (ui !== 'table' || !crudRoutes.trash || !route.has(crudRoutes.trash)) {
+            return undefined;
+        }
+
+        return [
+            {
+                label: tt('common.list') || "Danh sách",
+                route: resourceName + '.index',
+                active: !currentRouteName?.includes('trash')
+            },
+            {
+                label: tt('common.trash') || "Thùng rác",
+                route: crudRoutes.trash,
+                active: !!currentRouteName?.includes('trash')
+            }
+        ];
+    }, [tabnavsProp, ui, crudRoutes.trash, currentRouteName, resourceName]);
 
     const resourceState = useSelector((state: RootState) => state.resource[resourceName!]);
     const isLoading = resourceState?.loading || false;
@@ -229,9 +302,10 @@ const HeaderToolbarTable = ({
 
     const createRoute = resolveRoute(create, crudRoutes.create);
     const deleteRoute = resolveRoute(deleteProp, deleteRouteProp || crudRoutes.destroy);
-    const exportRoute = resolveRoute(exportProp, exportRouteProp ?? null);
-    const importRoute = resolveRoute(importProp, importRouteProp ?? null);
-    const duplicateRoute = resolveRoute(duplicateProp, duplicateRouteProp ?? 'duplicate');
+    const exportRoute = resolveRoute(exportProp, exportRouteProp || crudRoutes.export || null);
+    const importRoute = resolveRoute(importProp, importRouteProp || crudRoutes.import || null);
+    const duplicateRoute = resolveRoute(duplicateProp, duplicateRouteProp || crudRoutes.duplicate || 'duplicate');
+    const resolvedImportTemplate = importTemplateRoute || crudRoutes.importTemplate;
 
     const showCreate = create !== false && (onCreate || createRoute);
     const showDelete = deleteProp !== false && (onDelete || deleteRoute);
@@ -375,13 +449,14 @@ const HeaderToolbarTable = ({
     }, [onImport, resourceName, selectedFile, importFileType, selectedImportType, dispatch]);
 
     const handleDownloadTemplate = React.useCallback(async () => {
-        if (!importTemplateRoute || !resourceName) return;
+        if (!resolvedImportTemplate || !resourceName) return;
 
         const params: Record<string, unknown> = { format: importFileType };
         if (selectedImportType) params.type = selectedImportType;
 
         dispatch(exportResourceRequest({ resource: resourceName, params: { ...params, template: 1 } }));
-    }, [importTemplateRoute, resourceName, importFileType, selectedImportType, dispatch]);
+    }, [resolvedImportTemplate, resourceName, importFileType, selectedImportType, dispatch]);
+
 
     const handleFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -421,7 +496,11 @@ const HeaderToolbarTable = ({
 
     return (
         <>
-        <div className={cn("flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4", className)}>
+        <div className={cn(
+            "flex flex-col md:flex-row md:items-center justify-between gap-4",
+            !isToolbar && "mb-4",
+            className
+        )}>
             {hasTabs && (
                 <div className="flex items-center gap-1 border-b w-full md:w-auto md:border-none overflow-x-auto">
                     {tabnavs.map((tab, index) => {
@@ -449,7 +528,10 @@ const HeaderToolbarTable = ({
             )}
 
             {hasActions && (
-                <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end ml-auto">
+                <div className={cn(
+                    "flex items-center gap-2 flex-wrap w-full md:w-auto",
+                    !isToolbar && "justify-end ml-auto"
+                )}>
 
                     {showImport && (
                         <>
@@ -462,64 +544,69 @@ const HeaderToolbarTable = ({
                             />
                             <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)} className="gap-2" disabled={isLoading}>
                                 <Upload className="h-4 w-4" />
-                                {tt("common.import")}
+                                {tt("common.import") || "Import"}
                             </Button>
                         </>
                     )}
                     {showExport && (
                         <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)} className="gap-2" disabled={isLoading}>
                             <Download className="h-4 w-4" />
-                            {tt("common.export")}
+                            {tt("common.export") || "Export"}
                         </Button>
                     )}
-                    {showDuplicate && (
+                    {showDuplicate && hasSelected && (
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setDuplicateDialogOpen(true)}
                             className="gap-2"
-                            disabled={!hasSelected || isLoading}
+                            disabled={isLoading}
                         >
                             <Copy className="h-4 w-4" />
-                            {hasSelected ? `${tt("common.duplicate_selected")} (${selectedCount})` : tt("common.duplicate")}
+                            {tt("common.duplicate_selected") || "Duplicate"} ({selectedCount})
                         </Button>
                     )}
-                    {showDelete && (
+                    {showDelete && hasSelected && (
                         <Button
                             variant="destructive"
                             size="sm"
                             onClick={() => setDeleteDialogOpen(true)}
-                            className="gap-2"
-                            disabled={!hasSelected || isLoading}
+                            className="gap-2 shadow-sm"
+                            disabled={isLoading}
                         >
                             <Trash2 className="h-4 w-4" />
-                            {tt("common.delete")} {hasSelected && `(${selectedCount})`}
+                            {tt("common.delete") || "Delete"} ({selectedCount})
                         </Button>
                     )}
                     {showCreate && (
                         createRoute ? (
                             <Link href={getCreateHref()}>
-                                <Button variant="default" size="sm" className="gap-2">
+                                <Button variant="default" size="sm" className="gap-2 shadow-sm">
                                     <Plus className="h-4 w-4" />
-                                    {tt("common.add_new")}
+                                    {tt("common.add_new") || "Add New"}
                                 </Button>
                             </Link>
                         ) : (
-                            <Button variant="default" size="sm" onClick={handleCreate} className="gap-2">
+                            <Button variant="default" size="sm" onClick={handleCreate} className="gap-2 shadow-sm">
                                 <Plus className="h-4 w-4" />
-                                {tt("common.add_new")}
+                                {tt("common.add_new") || "Add New"}
                             </Button>
                         )
-                        )}
-                                            {layouts && layouts.length > 1 && (
-                        <div className="mr-2">
+                    )}
+
+                    {locale && (
+                        <div className="ml-2">
+                            <LocaleSwitcher />
+                        </div>
+                    )}
+
+                    {viewMode && layouts.length > 1 && (
+                        <div className="ml-2">
                             <ToggleGroup
                                 type="single"
                                 value={viewMode}
-                                onValueChange={(val) => {
-                                    if (val && onViewModeChange) onViewModeChange(val);
-                                }}
-                                className="bg-muted/50 p-1 rounded-lg border shadow-sm h-9"
+                                onValueChange={(val) => val && handleViewModeChange(val)}
+                                className="border bg-background/50 rounded-lg p-1 shadow-sm h-9"
                             >
                                 {layouts.includes('table') && (
                                     <ToggleGroupItem
@@ -544,7 +631,7 @@ const HeaderToolbarTable = ({
                             </ToggleGroup>
                         </div>
                     )}
-                </div >
+                </div>
             )}
         </div>
 
@@ -738,7 +825,7 @@ const HeaderToolbarTable = ({
                             </div>
                         </div>
 
-                        {importTemplateRoute && (
+                        {resolvedImportTemplate && (
                             <div className="space-y-2">
                                 <Label className="text-sm font-medium">{tt("common.download_template") || "Tải file mẫu"}</Label>
                                 <Button
@@ -822,4 +909,4 @@ const HeaderToolbarTable = ({
     );
 };
 
-export default HeaderToolbarTable;
+export { Toolbar as default, Toolbar };

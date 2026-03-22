@@ -13,6 +13,7 @@ class ProductCategoryController extends BaseController
         'index' => [
             'title' => 'Product Categories',
             'description' => 'Manage product categories',
+            'layouts' => ['tree', 'table'],
             'fields' => [
                 ['name' => 'name', 'config' => ['primary' => true]],
                 'sort_order',
