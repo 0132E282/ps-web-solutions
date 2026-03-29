@@ -7,7 +7,6 @@ import { FileGrid } from "./FileGrid";
 import { FileList } from "./FileList";
 import { FileUploadDialog } from "./FileUploadDialog";
 import { FileHeader } from "./FileHeader";
-import { FileToolbar } from "@core/components/toolbar";
 import type { FileItem, ViewMode } from "./types";
 import type { SortBy } from "@core/types/files";
 import { route } from "@core/lib/route";
@@ -25,7 +24,7 @@ interface FileManagerDialogProps {
   acceptTypes?: ("file" | "folder")[];
   componentId?: string;
   onSelect?: (items: FileItem[]) => void;
-  allowedFileTypes?: string[]; // Custom: filter by mime types or extensions (e.g., ['image/*', '.pdf'])
+  allowedFileTypes?: string[];
   maxFileSize?: number; // Custom: max file size in bytes
 }
 
@@ -49,11 +48,11 @@ export const FileManagerDialog = ({
   // Current implementation uses local page state and just fetches.
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<SortBy>("name");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortBy, setSortBy] = useState<SortBy>("id");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [currentFolderId, setCurrentFolderId] = useState<string | number | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [createFolderDialogOpen, setCreateFolderDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
@@ -165,12 +164,12 @@ export const FileManagerDialog = ({
       // Single selection mode - clear previous selection
       setSelectedIds(new Set([item.id]));
     } else {
-      setSelectedIds((prev) => {
-        const newSet = new Set(prev);
+      setSelectedIds((prev: Set<string | number>) => {
+        const newSet = new Set<string | number>(prev);
         if (selected) {
-          newSet.add(item.id);
+           newSet.add(item.id);
         } else {
-          newSet.delete(item.id);
+           newSet.delete(item.id);
         }
         return newSet;
       });
@@ -325,23 +324,11 @@ export const FileManagerDialog = ({
             onUpload={handleUpload}
             onCreateFolder={handleCreateFolder}
             searchPlaceholder="Tìm kiếm file..."
-          />
-
-          {/* Toolbar with view and sort controls */}
-          <FileToolbar
             sortBy={sortBy}
             sortOrder={sortOrder}
             viewMode={viewMode}
-            onSortChange={(newSortBy) => {
-              if (sortBy === newSortBy) {
-                setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-              } else {
-                setSortBy(newSortBy);
-                setSortOrder("asc");
-              }
-            }}
+            onSortChange={handleSort}
             onViewModeChange={setViewMode}
-            selectedItems={[]}
           />
 
           {/* File list/grid */}

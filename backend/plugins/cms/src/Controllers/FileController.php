@@ -12,12 +12,14 @@ use ZipArchive;
 
 class FileController extends Controller
 {
+    use \PS0132E282\Core\Traits\SortTrait;
+
     public function index(Request $request)
     {
         $parentId = $request->get('parent_id');
         $search = $request->get('search');
-        $sortBy = $request->get('sort_by', 'name');
-        $sortOrder = $request->get('sort_order', 'asc');
+        $sortBy = $request->get('sort_by', 'id');
+        $sortOrder = $request->get('sort_order', 'desc');
 
         $query = Files::query();
 
@@ -31,12 +33,11 @@ class FileController extends Controller
             $query->where('name', 'like', "%{$search}%");
         }
 
-        $allowedSorts = ['name', 'size', 'created_at'];
-        if (in_array($sortBy, $allowedSorts, true)) {
-            $query->orderBy($sortBy, $sortOrder);
-        } else {
-            $query->orderBy('name', $sortOrder);
-        }
+        $this->applySort($query, $request, [
+            'allowed' => ['id', 'name', 'size', 'created_at'],
+            'default_by' => 'id',
+            'default_order' => 'desc'
+        ]);
 
         $items = $query->get()->toArray();
 

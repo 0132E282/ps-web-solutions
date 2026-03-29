@@ -3,146 +3,161 @@
 namespace PS0132E282\Core\Traits;
 
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Str;
 
 trait FieldTrait
 {
-    protected function parseFields(?string $fieldsString = null, ?string $modelClass = null): array
+    protected array $selectedFields = [];
+
+    /**
+     * Apply fields selection and eager loading to the query
+     */
+    protected function applyFields(Builder $query, array|string|null $fields = []): Builder
     {
-        if (empty($fieldsString)) {
-            return [
-                'columns' => ['*'],
-                'relationships' => [],
-            ];
+        if (is_string($fields)) {
+            $fields = array_map('trim', explode(',', $fields));
         }
 
-        $fields = array_map('trim', explode(',', $fieldsString));
-        $columns = [];
-        $relationships = [];
-        $modelInstance = null;
-
-        // Get model instance if model class is provided
-        if ($modelClass && class_exists($modelClass)) {
-            $modelInstance = new $modelClass;
+        if (empty($fields)) {
+            return $query;
         }
+
+        $this->selectedFields = [
+            'columns' => [],
+            'relations' => []
+        ];
+
+        $table = $query->getModel()->getTable();
 
         foreach ($fields as $field) {
-            if (empty($field)) {
-                continue;
-            }
+            $this->processField($query, $field, $this->selectedFields);
+        }
 
-            // Check if field contains relationship (has dot)
-            if (str_contains($field, '.')) {
-                $parts = explode('.', $field);
-                $firstPart = $parts[0];
+        // If no columns were explicitly selected, select all from main table
+        if (empty($this->selectedFields['columns'])) {
+            $this->selectedFields['columns'] = ["{$table}.*"];
+        }
 
-                // Check if first part is a JSON column (not a relationship)
-                $isJsonColumn = false;
-                if ($modelInstance) {
-                    $tableName = $modelInstance->getTable();
-                    $isColumn = Schema::hasColumn($tableName, $firstPart);
+        // Always ensure ID is selected for the main table
+        if (!in_array("{$table}.id", $this->selectedFields['columns']) && !in_array("{$table}.*", $this->selectedFields['columns'])) {
+            $this->selectedFields['columns'][] = "{$table}.id";
+        }
 
-                    if ($isColumn) {
-                        // Check if it's a JSON cast
-                        $casts = $modelInstance->getCasts();
-                        if (isset($casts[$firstPart]) &&
-                            (in_array($casts[$firstPart], ['array', 'json', 'object', 'collection']) ||
-                             class_exists($casts[$firstPart]))) {
-                            $isJsonColumn = true;
-                        }
+        // Apply relationship eager loading with nested selections
+        foreach ($this->selectedFields['relations'] as $relation => $nestedFields) {
+            if (method_exists($query->getModel(), $relation)) {
+                $relationInstance = $query->getModel()->{$relation}();
+
+                // For BelongsTo, ensure foreign key is in main select
+                if ($relationInstance instanceof BelongsTo) {
+                    $foreignKey = $relationInstance->getForeignKeyName();
+                    if (!in_array("{$table}.{$foreignKey}", $this->selectedFields['columns']) && !in_array("{$table}.*", $this->selectedFields['columns'])) {
+                        $this->selectedFields['columns'][] = "{$table}.{$foreignKey}";
                     }
                 }
 
-                if ($isJsonColumn) {
-                    // This is a JSON column access, add base column only
-                    if (! in_array($firstPart, $columns)) {
-                        $columns[] = $firstPart;
-                    }
+                if ($relationInstance instanceof MorphTo) {
+                    $query->with($relation); // MorphTo is hard to select specific columns for easily
                 } else {
-                    // This is a relationship access
-                    $relationshipPath = array_slice($parts, 0, -1);
-                    $column = end($parts);
+                    $query->with([$relation => function ($q) use ($nestedFields) {
+                        $this->applyNestedFields($q, $nestedFields);
+                    }]);
+                }
+            }
+        }
 
-                    // Build relationship path (e.g., "user.profile" -> ["user", "profile"])
-                    $relationshipKey = implode('.', $relationshipPath);
+        $query->select($this->selectedFields['columns']);
 
-                    if (! isset($relationships[$relationshipKey])) {
-                        $relationships[$relationshipKey] = [];
-                    }
+        return $query;
+    }
 
-                    // Add column to relationship if not already added
-                    if (! in_array($column, $relationships[$relationshipKey])) {
-                        $relationships[$relationshipKey][] = $column;
-                    }
+    /**
+     * Recursive field processing (Pattern from jam-nocode-platform)
+     */
+    protected function processField(Builder $query, string $field, array &$selectedFields): void
+    {
+        $table = $query->getModel()->getTable();
+
+        if (Str::contains($field, '.')) {
+            $parts = explode('.', $field);
+            $relation = array_shift($parts);
+            $nestedField = implode('.', $parts);
+
+            if (method_exists($query->getModel(), $relation)) {
+                if (!isset($selectedFields['relations'][$relation])) {
+                    $selectedFields['relations'][$relation] = ['columns' => [], 'relations' => []];
+                }
+
+                $relationInstance = $query->getModel()->{$relation}();
+                if ($relationInstance instanceof Relation) {
+                    $this->processField($relationInstance->getModel()->newQuery(), $nestedField, $selectedFields['relations'][$relation]);
+                }
+            }
+        } else {
+            // Check for JSON column access
+            if (Str::contains($field, '->')) {
+                $baseField = explode('->', $field)[0];
+                if (!in_array("{$table}.{$baseField}", $selectedFields['columns'])) {
+                    $selectedFields['columns'][] = "{$table}.{$baseField}";
                 }
             } else {
-                // Check if field is a relationship (not a database column)
-                $isRelationship = false;
-
-                if ($modelInstance) {
-                    // Check if field exists as a column in the database
-                    $tableName = $modelInstance->getTable();
-                    $isColumn = Schema::hasColumn($tableName, $field);
-
-                    // If not a column, check if it's a relationship method
-                    if (! $isColumn && method_exists($modelInstance, $field)) {
-                        try {
-                            // Use reflection to check if method exists and is public
-                            $reflection = new \ReflectionMethod($modelInstance, $field);
-                            if ($reflection->isPublic() && $reflection->getNumberOfRequiredParameters() === 0) {
-                                $relation = $modelInstance->$field();
-                                // Check if it returns a relation instance
-                                if ($relation instanceof \Illuminate\Database\Eloquent\Relations\Relation) {
-                                    $isRelationship = true;
-                                    // Add as relationship to eager load (without specific columns)
-                                    if (! isset($relationships[$field])) {
-                                        $relationships[$field] = [];
-                                    }
-                                }
-                            }
-                        } catch (\Exception $e) {
-                            // If method throws exception, it's not a relationship
-                            $isRelationship = false;
-                        } catch (\Error $e) {
-                            // If method throws error, it's not a relationship
-                            $isRelationship = false;
-                        }
+                // If it's a relation name itself, select all for that relation later
+                if (method_exists($query->getModel(), $field) && !Str::is($field, $table)) {
+                    if (!isset($selectedFields['relations'][$field])) {
+                        $selectedFields['relations'][$field] = ['columns' => [], 'relations' => []];
                     }
-                }
-
-                // Only add to columns if it's not a relationship
-                if (! $isRelationship) {
-                    // Direct column - but double check it's actually a column
-                    if ($modelInstance) {
-                        $tableName = $modelInstance->getTable();
-                        $isColumn = Schema::hasColumn($tableName, $field);
-                        if ($isColumn) {
-                            $columns[] = $field;
-                        }
-                        // If not a column and not a relationship, skip it
-                    } else {
-                        // No model instance, assume it's a column
-                        $columns[] = $field;
-                    }
+                } else {
+                    // Regular column
+                    $selectedFields['columns'][] = "{$table}.{$field}";
                 }
             }
         }
+    }
 
-        // If no columns specified, use all columns
-        if (empty($columns)) {
-            $columns = ['*'];
+    /**
+     * Apply nested selections to eager loaded models
+     */
+    protected function applyNestedFields($query, array $nestedFields): void
+    {
+        $relatedTable = $query->getModel()->getTable();
+        $relatedKey = $query->getModel()->getKeyName();
+
+        $columns = $nestedFields['columns'];
+
+        // Ensure key is selected
+        if (!empty($columns) && !in_array("{$relatedTable}.{$relatedKey}", $columns) && !in_array("{$relatedTable}.*", $columns)) {
+            $columns[] = "{$relatedTable}.{$relatedKey}";
         }
 
-        return [
-            'columns' => $columns,
-            'relationships' => $relationships,
-        ];
+        // Apply nested relations
+        foreach ($nestedFields['relations'] as $relation => $subFields) {
+            if (method_exists($query->getModel(), $relation)) {
+                $relationInstance = $query->getModel()->{$relation}();
+                
+                // For BelongsTo in nested relation, ensure foreign key is selected
+                if ($relationInstance instanceof BelongsTo) {
+                    $foreignKey = $relationInstance->getForeignKeyName();
+                    if (!empty($columns) && !in_array("{$relatedTable}.{$foreignKey}", $columns) && !in_array("{$relatedTable}.*", $columns)) {
+                        $columns[] = "{$relatedTable}.{$foreignKey}";
+                    }
+                }
+
+                $query->with([$relation => function ($q) use ($subFields) {
+                    $this->applyNestedFields($q, $subFields);
+                }]);
+            }
+        }
+
+        if (!empty($columns)) {
+            $query->select($columns);
+        }
     }
 
     /**
      * Get columns for main model
-     *
-     * @param  string|null  $modelClass  Optional model class to check for relationships
      */
     protected function getColumns(?string $fieldsString = null, ?string $modelClass = null): array
     {
@@ -151,175 +166,10 @@ trait FieldTrait
 
     /**
      * Get relationships to eager load
-     *
-     * @param  string|null  $modelClass  Optional model class to check for relationships
      */
     protected function getRelationships(?string $fieldsString = null, ?string $modelClass = null): array
     {
-        $parsed = $this->parseFields($fieldsString, $modelClass);
-        $relationships = [];
-
-        // Convert relationship paths to eager load format
-        // e.g., "user.profile" -> ["user" => ["profile" => ["columns"]]]
-        foreach ($parsed['relationships'] as $path => $columns) {
-            $parts = explode('.', $path);
-
-            if (count($parts) === 1) {
-                if (empty($columns)) {
-                    $relationships[$path] = function ($query) {
-                        // Load all columns, no need to specify
-                    };
-                } else {
-                    $relationships[$path] = function ($query) use ($columns) {
-                        $query->select(array_merge(['id'], $columns));
-                    };
-                }
-            } else {
-                // Nested relationship: "user.profile"
-                $firstRelation = array_shift($parts);
-                $nestedPath = implode('.', $parts);
-
-                if (! isset($relationships[$firstRelation])) {
-                    $relationships[$firstRelation] = function ($query) use ($nestedPath, $columns) {
-                        $query->with([$nestedPath => function ($q) use ($columns) {
-                            if (empty($columns)) {
-                                // Load all columns
-                            } else {
-                                $q->select(array_merge(['id'], $columns));
-                            }
-                        }]);
-                    };
-                } else {
-                    // Merge with existing relationship
-                    $existing = $relationships[$firstRelation];
-                    $relationships[$firstRelation] = function ($query) use ($existing, $nestedPath, $columns) {
-                        $existing($query);
-                        $query->with([$nestedPath => function ($q) use ($columns) {
-                            if (empty($columns)) {
-                                // Load all columns
-                            } else {
-                                $q->select(array_merge(['id'], $columns));
-                            }
-                        }]);
-                    };
-                }
-            }
-        }
-
-        return array_keys($relationships);
-    }
-
-    /**
-     * Apply fields to query builder
-     */
-    protected function applyFields(Builder $query, ?string $fieldsString = null): Builder
-    {
-        // Get model class from query
-        $modelClass = get_class($query->getModel());
-        $parsed = $this->parseFields($fieldsString, $modelClass);
-
-        // Select columns
-        $query->select($parsed['columns']);
-
-        // Build nested relationship structure
-        $relationshipStructure = [];
-
-        foreach ($parsed['relationships'] as $path => $columns) {
-            $parts = explode('.', $path);
-            $this->buildRelationshipStructure($relationshipStructure, $parts, $columns);
-        }
-
-        // Apply relationships to query
-        $this->applyRelationshipStructure($query, $relationshipStructure);
-
-        return $query;
-    }
-
-    /**
-     * Build nested relationship structure
-     */
-    protected function buildRelationshipStructure(array &$structure, array $parts, array $columns): void
-    {
-        if (empty($parts)) {
-            return;
-        }
-
-        $relation = array_shift($parts);
-
-        if (! isset($structure[$relation])) {
-            $structure[$relation] = [
-                'columns' => [],
-                'nested' => [],
-            ];
-        }
-
-        if (empty($parts)) {
-            // This is the final relationship, add columns
-            $structure[$relation]['columns'] = array_unique(
-                array_merge($structure[$relation]['columns'], $columns)
-            );
-        } else {
-            // Nested relationship
-            if (! isset($structure[$relation]['nested'])) {
-                $structure[$relation]['nested'] = [];
-            }
-            $this->buildRelationshipStructure($structure[$relation]['nested'], $parts, $columns);
-        }
-    }
-
-    /**
-     * Apply relationship structure to query
-     */
-    protected function applyRelationshipStructure(Builder $query, array $structure): void
-    {
-        $withClosures = [];
-
-        foreach ($structure as $relation => $config) {
-            $withClosures[$relation] = function ($q) use ($config) {
-                // Select columns for this relationship only if specified
-                if (! empty($config['columns'])) {
-                    $q->select(array_merge(['id'], $config['columns']));
-                }
-                // If no columns specified, load all columns (default behavior)
-
-                // Apply nested relationships recursively
-                if (! empty($config['nested'])) {
-                    $this->applyNestedRelationships($q, $config['nested']);
-                }
-            };
-        }
-
-        if (! empty($withClosures)) {
-            $query->with($withClosures);
-        }
-    }
-
-    /**
-     * Apply nested relationships recursively
-     *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     */
-    protected function applyNestedRelationships($query, array $nestedStructure): void
-    {
-        $nestedWith = [];
-
-        foreach ($nestedStructure as $nestedRelation => $nestedConfig) {
-            $nestedWith[$nestedRelation] = function ($nestedQ) use ($nestedConfig) {
-                // Select columns for this nested relationship
-                if (! empty($nestedConfig['columns'])) {
-                    $nestedQ->select(array_merge(['id'], $nestedConfig['columns']));
-                }
-
-                // Recursively apply deeper nested relationships
-                if (! empty($nestedConfig['nested'])) {
-                    $this->applyNestedRelationships($nestedQ, $nestedConfig['nested']);
-                }
-            };
-        }
-
-        if (! empty($nestedWith)) {
-            $query->with($nestedWith);
-        }
+        return $this->parseFields($fieldsString, $modelClass)['relationships'];
     }
 
     /**
@@ -334,12 +184,10 @@ trait FieldTrait
             return null;
         }
 
-        // Convert array to comma-separated string if needed
         if (is_array($fields)) {
             return implode(',', $fields);
         }
 
-        // Return as string
         return (string) $fields;
     }
 
@@ -354,40 +202,39 @@ trait FieldTrait
     }
 
     /**
-     * Get nested value from model (supports JSON columns)
-     *
-     * @param  mixed  $model
-     * @param  string  $field  Field with dot notation (e.g., "property.type", "user.profile.name")
-     * @param  mixed  $default
-     * @return mixed
+     * Compatibility wrapper for original parseFields
      */
-    protected function getNestedFieldValue($model, string $field, $default = null)
+    protected function parseFields(?string $fieldsString = null, ?string $modelClass = null): array
     {
-        if (! str_contains($field, '.')) {
-            // Simple field access
-            return data_get($model, $field, $default);
+        if (empty($fieldsString)) {
+            return ['columns' => ['*'], 'relationships' => []];
         }
 
-        $parts = explode('.', $field);
-        $firstPart = $parts[0];
+        $fields = array_map('trim', explode(',', $fieldsString));
+        $columns = [];
+        $relationships = [];
 
-        // Check if first part is a JSON column
-        if (is_object($model) && method_exists($model, 'getCasts')) {
-            $casts = $model->getCasts();
-            $isJsonColumn = isset($casts[$firstPart]) &&
-                (in_array($casts[$firstPart], ['array', 'json', 'object', 'collection']) ||
-                 class_exists($casts[$firstPart]));
-
-            if ($isJsonColumn) {
-                // Access JSON column value
-                $jsonData = $model->$firstPart ?? [];
-                $nestedKey = implode('.', array_slice($parts, 1));
-
-                return data_get($jsonData, $nestedKey, $default);
+        foreach ($fields as $field) {
+            if (str_contains($field, '.')) {
+                $parts = explode('.', $field);
+                $rel = $parts[0];
+                if (!in_array($rel, $relationships)) $relationships[] = $rel;
+            } else {
+                $columns[] = $field;
             }
         }
 
-        // Use Laravel's data_get for relationship access
+        return [
+            'columns' => empty($columns) ? ['*'] : $columns,
+            'relationships' => $relationships,
+        ];
+    }
+
+    /**
+     * Get nested value from model (supports JSON columns)
+     */
+    protected function getNestedFieldValue($model, string $field, $default = null)
+    {
         return data_get($model, $field, $default);
     }
 }

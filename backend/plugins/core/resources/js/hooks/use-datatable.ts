@@ -229,7 +229,7 @@ export function useDataTableData<TData, TValue = unknown>(
 
         if (effectiveUseApi && effectiveApiUrl) {
             window.history.replaceState({}, '', url.toString());
-            fetchData(newPage, newLimit, search, advancedFilters);
+            fetchData(newPage, newLimit, search, advancedFilters, sorting);
         } else {
             router.get(url.pathname + url.search, {}, { preserveState: true, preserveScroll: true, replace: true });
         }

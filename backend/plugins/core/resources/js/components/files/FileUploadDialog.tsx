@@ -17,7 +17,7 @@ interface FileUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUploadSuccess?: () => void;
-  parentId?: string | null;
+  parentId?: string | number | null;
 }
 
 export const FileUploadDialog = ({
@@ -55,7 +55,7 @@ export const FileUploadDialog = ({
         formData.append("files[]", file);
       });
       if (parentId) {
-        formData.append("parent_id", parentId);
+        formData.append("parent_id", String(parentId));
       }
 
       await axios.post(route("admin.files.store"), formData, {

@@ -4,12 +4,14 @@ namespace PS0132E282\Core\Base;
 
 use Illuminate\Database\Eloquent\Model;
 use PS0132E282\Core\Observers\BaseObserver;
+use PS0132E282\Core\Traits\AutoTransform;
+use PS0132E282\Core\Traits\Transformer;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 class BaseModel extends Model
 {
-    use LogsActivity;
+    use LogsActivity, Transformer;
 
     public $enableLogging = true;
 

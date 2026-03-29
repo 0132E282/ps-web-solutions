@@ -30,6 +30,15 @@ const isArchiveFile = (fileName: string): boolean => {
   return archiveExtensions.some(ext => lowerName.endsWith(ext));
 };
 
+interface ActionConfig {
+  label?: string;
+  icon?: any;
+  onClick?: () => void;
+  show?: boolean;
+  className?: string;
+  separator?: boolean;
+}
+
 export const FileContextMenuRightClick = ({
   items,
   children,
@@ -48,6 +57,43 @@ export const FileContextMenuRightClick = ({
   const hasSingleItem = items.length === 1;
   const hasArchiveFiles = items.some(item => item.type === "file" && isArchiveFile(item.name));
 
+  const selectionActions: ActionConfig[] = [
+    { label: "Sao chép", icon: Copy, onClick: () => onCopy?.(items), show: !!onCopy },
+    { label: "Cắt", icon: Scissors, onClick: () => onCut?.(items), show: !!onCut },
+    { label: "Tải xuống", icon: Download, onClick: () => onDownload?.(items), show: !!onDownload },
+    { label: "Di chuyển", icon: Folder, onClick: () => onMove?.(items), show: !!onMove },
+    { 
+      label: "Đổi tên", 
+      icon: Edit, 
+      onClick: () => items[0] && onRename?.(items[0]), 
+      show: !!onRename && hasSingleItem 
+    },
+    { separator: true },
+    { label: "Nén", icon: Archive, onClick: () => onCompress?.(items), show: !!onCompress },
+    { 
+      label: "Giải nén", 
+      icon: FileArchive, 
+      onClick: () => {
+        const archiveFiles = items.filter(item => item.type === "file" && isArchiveFile(item.name));
+        onExtract?.(archiveFiles);
+      }, 
+      show: !!onExtract && hasArchiveFiles 
+    },
+    { separator: true },
+    { 
+      label: "Xóa", 
+      icon: Trash2, 
+      onClick: () => onDelete?.(items), 
+      show: !!onDelete,
+      className: "text-destructive focus:text-destructive" 
+    },
+  ];
+
+  const globalActions: ActionConfig[] = [
+    { label: "Tạo folder", icon: FolderPlus, onClick: () => onCreateFolder?.(), show: !!onCreateFolder },
+    { label: "Tải lên", icon: Upload, onClick: () => onUpload?.(), show: !!onUpload },
+  ];
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -60,93 +106,35 @@ export const FileContextMenuRightClick = ({
               {items.length} mục đã chọn
             </div>
             <ContextMenuSeparator />
-            <ContextMenuItem
-              onClick={() => onCopy?.(items)}
-              className="cursor-pointer"
-            >
-              <Copy className="h-4 w-4 mr-2" />
-              Sao chép
-            </ContextMenuItem>
-            <ContextMenuItem
-              onClick={() => onCut?.(items)}
-              className="cursor-pointer"
-            >
-              <Scissors className="h-4 w-4 mr-2" />
-              Cắt
-            </ContextMenuItem>
-            <ContextMenuItem
-              onClick={() => onDownload?.(items)}
-              className="cursor-pointer"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Tải xuống
-            </ContextMenuItem>
-            <ContextMenuItem
-              onClick={() => onMove?.(items)}
-              className="cursor-pointer"
-            >
-              <Folder className="h-4 w-4 mr-2" />
-              Di chuyển
-            </ContextMenuItem>
-            {hasSingleItem && items[0] && (
-              <ContextMenuItem
-                onClick={() => {
-                  const firstItem = items[0];
-                  if (firstItem) {
-                    onRename?.(firstItem);
-                  }
-                }}
-                className="cursor-pointer"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Đổi tên
-              </ContextMenuItem>
+            {selectionActions.map((action, index) => 
+              action.separator ? (
+                <ContextMenuSeparator key={`sep-${index}`} />
+              ) : action.show ? (
+                <ContextMenuItem
+                  key={action.label}
+                  onClick={action.onClick}
+                  className={`cursor-pointer ${action.className || ""}`}
+                >
+                  <action.icon className="h-4 w-4 mr-2" />
+                  {action.label}
+                </ContextMenuItem>
+              ) : null
             )}
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              onClick={() => onCompress?.(items)}
-              className="cursor-pointer"
-            >
-              <Archive className="h-4 w-4 mr-2" />
-              Nén
-            </ContextMenuItem>
-            {hasArchiveFiles && (
-              <ContextMenuItem
-                onClick={() => {
-                  const archiveFiles = items.filter(item => item.type === "file" && isArchiveFile(item.name));
-                  onExtract?.(archiveFiles);
-                }}
-                className="cursor-pointer"
-              >
-                <FileArchive className="h-4 w-4 mr-2" />
-                Giải nén
-              </ContextMenuItem>
-            )}
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              onClick={() => onDelete?.(items)}
-              className="cursor-pointer text-destructive focus:text-destructive"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Xóa
-            </ContextMenuItem>
           </>
         ) : (
           <>
-            <ContextMenuItem
-              onClick={() => onCreateFolder?.()}
-              className="cursor-pointer"
-            >
-              <FolderPlus className="h-4 w-4 mr-2" />
-              Tạo folder
-            </ContextMenuItem>
-            <ContextMenuItem
-              onClick={() => onUpload?.()}
-              className="cursor-pointer"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Tải lên
-            </ContextMenuItem>
+            {globalActions.map((action) => 
+              action.show && (
+                <ContextMenuItem
+                  key={action.label}
+                  onClick={action.onClick}
+                  className="cursor-pointer"
+                >
+                  <action.icon className="h-4 w-4 mr-2" />
+                  {action.label}
+                </ContextMenuItem>
+              )
+            )}
             <ContextMenuSeparator />
             <div className="px-2 py-1.5 text-sm text-muted-foreground">
               Không có mục nào được chọn

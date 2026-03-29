@@ -34,7 +34,7 @@ import type { BreadcrumbItem } from "@core/types/common";
 
 interface PageProps {
   items: FileItemType[];
-  parentId: string | null;
+  parentId?: string | number | null;
   breadcrumbs?: BreadcrumbItem[];
   [key: string]: unknown;
 }
@@ -43,11 +43,11 @@ const Index = () => {
   const { props } = usePage<PageProps>();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<SortBy>("name");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [sortBy, setSortBy] = useState<SortBy>("id");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(props.parentId || null);
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [currentFolderId, setCurrentFolderId] = useState<string | number | null>(props.parentId || null);
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
@@ -106,14 +106,8 @@ const Index = () => {
     }
   };
 
-  const handleTableSort = (column: "name" | "size" | "type" | "date") => {
-    const sortMap: Record<"name" | "size" | "type" | "date", SortBy> = {
-      name: "name",
-      size: "size",
-      type: "name",
-      date: "date",
-    };
-    handleSort(sortMap[column]);
+  const handleTableSort = (column: SortBy) => {
+    handleSort(column);
   };
 
   const handleItemClick = (item: FileItemType) => {
@@ -167,10 +161,6 @@ const Index = () => {
     }
   };
 
-  const handleMove = (item: FileItemType) => {
-    handleMoveItems([item]);
-  };
-
   const handleMoveItems = (items: FileItemType[]) => {
     setItemsToMove(items);
     setMoveDialogOpen(true);
@@ -205,7 +195,7 @@ const Index = () => {
     idsInput.name = "ids[]";
     items.forEach((item) => {
       const input = idsInput.cloneNode() as HTMLInputElement;
-      input.value = item.id;
+      input.value = String(item.id);
       form.appendChild(input);
     });
 
@@ -361,7 +351,7 @@ const Index = () => {
     try {
       await axios.post(route("admin.files.createFolder"), {
         name: newFolderName.trim(),
-        parent_id: currentFolderId ? parseInt(currentFolderId) : null,
+        parent_id: currentFolderId ? String(currentFolderId) : null,
       });
       toast.success("Tạo thư mục thành công");
       loadData();
@@ -463,7 +453,7 @@ const Index = () => {
                 onMoveItems={handleMoveItems}
                 onDuplicate={handleDuplicate}
                 onDelete={handleDelete}
-                sortBy={sortBy === "name" ? "name" : sortBy === "size" ? "size" : sortBy === "date" ? "date" : "name"}
+                sortBy={sortBy}
                 sortOrder={sortOrder}
                 onSort={handleTableSort}
               />
@@ -479,7 +469,6 @@ const Index = () => {
               onItemDoubleClick={handleItemDoubleClick}
               onDownload={handleDownload}
               onRename={handleRename}
-              onMove={handleMove}
               onMoveItems={handleMoveItems}
               onDuplicate={handleDuplicate}
               onDelete={handleDelete}

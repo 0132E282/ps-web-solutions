@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
 import { Button } from "@core/components/ui/button";
-import { Checkbox } from "@core/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -11,14 +10,13 @@ import {
   TableFooter,
 } from "@core/components/ui/table";
 import { Folder, Image as ImageIcon, MoreVertical, ArrowUpDown } from "lucide-react";
-import type { FileItem } from "./types";
-import type { SortBy } from "@core/types/files";
+import type { FileItem, SortBy, SortOrder } from "./types";
 import { FileContextMenu } from "./FileContextMenu";
 import { cn } from "@core/lib/utils";
 
 interface FileListProps {
   items: FileItem[];
-  selectedIds?: Set<string>;
+  selectedIds?: Set<string | number>;
   onSelect?: (item: FileItem, selected: boolean) => void;
   onSelectRange?: (items: FileItem[]) => void;
   onItemClick?: (item: FileItem, e: React.MouseEvent) => void;
@@ -29,8 +27,15 @@ interface FileListProps {
   onDuplicate?: (item: FileItem) => void;
   onDelete?: (item: FileItem) => void;
   sortBy?: SortBy;
+  sortOrder?: SortOrder;
   onSort?: (column: SortBy) => void;
 }
+
+const COLUMNS: { key: SortBy; label: string }[] = [
+  { key: "name", label: "Tên" },
+  { key: "size", label: "Kích thước" },
+  { key: "created_at", label: "Ngày tạo" },
+];
 
 export const FileList = ({
   items,
@@ -45,6 +50,7 @@ export const FileList = ({
   onDuplicate,
   onDelete,
   sortBy,
+  sortOrder,
   onSort,
 }: FileListProps) => {
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
@@ -70,7 +76,7 @@ export const FileList = ({
 
   const handleRowClick = useCallback((item: FileItem, index: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     if (e.shiftKey && lastSelectedIndex !== null && onSelectRange) {
       const start = Math.min(lastSelectedIndex, index);
       const end = Math.max(lastSelectedIndex, index);
@@ -79,7 +85,7 @@ export const FileList = ({
       onSelect(item, !selectedIds?.has(item.id));
       setLastSelectedIndex(index);
     }
-    
+
     onItemClick?.(item, e);
   }, [lastSelectedIndex, onSelectRange, onSelect, selectedIds, items, onItemClick]);
 
@@ -105,41 +111,22 @@ export const FileList = ({
       <Table>
         <TableHeader>
           <TableRow>
-            {onSelect && <TableHead className="w-[50px] hidden" />}
             <TableHead className="w-[50px]" />
-            <TableHead>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 -ml-3"
-                onClick={() => onSort?.("name")}
-              >
-                Tên
-                {sortBy === "name" && <ArrowUpDown className="ml-2 h-3 w-3" />}
-              </Button>
-            </TableHead>
-            <TableHead>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 -ml-3"
-                onClick={() => onSort?.("size")}
-              >
-                Kích thước
-                {sortBy === "size" && <ArrowUpDown className="ml-2 h-3 w-3" />}
-              </Button>
-            </TableHead>
-            <TableHead>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 -ml-3"
-                onClick={() => onSort?.("created_at")}
-              >
-                Ngày tạo
-                {sortBy === "created_at" && <ArrowUpDown className="ml-2 h-3 w-3" />}
-              </Button>
-            </TableHead>
+            {COLUMNS.map((col) => (
+              <TableHead key={col.key}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 -ml-3"
+                  onClick={() => onSort?.(col.key)}
+                >
+                  {col.label}
+                  {sortBy === col.key && (
+                    <ArrowUpDown className={cn("ml-2 h-3 w-3", sortOrder === "desc" && "rotate-180")} />
+                  )}
+                </Button>
+              </TableHead>
+            ))}
             <TableHead className="w-[50px]" />
           </TableRow>
         </TableHeader>
@@ -148,20 +135,12 @@ export const FileList = ({
             <TableRow
               key={item.id}
               className={cn(
-                "cursor-pointer",
-                selectedIds?.has(item.id) && "bg-primary/5 ring-2 ring-primary"
+                "cursor-pointer transition-colors hover:bg-muted/50",
+                selectedIds?.has(item.id) && "bg-primary/5 ring-1 ring-inset ring-primary"
               )}
               onClick={(e) => handleRowClick(item, index, e)}
               onDoubleClick={(e) => handleRowDoubleClick(item, e)}
             >
-              {onSelect && (
-                <TableCell onClick={stopPropagation} className="hidden">
-                  <Checkbox
-                    checked={selectedIds?.has(item.id)}
-                    onCheckedChange={(checked) => onSelect(item, checked === true)}
-                  />
-                </TableCell>
-              )}
               <TableCell>
                 {item.type === "folder" ? (
                   <Folder className="h-5 w-5 text-blue-500" />
@@ -175,14 +154,12 @@ export const FileList = ({
                   <ImageIcon className="h-5 w-5 text-muted-foreground" />
                 )}
               </TableCell>
+
               <TableCell className="font-medium">{item.name}</TableCell>
-              <TableCell className="text-muted-foreground">
-                {item.size || "-"}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {item.createdAt || "-"}
-              </TableCell>
-              <TableCell>
+              <TableCell className="text-muted-foreground">{item.size || "-"}</TableCell>
+              <TableCell className="text-muted-foreground">{item.createdAt || "-"}</TableCell>
+
+              <TableCell onClick={stopPropagation}>
                 <FileContextMenu
                   item={item}
                   onDownload={onDownload}
@@ -191,12 +168,7 @@ export const FileList = ({
                   onDuplicate={onDuplicate}
                   onDelete={onDelete}
                 >
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={stopPropagation}
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </FileContextMenu>
@@ -206,7 +178,7 @@ export const FileList = ({
         </TableBody>
         <TableFooter>
           <TableRow>
-            <TableCell colSpan={onSelect ? 6 : 5} className="text-sm text-muted-foreground py-4">
+            <TableCell colSpan={COLUMNS.length + 2} className="text-sm text-muted-foreground py-4">
               {fileCount} tệp {folderCount} thư mục
             </TableCell>
           </TableRow>
@@ -215,4 +187,3 @@ export const FileList = ({
     </div>
   );
 };
-

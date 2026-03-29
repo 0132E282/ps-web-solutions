@@ -4,7 +4,7 @@ import { FileItem as FileItemComponent } from "./FileItem";
 
 interface FileGridProps {
   items: FileItem[];
-  selectedIds?: Set<string>;
+  selectedIds?: Set<string | number>;
   onSelect?: (item: FileItem, selected: boolean) => void;
   onSelectRange?: (items: FileItem[]) => void;
   onItemClick?: (item: FileItem, e: React.MouseEvent) => void;
@@ -38,6 +38,8 @@ export const FileGrid = memo(({
   onMoveItems,
   onDuplicate,
   onDelete,
+  sortBy,
+  sortOrder,
 }: FileGridProps) => {
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -57,7 +59,7 @@ export const FileGrid = memo(({
 
   // Create items map for O(1) lookup instead of O(n) findIndex
   const itemsMap = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string | number, number>();
     items.forEach((item, index) => {
       map.set(item.id, index);
     });

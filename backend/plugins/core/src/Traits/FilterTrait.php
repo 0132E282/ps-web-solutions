@@ -2,35 +2,73 @@
 
 namespace PS0132E282\Core\Traits;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 trait FilterTrait
 {
     /**
-     * Apply filters from request to query builder
-     * Supports filters[_and][field][operator]=value structure
+     * Apply filters from request or array to query builder
      */
-    protected function applyFilters(Builder $query, ?Request $request = null): Builder
+    protected function applyFilters(Builder $query, array|Request|null $filters = null): Builder
     {
-        $request = $request ?? request();
-        $filters = $request->input('filters', []);
+        if ($filters instanceof Request) {
+            $filters = $filters->input('filters', []);
+        } elseif ($filters === null) {
+            $filters = request()->input('filters', []);
+        }
 
         if (empty($filters)) {
             return $query;
         }
 
-        // Handle filters[_and] structure
-        if (isset($filters['_and']) && is_array($filters['_and'])) {
-            $andFilters = $filters['_and'];
-
-            foreach ($andFilters as $field => $operators) {
-                if (! is_array($operators)) {
-                    continue;
+        foreach ($filters as $key => $value) {
+            // 1. Handle Logical Operators (_and, _or)
+            if ($this->isLogicalOperator($key)) {
+                $query->where(function ($q) use ($key, $value) {
+                    foreach ($value as $subKey => $subValue) {
+                        $method = ($key === '_or') ? 'orWhere' : 'where';
+                        $q->$method(function ($subQuery) use ($subKey, $subValue) {
+                            $this->applyFilters($subQuery, is_numeric($subKey) ? $subValue : [$subKey => $subValue]);
+                        });
+                    }
+                });
+            } 
+            // 2. Handle Eager Loading with Filters (_with)
+            elseif ($key === '_with') {
+                foreach ($value as $relation => $subFilters) {
+                    $relationName = Str::camel($relation);
+                    if (method_exists($query->getModel(), $relationName)) {
+                        $query->with([$relationName => function ($q) use ($subFilters) {
+                            // Extract special params like _limit and _sort if needed
+                            $this->applyFilters($q, $subFilters);
+                        }]);
+                    }
                 }
-
-                foreach ($operators as $operator => $value) {
-                    $this->applyFilterCondition($query, $field, $operator, $value);
+            }
+            // 3. Handle Relationship Filtering (whereHas)
+            elseif (method_exists($query->getModel(), Str::camel($key)) && is_array($value)) {
+                $query->whereHas(Str::camel($key), function ($q) use ($value) {
+                    $this->applyFilters($q, $value);
+                });
+            }
+            // 4. Handle Standard Column Filtering
+            else {
+                if (is_array($value) && !array_is_list($value)) {
+                    foreach ($value as $operator => $val) {
+                        if ($this->isOperator($operator)) {
+                            $this->applyFilter($query, $key, $operator, $val);
+                        } else {
+                            // Nested property or something else
+                            $this->applyFilters($query, [$key.'.'.$operator => $val]);
+                        }
+                    }
+                } else {
+                    // Default to equal if not an array of operators
+                    $this->applyFilter($query, $key, '_eq', $value);
                 }
             }
         }
@@ -39,217 +77,124 @@ trait FilterTrait
     }
 
     /**
-     * Apply a single filter condition to query
-     *
-     * @param  mixed  $value
+     * Apply a single filter condition
      */
-    protected function applyFilterCondition(Builder $query, string $field, string $operator, $value): void
+    protected function applyFilter(Builder $query, string $field, string $operator, $value): void
     {
-        if ($value === null || $value === '') {
+        $value = $this->resolveDynamicVariables($value);
+
+        // Handle dot notation for relationships in simple fields
+        if (str_contains($field, '.')) {
+            [$relation, $col] = explode('.', $field, 2);
+            $query->whereHas(Str::camel($relation), function ($q) use ($col, $operator, $value) {
+                $this->applyFilter($q, $col, $operator, $value);
+            });
             return;
         }
 
-        // Check if field is a relationship (contains dot, e.g., "roles.name")
-        if (strpos($field, '.') !== false) {
-            $this->applyRelationshipFilter($query, $field, $operator, $value);
+        $table = $query->getModel()->getTable();
+        $qualifiedField = str_contains($field, '.') ? $field : "{$table}.{$field}";
 
-            return;
-        }
-
-        // Regular field filter
-        switch ($operator) {
+        switch (strtolower($operator)) {
             case '_eq':
-                // Equal
-                $query->where($field, '=', $value);
+                $query->where($qualifiedField, '=', $value);
                 break;
-
             case '_ne':
-                // Not equal
-                $query->where($field, '!=', $value);
+            case '_neq':
+                $query->where($qualifiedField, '!=', $value);
                 break;
-
-            case '_like':
-                // Like (partial match)
-                $query->where($field, 'LIKE', "%{$value}%");
-                break;
-
-            case '_not_like':
-                // Not like
-                $query->where($field, 'NOT LIKE', "%{$value}%");
-                break;
-
             case '_gt':
-                // Greater than
-                $query->where($field, '>', $value);
+                $query->where($qualifiedField, '>', $value);
                 break;
-
             case '_gte':
-                // Greater than or equal
-                $query->where($field, '>=', $value);
+                $query->where($qualifiedField, '>=', $value);
                 break;
-
             case '_lt':
-                // Less than
-                $query->where($field, '<', $value);
+                $query->where($qualifiedField, '<', $value);
                 break;
-
             case '_lte':
-                // Less than or equal
-                $query->where($field, '<=', $value);
+                $query->where($qualifiedField, '<=', $value);
                 break;
-
+            case '_like':
+                $query->where($qualifiedField, 'LIKE', '%' . $value . '%');
+                break;
+            case '_nlike':
+                $query->where($qualifiedField, 'NOT LIKE', '%' . $value . '%');
+                break;
+            case '_startswith':
+                $query->where($qualifiedField, 'LIKE', $value . '%');
+                break;
+            case '_endswith':
+                $query->where($qualifiedField, 'LIKE', '%' . $value);
+                break;
             case '_in':
-                // In array
-                if (is_array($value)) {
-                    $query->whereIn($field, $value);
-                } else {
-                    $query->whereIn($field, [$value]);
-                }
+                $query->whereIn($qualifiedField, (array) $value);
                 break;
-
+            case '_nin':
             case '_not_in':
-                // Not in array
-                if (is_array($value)) {
-                    $query->whereNotIn($field, $value);
-                } else {
-                    $query->whereNotIn($field, [$value]);
-                }
+                $query->whereNotIn($qualifiedField, (array) $value);
                 break;
-
             case '_between':
-                // Between two values
-                if (is_array($value) && count($value) === 2) {
-                    $query->whereBetween($field, $value);
-                }
+                $query->whereBetween($qualifiedField, (array) $value);
                 break;
-
             case '_is_null':
-                // Is null
-                if ($value) {
-                    $query->whereNull($field);
-                }
+                $query->whereNull($qualifiedField);
                 break;
-
             case '_is_not_null':
-                // Is not null
-                if ($value) {
-                    $query->whereNotNull($field);
-                }
+                $query->whereNotNull($qualifiedField);
                 break;
-
+            case '_date_eq':
+                $query->whereDate($qualifiedField, '=', $value);
+                break;
             default:
-                // Default: use equal operator
-                $query->where($field, '=', $value);
+                $query->where($qualifiedField, '=', $value);
         }
     }
 
+    protected function isLogicalOperator(string $key): bool
+    {
+        return in_array($key, ['_and', '_or']);
+    }
+
+    protected function isOperator(string $key): bool
+    {
+        return str_starts_with($key, '_');
+    }
+
+    protected function resolveDynamicVariables($value)
+    {
+        if (is_string($value)) {
+            if ($value === '$CURRENT_USER') {
+                return Auth::id();
+            }
+            if ($value === '$NOW') {
+                return Carbon::now();
+            }
+            if ($value === '$TODAY') {
+                return Carbon::today()->toDateString();
+            }
+            
+            if (in_array(strtolower($value), ['true', 'false'], true)) {
+                return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+            }
+        }
+        return $value;
+    }
+
     /**
-     * Apply filter condition on relationship
-     * Supports nested relationships like "roles.name" or "user.profile.email"
-     *
-     * @param  string  $field  Field path like "roles.name" or "user.profile.email"
-     * @param  mixed  $value
+     * Compatibility wrapper for original applyFilterCondition
+     */
+    protected function applyFilterCondition(Builder $query, string $field, string $operator, $value): void
+    {
+        $this->applyFilter($query, $field, $operator, $value);
+    }
+
+    /**
+     * Compatibility wrapper for original applyRelationshipFilter
      */
     protected function applyRelationshipFilter(Builder $query, string $field, string $operator, $value): void
     {
-        $parts = explode('.', $field);
-
-        if (count($parts) < 2) {
-            // Invalid relationship path, fallback to regular field
-            $this->applyFilterCondition($query, $field, $operator, $value);
-
-            return;
-        }
-
-        // Get the relationship name (first part) and remaining path
-        $relationshipName = array_shift($parts);
-        $remainingPath = implode('.', $parts);
-
-        // Check if remaining path is still a relationship (nested)
-        // If it contains more dots, it's a nested relationship
-        if (strpos($remainingPath, '.') !== false) {
-            // Nested relationship: recursively apply whereHas
-            $query->whereHas($relationshipName, function ($relationQuery) use ($remainingPath, $operator, $value) {
-                $this->applyRelationshipFilter($relationQuery, $remainingPath, $operator, $value);
-            });
-        } else {
-            // Final column in relationship
-            $columnName = $remainingPath;
-
-            // Apply whereHas for relationship
-            $query->whereHas($relationshipName, function ($relationQuery) use ($columnName, $operator, $value) {
-                switch ($operator) {
-                    case '_eq':
-                        $relationQuery->where($columnName, '=', $value);
-                        break;
-
-                    case '_ne':
-                        $relationQuery->where($columnName, '!=', $value);
-                        break;
-
-                    case '_like':
-                        $relationQuery->where($columnName, 'LIKE', "%{$value}%");
-                        break;
-
-                    case '_not_like':
-                        $relationQuery->where($columnName, 'NOT LIKE', "%{$value}%");
-                        break;
-
-                    case '_gt':
-                        $relationQuery->where($columnName, '>', $value);
-                        break;
-
-                    case '_gte':
-                        $relationQuery->where($columnName, '>=', $value);
-                        break;
-
-                    case '_lt':
-                        $relationQuery->where($columnName, '<', $value);
-                        break;
-
-                    case '_lte':
-                        $relationQuery->where($columnName, '<=', $value);
-                        break;
-
-                    case '_in':
-                        if (is_array($value)) {
-                            $relationQuery->whereIn($columnName, $value);
-                        } else {
-                            $relationQuery->whereIn($columnName, [$value]);
-                        }
-                        break;
-
-                    case '_not_in':
-                        if (is_array($value)) {
-                            $relationQuery->whereNotIn($columnName, $value);
-                        } else {
-                            $relationQuery->whereNotIn($columnName, [$value]);
-                        }
-                        break;
-
-                    case '_between':
-                        if (is_array($value) && count($value) === 2) {
-                            $relationQuery->whereBetween($columnName, $value);
-                        }
-                        break;
-
-                    case '_is_null':
-                        if ($value) {
-                            $relationQuery->whereNull($columnName);
-                        }
-                        break;
-
-                    case '_is_not_null':
-                        if ($value) {
-                            $relationQuery->whereNotNull($columnName);
-                        }
-                        break;
-
-                    default:
-                        $relationQuery->where($columnName, '=', $value);
-                }
-            });
-        }
+        $this->applyFilter($query, $field, $operator, $value);
     }
 
     protected function getFilter(string $key): array

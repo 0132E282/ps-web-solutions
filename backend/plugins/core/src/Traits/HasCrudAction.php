@@ -13,6 +13,7 @@ trait HasCrudAction
 {
     use FieldTrait;
     use FilterTrait;
+    use SortTrait;
     use HasViews;
 
     protected ?string $cachedPluginName = null;
@@ -170,9 +171,7 @@ trait HasCrudAction
 
         $isTreeMode = ($layout === 'tree');
 
-        if (! $isTreeMode) {
-            $query->orderBy('created_at', 'desc');
-        }
+        $this->applySort($query);
 
         $options = [];
         if ($isTreeMode) {

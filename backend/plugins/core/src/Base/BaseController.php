@@ -24,6 +24,7 @@ use PS0132E282\Core\Traits\HasTransformation;
 use PS0132E282\Core\Traits\HasValidation;
 use PS0132E282\Core\Traits\HasViewConfigs;
 use PS0132E282\Core\Traits\Relationships;
+use PS0132E282\Core\Traits\SortTrait;
 
 class BaseController extends Controller
 {
@@ -31,7 +32,7 @@ class BaseController extends Controller
         Relationships::isRelationship insteadof AutoTransform;
     }
     use HasLocalization, HasModelResolver, HasValidation;
-    use HasDashboardStats, HasResponse, HasTransformation, HasDataPreparation, HasViewConfigs;
+    use HasDashboardStats, HasResponse, HasTransformation, HasDataPreparation, HasViewConfigs, SortTrait;
 
     protected ?string $model = null;
 

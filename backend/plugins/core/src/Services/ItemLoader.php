@@ -52,7 +52,8 @@ class ItemLoader
 
     public static function applyTreeQuery(Builder $query, string $parentColumn = 'parent_id'): Builder
     {
-        return $query->orderByRaw("CASE WHEN {$parentColumn} IS NULL THEN 0 ELSE 1 END");
+        return $query->orderByRaw("CASE WHEN {$parentColumn} IS NULL THEN 0 ELSE 1 END")
+            ->orderByRaw("id DESC");
     }
 
     protected static function ensureTreeColumns(Builder $query, string $parentColumn): void
