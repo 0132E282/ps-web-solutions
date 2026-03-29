@@ -14,6 +14,9 @@ export interface UrlParams {
     page: number;
     limit: number;
     search: string;
+    filters: any[];
+    advancedFilters: any[];
+    sorting?: import("@tanstack/react-table").SortingState;
 }
 
 export interface DateRangeValue {

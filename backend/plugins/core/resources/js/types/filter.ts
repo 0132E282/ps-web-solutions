@@ -7,7 +7,7 @@ export interface DataTableFilter {
     options?: any[];
 }
 
-export type FilterType = 'text' | 'select' | 'date' | 'boolean' | 'number';
+export type FilterType = 'text' | 'select' | 'date' | 'boolean' | 'number' | 'date-range' | 'multi-select';
 
 export interface FilterConfig {
     type: FilterType;

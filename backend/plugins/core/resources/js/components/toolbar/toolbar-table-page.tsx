@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Plus, Trash2, Download, Upload, Copy, List, Network } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Plus, Trash2, Download, Upload, Copy } from "lucide-react";
 import { Button } from "@core/components/ui/button";
 import { cn } from "@core/lib/utils";
 import { route } from "@core/lib/route";
@@ -11,9 +12,11 @@ import { useModule } from "@core/hooks/use-module";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@core/redux/store";
 import LocaleSwitcher from "@core/components/locale-switcher";
-import { ToggleGroup, ToggleGroupItem } from "@core/components/ui/toggle-group";
 import { bulkDeleteResourceRequest, bulkDuplicateResourceRequest } from "../../redux/slices/resourceSlice";
 import { ConfirmDialog, ExportDialog, ImportDialog } from "@core/components/dialogs";
+import { DashboardStats, type DashboardStatItem } from "@core/components/dashboard-stats";
+import { router } from "@inertiajs/react";
+import { encodeFilters } from "../table/helpers";
 
 // ==============================================================================
 // Types
@@ -91,31 +94,12 @@ const Toolbar = ({
     export: exportPropVal, import: importPropVal, duplicate: duplicatePropVal, onCreate, onDelete,
     onExport, onImport, onDuplicate, getIdFromRow = (row: TableRowData) => row?.id ?? '', deleteRoute: deleteRouteProp,
     exportRoute: exportRouteProp, importRoute: importRouteProp, duplicateRoute: duplicateRouteProp,
-    importTemplateRoute, importTypes, tabnavs: tabnavsProp, layouts = ['table'], viewMode: viewModeProp,
+    importTemplateRoute, importTypes, tabnavs: tabnavsProp, layouts = ['table'],
     onViewModeChange: onViewModeChangeProp, locale,
 }: ToolbarProps) => {
     const dispatch = useDispatch();
-    const { current: currentRouteName, actionRoutes } = useModule();
+    const { current: currentRouteName, actionRoutes, views } = useModule();
 
-    const [internalViewMode, setInternalViewMode] = React.useState(() => {
-        if (typeof window === 'undefined') return 'table';
-        return new URLSearchParams(window.location.search).get('view') || 'table';
-    });
-    const viewMode = viewModeProp || internalViewMode;
-
-    const handleViewModeChange = React.useCallback((val: string) => {
-        if (onViewModeChangeProp) onViewModeChangeProp(val);
-        else {
-            setInternalViewMode(val);
-            const url = new URL(window.location.href);
-            url.searchParams.set('view', val);
-            window.history.replaceState({}, '', url.toString());
-        }
-        if (val === 'tree' && ui === 'table') {
-            const treeRoute = (actionRoutes.index || '').replace('.index', '.tree');
-            if (route.has(treeRoute)) window.location.href = route(treeRoute);
-        }
-    }, [onViewModeChangeProp, ui, actionRoutes.index]);
 
     const create = createProp ?? actions?.create ?? true;
     const deleteProp = deletePropVal ?? actions?.delete ?? actions?.destroy ?? true;
@@ -132,9 +116,11 @@ const Toolbar = ({
     const tabnavs = React.useMemo(() => {
         if (tabnavsProp) return tabnavsProp;
         if (ui !== 'table' || !actionRoutes.trash || !route.has(actionRoutes.trash)) return undefined;
+        const listLabel = tt('common.list');
+        const trashLabel = tt('common.trash');
         return [
-            { label: tt('common.list') || "Danh sách", route: resourceName + '.index', active: !currentRouteName?.includes('trash') },
-            { label: tt('common.trash') || "Thùng rác", route: actionRoutes.trash, active: !!currentRouteName?.includes('trash') }
+            { label: (listLabel !== 'common.list' ? listLabel : null) || "Danh sách", route: resourceName + '.index', active: !currentRouteName?.includes('trash') },
+            { label: (trashLabel !== 'common.trash' ? trashLabel : null) || "Thùng rác", route: actionRoutes.trash, active: !!currentRouteName?.includes('trash') }
         ] as TabNav[];
     }, [tabnavsProp, ui, actionRoutes.trash, currentRouteName, resourceName]);
 
@@ -199,33 +185,138 @@ const Toolbar = ({
         return 0;
     }, [tabnavs, currentRouteName]);
 
+    const [subnavTarget, setSubnavTarget] = React.useState<HTMLElement | null>(null);
+    React.useEffect(() => {
+        setSubnavTarget(document.getElementById('page-subnav'));
+    }, []);
+
     const hasTabs = tabnavs && tabnavs.length > 0;
     const hasActions = showDelete || showCreate || showExport || showImport || showDuplicate || (layouts && layouts.length > 1);
 
     if (!hasTabs && !hasActions) return null;
 
+    const tabsJSX = hasTabs ? (
+        <div className="flex items-center gap-0 border-b border-border/40 w-full px-2 overflow-x-auto bg-background">
+            {tabnavs!.map((tab, index) => {
+                const isActive = activeTabIndex === index;
+                const tabHref = tab.route ? (tab.route.includes('.') ? route(tab.route) : tab.route) : tab.api;
+                const hasLink = !tab.onClick && !!tabHref;
+                return (
+                    <Button key={index} variant="ghost" onClick={tab.onClick} asChild={hasLink}
+                        className={cn(
+                            "relative rounded-none border-b-2 px-5 py-3 h-auto text-sm whitespace-nowrap transition-all duration-200",
+                            "hover:bg-transparent hover:text-foreground",
+                            isActive
+                                ? "border-primary text-foreground font-semibold"
+                                : "border-transparent text-muted-foreground hover:text-foreground/80"
+                        )}
+                    >
+                        {hasLink ? <Link href={tabHref!}>{tab.label}</Link> : <span>{tab.label}</span>}
+                    </Button>
+                );
+            })}
+        </div>
+    ) : null;
+
+    const handleDashboardItemClick = React.useCallback((item: DashboardStatItem) => {
+        const filters = (item.query as any)?.filters;
+        const url = new URL(window.location.href);
+
+        // Reset all params
+        url.search = '';
+        url.searchParams.set('page', '1');
+
+        if (filters && typeof filters === 'object') {
+            // Dashboard filters might be in {field: value} or {field: {_eq: value}} format
+            const columnFilters = Object.entries(filters).map(([field, condition]) => {
+                let value = condition;
+                if (typeof condition === 'object' && condition !== null) {
+                    const condObj = condition as Record<string, any>;
+                    const keys = Object.keys(condObj);
+                    const firstKey = keys[0];
+                    if (keys.length === 1 && firstKey?.startsWith('_')) {
+                        value = condObj[firstKey];
+                    }
+                }
+                return { id: field, value };
+            });
+
+            // Map to advanced filters for UI synchronization
+            const advancedFilters = columnFilters.map(cf => ({
+                id: Math.random().toString(36).substring(2, 9),
+                field: cf.id,
+                operator: '_eq',
+                value: cf.value,
+                type: 'text'
+            }));
+            
+            url.searchParams.set('f', encodeFilters({ cf: columnFilters, af: advancedFilters }));
+        }
+
+        router.get(url.pathname + url.search, {}, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true
+        });
+    }, []);
+
+    const dashboardItems = Array.isArray(views?.dashboards) ? (views.dashboards as DashboardStatItem[]) : [];
+
+    // Determine active dashboard item
+    const activeDashboardItem = React.useMemo(() => {
+        if (!dashboardItems.length) return null;
+        const url = new URL(window.location.href);
+        const f = url.searchParams.get('f');
+        if (!f) {
+            // Check for "Total Posts" (usually items with no filters or loaditems=count)
+            return dashboardItems.find(item => {
+                const queryFilters = (item.query as any)?.filters;
+                return !queryFilters || Object.keys(queryFilters).length === 0;
+            }) || null;
+        };
+
+        try {
+            const currentFilters = JSON.parse(atob(f));
+            // Extract column filters for comparison
+            const cf = currentFilters.cf || currentFilters;
+            if (!Array.isArray(cf)) return null;
+
+            return dashboardItems.find(item => {
+                const queryFilters = (item.query as any)?.filters;
+                if (!queryFilters) return false;
+
+                const queryFilterEntries = Object.entries(queryFilters);
+                if (queryFilterEntries.length === 0) return false;
+
+                // Compare each query filter with current column filters
+                return queryFilterEntries.every(([field, condition]) => {
+                    let expectedValue = condition;
+                    if (typeof condition === 'object' && condition !== null) {
+                        const condObj = condition as Record<string, any>;
+                        const firstKey = Object.keys(condObj)[0];
+                        if (firstKey?.startsWith('_')) expectedValue = condObj[firstKey];
+                    }
+                    return cf.some(f => f.id === field && String(f.value) === String(expectedValue));
+                });
+            });
+        } catch {
+            return null;
+        }
+    }, [dashboardItems, views]);
+
     return (
         <>
-            <div className={cn("flex flex-col md:flex-row md:items-center justify-between gap-4", !isToolbar && "mb-4", className)}>
-                {hasTabs && (
-                    <div className="flex items-center gap-1 border-b w-full md:w-auto md:border-none overflow-x-auto">
-                        {tabnavs.map((tab, index) => {
-                            const isActive = activeTabIndex === index;
-                            const tabHref = tab.route ? (tab.route.includes('.') ? route(tab.route) : tab.route) : tab.api;
-                            const hasLink = !tab.onClick && !!tabHref;
-                            return (
-                                <Button key={index} variant="ghost" onClick={tab.onClick} asChild={hasLink}
-                                    className={cn("rounded-b-none border-b-2 border-transparent px-4 py-2 h-auto whitespace-nowrap hover:bg-transparent hover:text-foreground",
-                                        isActive ? "border-primary text-foreground font-medium" : "text-muted-foreground")}
-                                >
-                                    {hasLink ? <Link href={tabHref!}>{tab.label}</Link> : <span>{tab.label}</span>}
-                                </Button>
-                            );
-                        })}
-                    </div>
-                )}
+            {tabsJSX && subnavTarget ? createPortal(tabsJSX, subnavTarget) : tabsJSX}
+            {dashboardItems.length > 0 && (
+                <DashboardStats 
+                    items={dashboardItems} 
+                    onItemClick={handleDashboardItemClick} 
+                    activeItem={activeDashboardItem}
+                />
+            )}
+            <div className={cn("flex flex-col md:flex-row md:items-center justify-between gap-5", !isToolbar && "mb-4", className)}>
                 {hasActions && (
-                    <div className={cn("flex items-center gap-2 flex-wrap w-full md:w-auto", !isToolbar && "justify-end ml-auto")}>
+                    <div className={cn("flex items-center gap-5 flex-wrap w-full md:w-auto", !isToolbar && "justify-end ml-auto")}>
                         {([
                             { id: 'import',    icon: Upload,   labelKey: 'common.import',            defaultLabel: 'Import',    variant: 'outline'     as const, show: !!showImport,                    onClick: () => setImportDialogOpen(true),    count: undefined as number | undefined },
                             { id: 'export',    icon: Download, labelKey: 'common.export',            defaultLabel: 'Export',    variant: 'outline'     as const, show: !!showExport,                    onClick: () => setExportDialogOpen(true),    count: undefined as number | undefined },
@@ -249,22 +340,9 @@ const Toolbar = ({
                             )
                         )}
                         {locale && <div className="ml-2"><LocaleSwitcher /></div>}
-                        {viewMode && layouts.length > 1 && (
-                            <div className="ml-2">
-                                <ToggleGroup type="single" value={viewMode} onValueChange={(val) => val && handleViewModeChange(val)} className="border bg-background/50 rounded-lg p-1 shadow-sm h-9">
-                                    {layouts.includes('table') && (
-                                        <ToggleGroupItem value="table" aria-label="Table View" size="sm" className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all"><List className="h-4 w-4" /></ToggleGroupItem>
-                                    )}
-                                    {layouts.includes('tree') && (
-                                        <ToggleGroupItem value="tree" aria-label="Tree View" size="sm" className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all"><Network className="h-4 w-4" /></ToggleGroupItem>
-                                    )}
-                                </ToggleGroup>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
-
             <ConfirmDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen} onConfirm={handleDelete}
                 title={tt("common.delete_selected")} description={tt("common.confirm_delete_selected")}
                 confirmLabel={tt("common.delete")} variant="destructive" icon count={selectedCount} isLoading={isLoading} />

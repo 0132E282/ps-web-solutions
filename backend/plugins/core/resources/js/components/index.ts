@@ -1,3 +1,5 @@
+export { StatusBadge } from './ui/status-badge';
+export type { StatusOption } from './ui/status-badge';
 export { AppSidebar } from './app-sidebar';
 export { NavMain } from './nav-main';
 export { NavFooter } from './nav-footer';

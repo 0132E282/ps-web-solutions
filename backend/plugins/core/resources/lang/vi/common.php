@@ -59,4 +59,5 @@ return [
     'restore_error' => 'Khôi phục thất bại',
     'force_delete_error' => 'Xóa vĩnh viễn thất bại',
     'confirm_delete' => 'Bạn có chắc chắn muốn xóa mục này?',
+    'add_new' => 'Thêm mới',
 ];

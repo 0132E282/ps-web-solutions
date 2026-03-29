@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useDispatch, useSelector } from "react-redux";
 
 import type { AdvancedFilterCondition } from "../components/advanced-filter";
-import { formatFiltersForAPI, getResourceNameFromRoute, mergeColumns, createFilterFn, extractFromPaginator, getUrlParams } from "../components/table/helpers";
+import { formatFiltersForAPI, getResourceNameFromRoute, mergeColumns, createFilterFn, extractFromPaginator, getUrlParams, encodeFilters, formatSortingForAPI } from "../components/table/helpers";
 import type { PaginationInfo } from "@core/types/api";
 import { tableRegistry } from "../components/table/table-registry";
 import { fetchResourceSuccess } from "../redux/slices/resourceSlice";
@@ -80,7 +80,7 @@ const buildAdvancedFilterParams = (params: URLSearchParams, filters: AdvancedFil
 // ==========================================
 
 export function useDataTableRoute(routeProp?: string) {
-    const { props } = usePage<InertiaPageProps>();
+    const { props, url } = usePage<InertiaPageProps>();
     const currentRouteName = useMemo(() => props?.ziggy?.route?.name || getCurrentRouteName() || null, [props?.ziggy]);
     const resourceName = useMemo(() => getResourceNameFromRoute(currentRouteName), [currentRouteName]);
     const routeName = routeProp || currentRouteName || null;
@@ -90,7 +90,9 @@ export function useDataTableRoute(routeProp?: string) {
         try { return route(routeName); } catch { return null; }
     }, [routeName]);
 
-    return { currentRouteName, resourceName, routeName, effectiveApiUrl, effectiveUseApi: Boolean(routeName && effectiveApiUrl), props };
+    const effectiveUseApi = Boolean(routeName && effectiveApiUrl);
+
+    return { currentRouteName, resourceName, routeName, effectiveApiUrl, effectiveUseApi, props, url };
 }
 
 // * Mới thêm: Trích xuất logic Local Storage thành hook riêng (SRP)
@@ -167,7 +169,7 @@ export function useDataTableData<TData, TValue = unknown>(
         if (data.filters?.length) setApiFilters(data.filters);
     }, [resourceName]);
 
-    const fetchData = useCallback(async (page: number, limit: number, search?: string, advancedFilters: AdvancedFilterCondition[] = []) => {
+    const fetchData = useCallback(async (page: number, limit: number, search?: string, advancedFilters: AdvancedFilterCondition[] = [], sorting: SortingState = []) => {
         if (!effectiveUseApi || isFetchingRef.current) return;
         isFetchingRef.current = true;
         setError(null);
@@ -180,6 +182,7 @@ export function useDataTableData<TData, TValue = unknown>(
             
             formatFiltersForAPI(columnFiltersRef.current, []).forEach((value, key) => params.append(key, value));
             buildAdvancedFilterParams(params, advancedFilters);
+            formatSortingForAPI(sorting).forEach((value, key) => params.set(key, value));
 
             if (effectiveApiUrl) {
                 setIsLoading(true);
@@ -206,11 +209,23 @@ export function useDataTableData<TData, TValue = unknown>(
         }
     }, [effectiveUseApi, effectiveApiUrl, isTreeMode, processApiResponse, columnFiltersRef, dispatch, routeName, locale]);
 
-    const updateUrlParams = useCallback((newPage: number, newLimit: number, search?: string, advancedFilters: AdvancedFilterCondition[] = []) => {
+    const updateUrlParams = useCallback((newPage: number, newLimit: number, search?: string, advancedFilters: AdvancedFilterCondition[] = [], columnFilters: ColumnFiltersState = [], sorting: SortingState = []) => {
         const url = new URL(window.location.href);
         url.searchParams.set('page', String(newPage));
         url.searchParams.set('limit', String(newLimit));
         search ? url.searchParams.set('search', search) : url.searchParams.delete('search');
+
+        // Update sorting params
+        url.searchParams.delete('sorts[0][column]');
+        url.searchParams.delete('order[0][order]');
+        formatSortingForAPI(sorting).forEach((value, key) => url.searchParams.set(key, value));
+
+        // Encode both basic and advanced filters into "f" parameter
+        if (columnFilters.length > 0 || advancedFilters.length > 0) {
+            url.searchParams.set('f', encodeFilters({ cf: columnFilters, af: advancedFilters }));
+        } else {
+            url.searchParams.delete('f');
+        }
 
         if (effectiveUseApi && effectiveApiUrl) {
             window.history.replaceState({}, '', url.toString());
@@ -302,10 +317,10 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
     const { effectiveUseApi, effectiveApiUrl, routeName, currentRouteName, resourceName } = routeInfo;
     const initialParams = useMemo(() => getUrlParams(), []);
 
-    const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilterCondition[]>([]);
+    const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilterCondition[]>(initialParams.advancedFilters || []);
     const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
-    const [sorting, setSorting] = useState<SortingState>([]);
-    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+    const [sorting, setSorting] = useState<SortingState>(initialParams.sorting || []);
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialParams.filters || []);
     const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = useState({});
     
@@ -322,7 +337,7 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
         props.viewMode === 'tree' || checkTreeMode(routeInfo.props.configs) || checkTreeMode(routeInfo.props.views),
     [routeInfo.props.configs, routeInfo.props.views, props.viewMode]);
 
-    const { items, pagination, fetchData, updateUrlParams, setApiItemsRaw, lastFetchedUrlRef, apiColumns, apiFilters, isLoading, error, isFetchingRef, setApiColumns, setApiFilters } =
+    const { items, pagination, fetchData, updateUrlParams, setApiItemsRaw, lastFetchedUrlRef, apiColumns, apiFilters, isLoading, error, setApiColumns, setApiFilters } =
         useDataTableData<TData, TValue>(routeInfo, { itemsProp, dataProp, paginationProp, resourceProp: props.resource }, { isTreeMode, expandedRows, columnFiltersRef, locale: i18n.language });
 
     const { columns: columnsWithFilters, mergedColumns, initialColumnVisibility, searchableFields } = useDataTableColumns(
@@ -353,14 +368,20 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
     }, [routeName, setApiItemsRaw, lastFetchedUrlRef, setApiColumns, setApiFilters]);
 
     useEffect(() => {
-        if (!effectiveUseApi || !effectiveApiUrl || lastFetchedUrlRef.current === effectiveApiUrl) return;
-        lastFetchedUrlRef.current = effectiveApiUrl;
+        const fullApiUrl = effectiveApiUrl ? (effectiveApiUrl + window.location.search) : null;
+        if (!effectiveUseApi || !effectiveApiUrl || lastFetchedUrlRef.current === fullApiUrl) return;
+        lastFetchedUrlRef.current = fullApiUrl;
         const params = getUrlParams();
         setGlobalFilterState(params.search);
         setPageSize(params.limit);
         setPageIndex(params.page - 1);
-        fetchData(params.page, params.limit, params.search);
-    }, [effectiveUseApi, effectiveApiUrl, fetchData, lastFetchedUrlRef]);
+        
+        setColumnFilters(params.filters || []);
+        setAdvancedFilters(params.advancedFilters || []);
+        setSorting(params.sorting || []);
+        
+        fetchData(params.page, params.limit, params.search, params.advancedFilters, params.sorting);
+    }, [effectiveUseApi, effectiveApiUrl, fetchData, lastFetchedUrlRef, routeInfo.url]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -379,37 +400,42 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
         });
     }, [searchableFields]);
 
-    const fetchWithReset = useCallback((search?: string, filters: AdvancedFilterCondition[] = []) => {
-        if (!effectiveUseApi || !effectiveApiUrl) return;
-        setPageIndex(0);
-        fetchData(1, pageSize, search ?? globalFilterState, filters);
-    }, [effectiveUseApi, effectiveApiUrl, pageSize, globalFilterState, fetchData]);
-
     const handleColumnFiltersChange = useCallback((updater: ColumnFiltersState | ((prev: ColumnFiltersState) => ColumnFiltersState)) => {
         setColumnFilters(prev => {
             const newFilters = typeof updater === 'function' ? updater(prev) : updater;
             columnFiltersRef.current = newFilters;
-            if (!isFetchingRef.current) fetchWithReset(globalFilterState, advancedFilters);
+            updateUrlParams(1, pageSize, globalFilterState, advancedFilters, newFilters, sorting);
             return newFilters;
         });
-    }, [fetchWithReset, globalFilterState, advancedFilters, isFetchingRef]);
+    }, [updateUrlParams, pageSize, globalFilterState, advancedFilters, sorting]);
 
-    const handleAdvancedFilterApply = useCallback(() => fetchWithReset(globalFilterState, advancedFilters), [fetchWithReset, globalFilterState, advancedFilters]);
+    const handleSortingChange = useCallback((updater: SortingState | ((prev: SortingState) => SortingState)) => {
+        setSorting(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            updateUrlParams(1, pageSize, globalFilterState, advancedFilters, columnFilters, next);
+            return next;
+        });
+    }, [updateUrlParams, pageSize, globalFilterState, advancedFilters, columnFilters]);
+
+    const handleAdvancedFilterApply = useCallback(() => {
+        updateUrlParams(1, pageSize, globalFilterState, advancedFilters, columnFilters, sorting);
+    }, [updateUrlParams, pageSize, globalFilterState, advancedFilters, columnFilters, sorting]);
+
     const handleAdvancedFilterClear = useCallback(() => {
         setAdvancedFilters([]);
-        fetchWithReset(globalFilterState, []);
-    }, [fetchWithReset, globalFilterState]);
+        updateUrlParams(1, pageSize, globalFilterState, [], columnFilters, sorting);
+    }, [updateUrlParams, pageSize, globalFilterState, columnFilters, sorting]);
 
     const handlePageSizeChange = useCallback((size: number) => {
         setPageSize(size);
         setPageIndex(0);
-        updateUrlParams(1, size, effectiveUseApi ? globalFilterState : undefined, advancedFilters);
-    }, [updateUrlParams, effectiveUseApi, globalFilterState, advancedFilters]);
+        updateUrlParams(1, size, effectiveUseApi ? globalFilterState : undefined, advancedFilters, columnFilters, sorting);
+    }, [updateUrlParams, effectiveUseApi, globalFilterState, advancedFilters, columnFilters, sorting]);
 
     const handlePageIndexChange = useCallback((index: number) => {
         setPageIndex(index);
-        updateUrlParams(index + 1, pageSize, effectiveUseApi ? globalFilterState : undefined, advancedFilters);
-    }, [updateUrlParams, pageSize, effectiveUseApi, globalFilterState, advancedFilters]);
+        updateUrlParams(index + 1, pageSize, effectiveUseApi ? globalFilterState : undefined, advancedFilters, columnFilters, sorting);
+    }, [updateUrlParams, pageSize, effectiveUseApi, globalFilterState, advancedFilters, columnFilters, sorting]);
 
     const toggleRowExpansion = useCallback((rowId: string | number) => {
         setExpandedRows(prev => {
@@ -440,7 +466,7 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
             const id = (row as Record<string, unknown>).id;
             return id ? String(id) : String(index);
         },
-        onSortingChange: setSorting,
+        onSortingChange: handleSortingChange,
         onColumnFiltersChange: handleColumnFiltersChange,
         onColumnVisibilityChange: setColumnVisibility,
         onRowSelectionChange: setRowSelection,
@@ -460,9 +486,9 @@ export function useDataTable<TData extends Record<string, unknown>, TValue = unk
         
         if (pagination || effectiveUseApi) {
             setPageIndex(0);
-            updateUrlParams(1, pageSize, value, advancedFilters);
+            updateUrlParams(1, pageSize, value, advancedFilters, columnFilters, sorting);
         }
-    }, [onGlobalFilterChange, searchKey, pagination, effectiveUseApi, pageSize, updateUrlParams, advancedFilters, tableInstance]);
+    }, [onGlobalFilterChange, searchKey, pagination, effectiveUseApi, pageSize, updateUrlParams, advancedFilters, tableInstance, columnFilters, sorting]);
 
     useEffect(() => {
         tableRegistry.register(tableId, tableInstance, currentRouteName || undefined, { refreshData: fetchData, effectiveUseApi });

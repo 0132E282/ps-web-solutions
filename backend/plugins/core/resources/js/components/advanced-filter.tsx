@@ -480,12 +480,12 @@ const AdvancedFilter: React.FC<AdvancedFilterProps> = ({
                         size="sm"
                         onClick={handleClear}
                         disabled={conditions.length === 0}
-                        className="text-muted-foreground hover:text-destructive font-medium text-xs shadow-none"
+                        className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive font-medium text-xs shadow-none"
                     >
                         Xóa tất cả
                     </Button>
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setOpen(false)} className="h-9 px-4 rounded-lg border-border hover:bg-background text-xs shadow-none">
+                        <Button variant="outline" size="sm" onClick={() => setOpen(false)} className="h-9 px-4 rounded-lg border-border hover:bg-accent text-xs shadow-none">
                             Hủy
                         </Button>
                         <Button

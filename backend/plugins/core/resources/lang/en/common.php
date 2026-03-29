@@ -59,4 +59,5 @@ return [
     'restore_error' => 'Failed to restore',
     'force_delete_error' => 'Failed to permanently delete',
     'confirm_delete' => 'Are you sure you want to delete this item?',
+    'add_new' => 'Add New',
 ];

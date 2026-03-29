@@ -18,11 +18,49 @@ class PostController extends BaseController
     'index' => [
       'title' => 'Posts',
       'description' => 'Manage blog posts',
+      'actions' => [
+        'import' => [
+          'fields' => ['title', 'slug', 'description', 'content', 'image', 'status', 'created_at', 'updated_at'],
+        ],
+        'export' => [
+          'fields' => ['title', 'slug', 'description', 'content', 'image', 'status', 'created_at', 'updated_at'],
+        ],
+        'duplicate' => true
+      ],
       'fields' => [
-        ['name' => 'image', 'width' => 20],
-        ['name' => 'title', 'primary' => true],
-        ['name' => 'status'],
-        ['name' => 'created_at'],
+        'image',
+        ['name' => 'title', 'config' => ['primary' => true]],
+        'status',
+        'created_at',
+      ],
+      'dashboards' => [
+        [
+          'title' => 'Tổng bài viết',
+          'ui' => [
+            'icon' => 'Files',
+            'class' => 'bg-indigo-600'
+          ],
+          'query' => [
+            'collection' => 'post',
+            'fields' => 'id',
+            'loaditems' => 'count',
+          ],
+        ],
+        [
+          'title' => 'Bài viết mới',
+          'ui' => [
+            'icon' => 'Zap',
+            'class' => 'bg-emerald-600'
+          ],
+          'query' => [
+            'collection' => 'post',
+            'filters' => [
+              'status' => ['_eq' => 'published'],
+            ],
+            'fields' => 'id',
+            'loaditems' => 'count',
+          ],
+        ],
       ],
     ],
     'form' => [

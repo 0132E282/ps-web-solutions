@@ -5,8 +5,9 @@ import AppLayout from "@core/layouts/app-layout";
 import { getCurrentRouteName } from "@core/lib/route";
 import { fetchResourceRequest } from "@core/redux";
 import type { RootState } from "@core/redux/store";
+import { router } from "@inertiajs/react";
 import type { Resource } from "@core/types/resource";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 interface Item extends Record<string, unknown> {
@@ -23,13 +24,30 @@ const Index = () => {
 
     const { views } = useModule();
 
+    const layoutParam = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('layout')
+        : null;
+
     useEffect(() => {
         if (resourceName && !resource) {
             dispatch(fetchResourceRequest({ resource: resourceName }));
         }
     }, [dispatch, resourceName, resource]);
 
+    const handleViewModeChange = useCallback((val: string) => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('layout', val);
+        router.get(url.pathname + url.search, {}, {
+            preserveState: false,
+            preserveScroll: true
+        });
+    }, []);
+
     if (!resourceName) {
+        return null;
+    }
+
+    if (layoutParam === 'tree') {
         return null;
     }
 
@@ -39,7 +57,12 @@ const Index = () => {
     return (
         <AppLayout toolbar={{ ui: 'table', layouts, actions, locale: true }}>
             <Card className="p-4">
-                <DataTable resource={resource as unknown as Resource<Item>} />
+                <DataTable 
+                    resource={resource as unknown as Resource<Item>} 
+                    viewMode={layoutParam || 'table'}
+                    layouts={layouts}
+                    onViewModeChange={handleViewModeChange}
+                />
             </Card>
         </AppLayout>
     );

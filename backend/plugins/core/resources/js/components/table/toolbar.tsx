@@ -8,6 +8,8 @@ import { Search, X } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { default as AdvancedFilter, type AdvancedFilterCondition, type AdvancedFilterField } from "../advanced-filter";
 import { ColumnVisibilityDropdown } from "./column-visibility-dropdown";
+import { ToggleGroup, ToggleGroupItem } from "@core/components/ui/toggle-group";
+import { List, Network } from "lucide-react";
 
 interface DataTableToolbarProps<TData, TValue> {
     table: Table<TData>;
@@ -25,6 +27,9 @@ interface DataTableToolbarProps<TData, TValue> {
     onAdvancedFilterClear: () => void;
     effectiveUseApi: boolean;
     resourceName?: string | null;
+    viewMode?: string;
+    layouts?: string[];
+    onViewModeChange?: (mode: string) => void;
 }
 
 export function DataTableToolbar<TData, TValue>({
@@ -41,6 +46,9 @@ export function DataTableToolbar<TData, TValue>({
     onAdvancedFilterClear,
     effectiveUseApi,
     resourceName,
+    viewMode,
+    layouts = ['table'],
+    onViewModeChange,
 }: DataTableToolbarProps<TData, TValue>) {
     const hasSearchValue = Boolean(searchValue);
     const { views: viewsData, configs } = useModule();
@@ -134,7 +142,7 @@ export function DataTableToolbar<TData, TValue>({
     return (
         <div className="flex items-center gap-4 flex-wrap">
 
-            <div className="relative flex-1 max-w-sm">
+            <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 pointer-events-none" />
                 <Input
                     placeholder={searchPlaceholder || tt('common.search_placeholder')}
@@ -165,6 +173,26 @@ export function DataTableToolbar<TData, TValue>({
                     />
                 )}
                 <ColumnVisibilityDropdown table={table} resourceName={resourceName} />
+                
+                {viewMode && layouts.length > 1 && (
+                    <ToggleGroup 
+                        type="single" 
+                        value={viewMode} 
+                        onValueChange={(val) => val && onViewModeChange?.(val)} 
+                        className="border bg-background/50 rounded-lg p-1 shadow-sm h-9 ml-2"
+                    >
+                        {layouts.includes('table') && (
+                            <ToggleGroupItem value="table" aria-label="Table View" size="sm" className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all">
+                                <List className="h-4 w-4" />
+                            </ToggleGroupItem>
+                        )}
+                        {layouts.includes('tree') && (
+                            <ToggleGroupItem value="tree" aria-label="Tree View" size="sm" className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all">
+                                <Network className="h-4 w-4" />
+                            </ToggleGroupItem>
+                        )}
+                    </ToggleGroup>
+                )}
             </div>
         </div>
     );

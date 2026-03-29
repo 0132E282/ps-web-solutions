@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { usePage } from "@inertiajs/react";
+import { usePage, router } from "@inertiajs/react";
 import { TreeSidebar } from "@core/components/ui/tree-sidebar";
 import { FormPages } from "@core/components/form/form-pages";
 import { Section } from "@core/components/section";
@@ -84,8 +84,14 @@ const TreePage = () => {
                     layouts={Array.isArray(views?.layouts) ? views.layouts : ['table', 'tree']}
                     viewMode="tree"
                     onViewModeChange={(val) => {
-                        if (val === 'table' && actionRoutes.index)
-                            window.location.href = route(actionRoutes.index);
+                        if (val === 'table') {
+                            const idx = actionRoutes.index;
+                            if (idx && route.has(idx)) {
+                                router.get(route(idx), { layout: 'table' });
+                            } else if (idx) {
+                                window.location.href = route(idx) + '?layout=table';
+                            }
+                        }
                     }}
                 >
                     <div className="grid grid-cols-1 gap-6">

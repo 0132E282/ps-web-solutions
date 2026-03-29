@@ -113,6 +113,8 @@ export interface DataTableProps<TData, TValue> {
     resource?: Resource<TData>;
     toolbarRow?: (row: TData) => React.ReactNode;
     viewMode?: string;
+    layouts?: string[];
+    onViewModeChange?: (mode: string) => void;
     reorderable?: boolean;
     onReorder?: (items: TData[]) => void;
 }

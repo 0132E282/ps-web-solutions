@@ -18,15 +18,53 @@ const isEmptyValue = (value: unknown): boolean =>
 const isValidValue = (value: unknown): boolean =>
     !isEmptyValue(value) && (typeof value === 'string' ? value.trim() !== '' : true);
 
+export const encodeFilters = (filters: unknown): string => {
+    try {
+        const str = JSON.stringify(filters);
+        return window.btoa(unescape(encodeURIComponent(str)));
+    } catch (e) {
+        return "";
+    }
+};
+
+export const decodeFilters = <T>(encoded: string | null): T | null => {
+    if (!encoded) return null;
+    try {
+        const str = decodeURIComponent(escape(window.atob(encoded)));
+        return JSON.parse(str) as T;
+    } catch (e) {
+        return null;
+    }
+};
+
 export const getUrlParams = (): UrlParams => {
     if (typeof window === 'undefined') {
-        return { page: 1, limit: 10, search: '' };
+        return { page: 1, limit: 10, search: '', filters: [], advancedFilters: [] };
     }
     const urlParams = new URLSearchParams(window.location.search);
+    const encodedFilters = urlParams.get('f');
+    const decoded = decodeFilters<any>(encodedFilters);
+    
+    let filters: any[] = [];
+    let advancedFilters: any[] = [];
+
+    if (Array.isArray(decoded)) {
+        // Backward compatibility for old simple array format
+        filters = decoded;
+    } else if (decoded && typeof decoded === 'object') {
+        filters = decoded.cf || [];
+        advancedFilters = decoded.af || [];
+    }
+    
     return {
         page: parseInt(urlParams.get('page') || '1', 10),
         limit: parseInt(urlParams.get('limit') || '10', 10),
         search: urlParams.get('search') || '',
+        filters,
+        advancedFilters,
+        sorting: urlParams.get('sorts[0][column]') 
+            ? [{ id: urlParams.get('sorts[0][column]')!, desc: urlParams.get('order[0][order]') === 'desc' }] 
+            : [{ id: 'id', desc: true }],
     };
 };
 
@@ -163,8 +201,8 @@ export const formatSortingForAPI = (sorting: SortingState): URLSearchParams => {
     // Chỉ lấy phần tử đầu tiên để sort một cột duy nhất
     if (sorting.length > 0 && sorting[0]?.id) {
         const sort = sorting[0];
-        params.append('sort[0][column]', sort.id);
-        params.append('sort[0][order]', sort.desc ? 'desc' : 'asc');
+        params.append('sorts[0][column]', sort.id);
+        params.append('order[0][order]', sort.desc ? 'desc' : 'asc');
     }
 
     return params;
@@ -193,14 +231,14 @@ export const getResourceNameFromRoute = (routeName: string | null): string | nul
 
     // If it's a standard admin route (admin.resource.action), the resource is usually the second segment
     if (segments[0] === 'admin' && segments.length >= 2) {
-        return segments[1];
+        return segments[1] || null;
     }
 
     // Fallback: take the first segment if it's not 'admin'
     const resource = segments[0];
-    if (resource === 'admin') return null;
+    if (resource === 'admin' || !resource) return null;
 
-    return resource || null;
+    return resource;
 };
 
 export const mergeColumns = <TData extends Record<string, unknown>>(

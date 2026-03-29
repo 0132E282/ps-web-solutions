@@ -18,7 +18,7 @@ class Post extends BaseModel
       'description' => ['ui' => 'textarea', 'config' => ['validation' => 'nullable|max:255', 'placeholder' => 'e.g. Electronics category']],
       'content' => ['ui' => 'editor', 'config' => ['validation' => 'nullable|max:255', 'placeholder' => 'e.g. Electronics category']],
       'image' => ['ui' => 'attachment', 'config' => ['validation' => 'nullable|image|max:2048', 'placeholder' => 'e.g. electronics.jpg']],
-      'status' => ['ui' => 'button-radio', 'config' => ['options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft']], 'validation' => 'required|in:published,draft']],
+      'status' => ['ui' => 'button-radio', 'config' => ['options' => [['label' => 'Published', 'value' => 'published', 'color' => '#22c55e', 'text-color' => '#fff'], ['label' => 'Draft', 'value' => 'draft', 'color' => '#f59e0b', 'text-color' => '#fff']], 'validation' => 'required|in:published,draft']],
       'related_posts' => ['ui' => 'multiple-select', 'config' => ['options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft']], 'validation' => 'required|in:published,draft']],
       'categories' => ['ui' => 'multiple-select', 'config' => ['options' => [['label' => 'Published', 'value' => 'published'], ['label' => 'Draft', 'value' => 'draft']], 'validation' => 'required|in:published,draft']],
       'is_featured' => ['ui' => 'checkbox', 'config' => ['validation' => 'required|in:published,draft']],

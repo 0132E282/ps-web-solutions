@@ -7,17 +7,54 @@ use PS0132E282\Core\Base\BaseController;
 
 class PostController extends BaseController
 {
-    protected ?string $model = Post::class; // Set your model here
+    protected ?string $model = Post::class;
 
     const views = [
         'index' => [
             'filters' => ['status'],
-            'actions' => ['import' => true, 'export' => true, 'duplicate' => true],
+            'actions' => [
+                'import' => [
+                    'fields' => ['title', 'slug', 'description', 'content', 'image', 'status', 'created_at', 'updated_at'],
+                ],
+                'export' => [
+                    'fields' => ['title', 'slug', 'description', 'content', 'image', 'status', 'created_at', 'updated_at'],
+                ],
+                'duplicate' => true
+            ],
             'fields' => [
-                'prototype.image',
+                'image',
                 ['name' => 'title', 'config' => ['primary' => true]],
                 'status',
                 'created_at',
+            ],
+            'dashboards' => [
+                [
+                    'title' => 'Tổng bài viết',
+                    'ui' => [
+                        'icon' => 'Files',
+                        'class' => 'bg-indigo-600 text-white'
+                    ],
+                    'query' => [
+                        'collection' => 'post',
+                        'fields' => 'id',
+                        'loaditems' => 'count',
+                    ],
+                ],
+                [
+                    'title' => 'Bài viết mới',
+                    'ui' => [
+                        'icon' => 'Zap',
+                        'class' => 'bg-emerald-600 text-white'
+                    ],
+                    'query' => [
+                        'collection' => 'post',
+                        'filters' => [
+                            'status' => ['_eq' => 'published'],
+                        ],
+                        'fields' => 'id',
+                        'loaditems' => 'count',
+                    ],
+                ],
             ],
         ],
         'form' => [

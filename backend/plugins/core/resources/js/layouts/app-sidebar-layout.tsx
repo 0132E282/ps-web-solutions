@@ -40,6 +40,8 @@ export default function AppSidebarLayout({
                         {toolbar}
                     </div>
                 </AppSidebarHeader>
+                <div id="page-subnav" className="w-full" />
+                <div id="page-dashboard" className="w-full" />
                 <div className="mx-auto w-full flex-1 px-4 py-6">
                     {children}
                 </div>

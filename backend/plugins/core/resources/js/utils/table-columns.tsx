@@ -1,16 +1,18 @@
 import Toolbar from "@core/components/toolbar/index";
 import { Badge } from "@core/components/ui/badge";
+import { StatusBadge } from "@core/components/ui/status-badge";
 import { Button } from "@core/components/ui/button";
 import { Checkbox } from "@core/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@core/components/ui/select";
 import { tt } from "@core/lib/i18n";
 import { getCurrentRouteName, route } from "@core/lib/route";
 import type { Account } from "@core/types/account";
+import { cn } from "@core/lib/utils";
 import "@core/types/table";
 import { Link, router } from "@inertiajs/react";
 import type { CellContext, Column, ColumnDef, Row, ColumnMeta } from "@tanstack/react-table";
 import axios from "axios";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import * as React from "react";
 
 /**
@@ -220,6 +222,8 @@ const RENDERERS: Record<string, RendererFactory> = {
     badge: (key, cfg) => {
         const meta = cfg as ColumnMeta;
         const config = meta?.badgeConfig || {};
+        const rawOpts = Array.isArray(cfg) ? cfg : (meta as any)?.options;
+        const opts = rawOpts as Array<{ label: string; value: string | number; color?: string; 'text-color'?: string }> | undefined;
         return ({ row }) => {
             const val = getCellValue(row, key);
             if (Array.isArray(val)) {
@@ -232,6 +236,9 @@ const RENDERERS: Record<string, RendererFactory> = {
                         ))}
                     </div>
                 ) : <span className="text-sm text-muted-foreground">{config.falseLabel || "Chưa có"}</span>;
+            }
+            if (opts?.length && val != null && val !== '') {
+                return <StatusBadge value={val as string | number} options={opts} />;
             }
             const active = !!val;
             return (
@@ -328,6 +335,11 @@ export function processColumns<TData extends BaseData>(
         const key = p.accessorKey;
         const result = { ...col } as unknown as ExtendedColumnDef<TData> & Record<string, unknown>;
 
+        // Resolve type early for sorting logic
+        const rawType = (p.ui || p.type || 'text') as string;
+        const typeMapping: Record<string, string> = { attachment: 'media', attachments: 'media', image: 'media' };
+        const type = typeMapping[rawType] || rawType;
+
         if (key && resource && (!col.header || col.header === key)) {
             result.header = resolveFieldLabel(key, resource);
         }
@@ -338,17 +350,42 @@ export function processColumns<TData extends BaseData>(
             result.meta = { ...((result.meta as Record<string, unknown>) || {}), width: rawWidth };
         }
 
-        if (p.sort) {
+        // Enable sorting by default for standard fields if not specified otherwise
+        // Skip for media (attachment), select, actions, checkbox
+        const isExcludedId = ['actions', 'select'].includes(p.id as string) || ['actions', 'select'].includes(p.accessorKey as string);
+        const isExcludedType = ['media', 'checkbox', 'actions', 'select'].includes(type) || isExcludedId;
+        const shouldEnableSort = p.sort !== false && col.enableSorting !== false && !isExcludedType;
+        
+        if (p.sort || shouldEnableSort) {
             const sortKey = p.sortAccessorKey || key;
             const title = typeof result.header === 'string' ? result.header : resolveFieldLabel(sortKey, resource);
             result.enableSorting = true;
-            result.header = (({ column: c }: { column: Column<TData, unknown> }) => (
-                <Button variant="ghost" onClick={() => c.toggleSorting(c.getIsSorted() === "asc")} className="h-8 px-2 lg:px-3">
-                    {p.iconPosition !== 'right' && p.icon && <span className="mr-2">{p.icon}</span>}
-                    {title}
-                    {p.iconPosition === 'right' && p.icon && <span className="ml-2">{p.icon}</span>}
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
+            result.header = (({ column: c, table }: { column: Column<TData, unknown>, table: any }) => (
+                <div className="flex items-center justify-between group/header w-full min-w-0">
+                    <div className="flex items-center gap-2 overflow-hidden mr-2">
+                        {p.iconPosition !== 'right' && p.icon && <span className="shrink-0">{p.icon}</span>}
+                        <span className="truncate font-medium">{title}</span>
+                        {p.iconPosition === 'right' && p.icon && <span className="shrink-0">{p.icon}</span>}
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            const isSorted = c.getIsSorted();
+                            if (isSorted === "asc") c.toggleSorting(true);      // To DESC
+                            else if (isSorted === "desc") table.setSorting([]); // Clear ALL (since we only sort one)
+                            else c.toggleSorting(false);                        // To ASC
+                        }}
+                        className={cn(
+                            "h-7 w-7 p-0 shrink-0 bg-transparent border-none hover:bg-transparent shadow-none focus-visible:ring-0",
+                            c.getIsSorted() ? "opacity-100" : "opacity-40 group-hover/header:opacity-100 transition-opacity"
+                        )}
+                    >
+                        {c.getIsSorted() === "asc" && <ArrowUp className="h-3.5 w-3.5 transition-colors text-primary" />}
+                        {c.getIsSorted() === "desc" && <ArrowDown className="h-3.5 w-3.5 transition-colors text-primary" />}
+                        {!c.getIsSorted() && <ArrowUpDown className="h-3.5 w-3.5 transition-colors hover:text-primary group-hover/header:text-primary/70" />}
+                    </Button>
+                </div>
             )) as ColumnDef<TData>['header'];
             if (p.sortAccessorKey) result.accessorFn = (r: TData) => (r as BaseData)[p.sortAccessorKey as string];
         } else if (p.icon && typeof result.header === 'string') {
@@ -362,9 +399,6 @@ export function processColumns<TData extends BaseData>(
             );
         }
 
-        const rawType = (p.ui || p.type || 'text') as string;
-        const typeMapping: Record<string, string> = { attachment: 'media', attachments: 'media', image: 'media' };
-        const type = typeMapping[rawType] || rawType;
         const factory = RENDERERS[type];
 
         if (factory) {

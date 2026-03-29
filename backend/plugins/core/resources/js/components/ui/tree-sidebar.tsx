@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { GripVertical, ChevronRight, ChevronDown, Plus, Minus, ArrowUpToLine, CirclePlus } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { GripVertical, ChevronDown, Plus, ArrowUpToLine, CirclePlus, ListTree, FolderMinus, FolderPlus } from 'lucide-react';
 import { Button } from './button';
 import { cn } from '@core/lib/utils';
 import { ScrollArea } from './scroll-area';
@@ -42,23 +42,43 @@ interface TreeSidebarProps {
     className?: string;
 }
 
-const buildTree = (items: TreeItemData[], parentId: string | number | null = null): any[] => {
+const buildTree = (items: TreeItemData[]): any[] => {
+    if (!items || items.length === 0) return [];
     if (items.some(item => Array.isArray(item.children))) return items;
-    return items
-        .filter(item => item.parent_id === parentId || (parentId === null && !item.parent_id))
-        .map(item => ({
+
+    const itemMap = new Map<string | number, any>();
+    const roots: any[] = [];
+
+    // First pass: Create nodes with localized titles and empty children
+    for (const item of items) {
+        itemMap.set(item.id, {
             ...item,
             title: getLocalized(item.name || item.title || `Item ${item.id}`),
-            children: buildTree(items, item.id),
-        }));
+            children: [],
+        });
+    }
+
+    // Second pass: Build the tree structure
+    for (const item of items) {
+        const node = itemMap.get(item.id);
+        const parentId = item.parent_id;
+
+        if (parentId && itemMap.has(parentId)) {
+            itemMap.get(parentId).children.push(node);
+        } else {
+            roots.push(node);
+        }
+    }
+
+    return roots;
 };
 
-const TreeNode = ({
+const TreeNode = React.memo(({
     node,
     level = 0,
     selectedId,
     onSelect,
-    expandedKeys,
+    isExpanded,
     toggleExpand,
     isOver,
     onMoveOut,
@@ -68,131 +88,129 @@ const TreeNode = ({
     level?: number;
     selectedId?: string | number | null;
     onSelect?: (item: TreeItemData) => void;
-    expandedKeys: Set<string | number>;
+    isExpanded: boolean;
     toggleExpand: (id: string | number) => void;
     isOver?: boolean;
-    dragDeltaX?: number;
     onMoveOut?: () => void;
     onAddChild?: () => void;
 }) => {
-    const isExpanded = expandedKeys.has(node.id);
     const hasChildren = node.children && node.children.length > 0;
     const isSelected = selectedId === node.id;
-    const label = getLocalized(node.name || node.title || `Item ${node.id}`);
+    const label = node.title;
     const status = node.status;
 
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: node.id });
-    const style = { transform: CSS.Translate.toString(transform), transition };
+    const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: node.id });
+
+    const style = {
+        transform: CSS.Translate.toString(transform),
+        transition,
+    };
+
     const showIndicator = isOver && !isDragging;
 
     return (
         <div
             ref={setNodeRef}
             style={style}
-            {...attributes}
             className={cn(
-                "relative w-full",
-                isDragging && "opacity-40",
-                showIndicator && "after:absolute after:bottom-0 after:left-3 after:right-3 after:h-0.5 after:bg-primary after:rounded-full"
+                "relative w-full group/node",
+                isDragging && "opacity-40 z-50",
+                showIndicator && "after:absolute after:bottom-0 after:left-3 after:right-3 after:h-0.5 after:bg-primary after:rounded-full after:shadow-[0_0_8px_rgba(var(--primary),0.4)]"
             )}
         >
             {/* Indent guides */}
             {level > 0 && Array.from({ length: level }).map((_, i) => (
-                <div key={i} className="absolute top-0 bottom-0 w-px bg-border/40"
+                <div key={i} className="absolute top-0 bottom-0 w-px bg-border/30"
                     style={{ left: `${i * 20 + 20}px` }} />
             ))}
 
             <div
                 className={cn(
-                    "group relative flex items-center gap-2 rounded-md px-2 py-2 cursor-pointer select-none transition-colors text-sm",
+                    "group/item relative flex items-center gap-3 rounded-sm px-3 py-1 cursor-pointer select-none transition-all duration-300 text-sm",
                     isSelected
-                        ? "bg-primary/10 text-primary"
-                        : "hover:bg-muted/60 text-foreground/80 hover:text-foreground"
+                        ? "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/25 font-semibold"
+                        : "hover:bg-primary/5 text-foreground/70 hover:text-primary hover:shadow-md hover:shadow-primary/5"
                 )}
-                style={{ paddingLeft: `${level * 20 + 8}px` }}
+                style={{ marginLeft: `${level * 20}px` }}
                 onClick={() => onSelect?.(node)}
             >
-                {/* Selected accent */}
-                {isSelected && (
-                    <div className="absolute left-0 inset-y-1 w-0.5 bg-primary rounded-r-full" />
-                )}
-
-                {/* Expand toggle */}
-                <div className="w-4 h-4 shrink-0 flex items-center justify-center">
-                    {hasChildren ? (
-                        <div
-                            className="text-muted-foreground/60 hover:text-foreground transition-colors"
-                            onClick={(e) => { e.stopPropagation(); toggleExpand(node.id); }}
-                        >
-                            {isExpanded
-                                ? <ChevronDown className="w-3.5 h-3.5" />
-                                : <ChevronRight className="w-3.5 h-3.5" />}
-                        </div>
-                    ) : <div className="w-3.5" />}
-                </div>
-
-                {/* Drag handle */}
                 <div
-                    className="text-muted-foreground/30 hover:text-muted-foreground/70 cursor-grab active:cursor-grabbing transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                    className="absolute -left-2 top-1/2 -translate-y-1/2 w-6 h-7 flex items-center justify-center rounded-sm bg-background border border-border shadow-md text-muted-foreground/40 hover:text-primary hover:border-primary/30 transition-all opacity-0 group-hover/node:opacity-100 cursor-grab active:cursor-grabbing z-20 scale-90 group-hover/node:scale-100"
                     {...listeners}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <GripVertical className="w-3.5 h-3.5" />
+                    <GripVertical className="w-4 h-4" />
+                </div>
+
+                <div className="w-5 h-5 shrink-0 flex items-center justify-center">
+                    {hasChildren ? (
+                        <div
+                            className={cn(
+                                "p-1 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-300",
+                                isExpanded ? "rotate-0" : "-rotate-90"
+                            )}
+                            onClick={(e) => { e.stopPropagation(); toggleExpand(node.id); }}
+                        >
+                            <ChevronDown className="w-4 h-4" />
+                        </div>
+                    ) : <div className="w-4 h-4" />}
                 </div>
 
                 {/* Label */}
-                <span className="flex-1 truncate text-[13px]">{label}</span>
+                <span className="flex-1 truncate text-[13px] leading-tight">{label}</span>
 
                 {/* Status badge */}
                 {status && (
-                    <span className={cn(
-                        "inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0",
+                    <div className={cn(
+                        "inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0",
                         status === 'published'
-                            ? "bg-emerald-500/10 text-emerald-600"
-                            : "bg-amber-500/10 text-amber-600"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20"
+                            : "bg-amber-500/10 text-amber-600 dark:bg-amber-500/20"
                     )}>
                         <span className={cn(
                             "w-1.5 h-1.5 rounded-full",
-                            status === 'published' ? "bg-emerald-500" : "bg-amber-400"
+                            status === 'published' ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
                         )} />
                         {status === 'published' ? 'Hiển thị' : 'Nháp'}
-                    </span>
+                    </div>
                 )}
 
                 {/* Child count */}
-                {hasChildren && (
-                    <span className="text-[10px] text-muted-foreground/40 tabular-nums shrink-0">
+                {hasChildren && !isExpanded && (
+                    <span className="flex items-center justify-center min-w-5 h-5 px-1 bg-muted/50 rounded text-[10px] text-muted-foreground font-medium tabular-nums shrink-0">
                         {node.children.length}
                     </span>
                 )}
 
                 {/* Inline actions */}
-                <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     {onMoveOut && (
-                        <button
-                            type="button"
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             title="Chuyển lên cấp trên"
-                            className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground/50 hover:text-foreground hover:bg-accent transition-colors"
+                            className="w-7 h-7 rounded-lg text-muted-foreground/50 hover:text-primary hover:bg-primary/10 shadow-none transition-all duration-200"
                             onClick={(e) => { e.stopPropagation(); onMoveOut(); }}
                         >
-                            <ArrowUpToLine className="w-3 h-3" />
-                        </button>
+                            <ArrowUpToLine className="w-3.5 h-3.5" />
+                        </Button>
                     )}
                     {onAddChild && (
-                        <button
-                            type="button"
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             title="Thêm mục con"
-                            className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground/50 hover:text-foreground hover:bg-accent transition-colors"
+                            className="w-7 h-7 rounded-lg text-muted-foreground/50 hover:text-primary hover:bg-primary/10 shadow-none transition-all duration-200"
                             onClick={(e) => { e.stopPropagation(); onAddChild(); }}
                         >
-                            <CirclePlus className="w-3 h-3" />
-                        </button>
+                            <CirclePlus className="w-3.5 h-3.5" />
+                        </Button>
                     )}
                 </div>
             </div>
         </div>
     );
-};
+});
 
 export const TreeSidebar = ({
     items,
@@ -207,7 +225,6 @@ export const TreeSidebar = ({
     const [expandedKeys, setExpandedKeys] = useState<Set<string | number>>(new Set());
     const [activeId, setActiveId]   = useState<string | number | null>(null);
     const [overId, setOverId]       = useState<string | number | null>(null);
-    const [dragDeltaX, setDragDeltaX] = useState(0);
 
     const flatVisible = useMemo(() => {
         const flatten = (nodes: any[], level = 0): Array<{ node: any; level: number }> => {
@@ -227,20 +244,20 @@ export const TreeSidebar = ({
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    const toggleExpand = (id: string | number) => {
+    const toggleExpand = useCallback((id: string | number) => {
         setExpandedKeys(prev => {
             const next = new Set(prev);
             next.has(id) ? next.delete(id) : next.add(id);
             return next;
         });
-    };
+    }, []);
 
-    const handleDragStart = (e: DragStartEvent) => { setActiveId(e.active.id); setOverId(null); setDragDeltaX(0); };
-    const handleDragOver  = (e: DragOverEvent)  => { setOverId(e.over?.id ?? null); };
-    const handleDragMove  = (e: DragMoveEvent)  => { setDragDeltaX(e.delta.x); };
+    const handleDragStart = useCallback((e: DragStartEvent) => { setActiveId(e.active.id); setOverId(null); }, []);
+    const handleDragOver  = useCallback((e: DragOverEvent)  => { setOverId(e.over?.id ?? null); }, []);
+    const handleDragMove  = useCallback((e: DragMoveEvent)  => { }, []);
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        setActiveId(null); setOverId(null); setDragDeltaX(0);
+    const handleDragEnd = useCallback((event: DragEndEvent) => {
+        setActiveId(null); setOverId(null);
         const { active, over, delta } = event;
         if (!over || active.id === over.id) return;
 
@@ -263,62 +280,82 @@ export const TreeSidebar = ({
             if (newParentId === null || !isParentOf(active.id, newParentId))
                 onMove?.(activeItem.id, newParentId);
         }
-    };
+    }, [items, onMove]);
 
-    const expandAll = () => {
+    const expandAll = useCallback(() => {
         const ids = new Set<string | number>();
         const walk = (nodes: any[]) => nodes.forEach(n => { if (n.children?.length) { ids.add(n.id); walk(n.children); } });
         walk(treeData);
         setExpandedKeys(ids);
-    };
-    const collapseAll = () => setExpandedKeys(new Set());
+    }, [treeData]);
+
+    const collapseAll = useCallback(() => setExpandedKeys(new Set()), []);
 
     const flatIds = useMemo(() => flatVisible.map(f => f.node.id), [flatVisible]);
 
     return (
-        <div className={cn("flex flex-col border rounded-xl bg-card shadow-sm overflow-hidden h-[calc(100vh-10rem)]", className)}>
+        <div className={cn("flex flex-col border rounded-xl bg-card shadow-sm h-[calc(100vh-10rem)]", className)}>
 
-            {/* ── Toolbar ────────────────────────────── */}
-            <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-background shrink-0 flex-wrap">
-                {onCreateClick && (
-                    <Button size="sm" onClick={onCreateClick} className="gap-1.5 h-8 px-3 text-sm font-medium">
-                        <Plus className="w-3.5 h-3.5" />
-                        Thêm mới
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/20 shrink-0">
+                <div className="flex items-center gap-2">
+                    <ListTree className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold">Danh mục</span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={collapseAll}
+                        className="h-8 gap-1.5 px-2 rounded-lg hover:bg-primary/10 hover:text-primary text-muted-foreground transition-all duration-200 font-medium"
+                    >
+                        <FolderMinus className="w-4 h-4" />
+                        <span className="text-xs">Thu gọn</span>
                     </Button>
-                )}
-                <Button size="sm" variant="outline" onClick={collapseAll} className="gap-1.5 h-8 px-3 text-sm font-medium">
-                    <Minus className="w-3.5 h-3.5" />
-                    Thu gọn
-                </Button>
-                <Button size="sm" variant="outline" onClick={expandAll} className="gap-1.5 h-8 px-3 text-sm font-medium">
-                    <Plus className="w-3.5 h-3.5" />
-                    Mở rộng
-                </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={expandAll}
+                        className="h-8 gap-1.5 px-2 rounded-lg hover:bg-primary/10 hover:text-primary text-muted-foreground transition-all duration-200 font-medium"
+                    >
+                        <FolderPlus className="w-4 h-4" />
+                        <span className="text-xs">Mở rộng</span>
+                    </Button>
+                    {onCreateClick && (
+                        <Button
+                            size="sm"
+                            onClick={onCreateClick}
+                            className="ml-1 gap-1.5 h-8 px-3 rounded-lg shadow-none font-medium"
+                        >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span className="text-xs">Thêm mới</span>
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* ── Tree list ──────────────────────────── */}
             <ScrollArea className="flex-1">
-                {treeData.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 px-6 text-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
-                            <ChevronRight className="w-5 h-5 text-muted-foreground/30" />
+                <div className="pt-2 pb-6 flex flex-col gap-0.5 px-3">
+                    {treeData.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-6 text-center gap-4">
+                            <div className="w-16 h-16 rounded-3xl bg-muted/30 flex items-center justify-center border border-dashed border-border">
+                                <ListTree className="w-8 h-8 text-muted-foreground/20" />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-sm font-semibold text-foreground/70">Chưa có dữ liệu</p>
+                                <p className="text-xs text-muted-foreground/50">Hãy bắt đầu bằng cách thêm mục mới.</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-sm font-medium text-foreground/60">Không có dữ liệu</p>
-                            <p className="text-xs text-muted-foreground/40 mt-0.5">Hãy thêm mục đầu tiên.</p>
-                        </div>
-                    </div>
-                ) : (
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragStart={handleDragStart}
-                        onDragOver={handleDragOver}
-                        onDragMove={handleDragMove}
-                        onDragEnd={handleDragEnd}
-                    >
-                        <SortableContext items={flatIds} strategy={verticalListSortingStrategy}>
-                            <div className="p-2 flex flex-col gap-0.5">
+                    ) : (
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragStart={handleDragStart}
+                            onDragOver={handleDragOver}
+                            onDragMove={handleDragMove}
+                            onDragEnd={handleDragEnd}
+                        >
+                            <SortableContext items={flatIds} strategy={verticalListSortingStrategy}>
                                 {flatVisible.map(({ node, level }) => {
                                     const item = items.find(i => i.id === node.id);
 
@@ -342,19 +379,18 @@ export const TreeSidebar = ({
                                             level={level}
                                             selectedId={selectedId}
                                             onSelect={onSelect}
-                                            expandedKeys={expandedKeys}
+                                            isExpanded={expandedKeys.has(node.id)}
                                             toggleExpand={toggleExpand}
                                             isOver={overId === node.id && activeId !== node.id}
-                                            dragDeltaX={dragDeltaX}
                                             onMoveOut={handleMoveOut}
                                             onAddChild={handleAddChild}
                                         />
                                     );
                                 })}
-                            </div>
-                        </SortableContext>
-                    </DndContext>
-                )}
+                            </SortableContext>
+                        </DndContext>
+                    )}
+                </div>
             </ScrollArea>
         </div>
     );

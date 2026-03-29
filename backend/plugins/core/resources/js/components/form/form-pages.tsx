@@ -11,9 +11,10 @@ import type { FormProps, FormRef, FormData } from "@core/types/forms";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { usePage, router } from "@inertiajs/react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, List, Network } from "lucide-react";
 import { isAxiosError } from "axios";
 import { Button } from "@core/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@core/components/ui/toggle-group";
 import { createPortal } from "react-dom";
 import { forwardRef, useImperativeHandle, useCallback, useMemo, useState, useEffect } from "react";
 import { useForm as useReactHookForm, type UseFormReturn, type SubmitHandler, type FieldErrors, type SetValueConfig } from "react-hook-form";
@@ -314,33 +315,46 @@ export const FormPages = forwardRef<FormRef, FormProps>(({
               {title || routeTitle}
             </h1>
           )}
+          {layouts.length > 1 && (
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(val) => val && onViewModeChange?.(val)}
+              className="ml-auto bg-muted/30 p-1 rounded-xl border border-border/50 shadow-sm h-9 backdrop-blur-sm"
+            >
+              {layouts.includes('table') && (
+                <ToggleGroupItem value="table" aria-label="Table View" size="sm" className="h-7 w-8 px-0 data-[state=on]:bg-background data-[state=on]:text-primary data-[state=on]:shadow-sm rounded-lg transition-all">
+                  <List className="h-4 w-4" />
+                </ToggleGroupItem>
+              )}
+              {layouts.includes('tree') && (
+                <ToggleGroupItem value="tree" aria-label="Tree View" size="sm" className="h-7 w-8 px-0 data-[state=on]:bg-background data-[state=on]:text-primary data-[state=on]:shadow-sm rounded-lg transition-all">
+                  <Network className="h-4 w-4" />
+                </ToggleGroupItem>
+              )}
+            </ToggleGroup>
+          )}
           {portalTarget ? (
             createPortal(
-              <ToolbarFormPage 
-                isEdit={isEdit} 
-                onSave={handleSave} 
-                onDelete={handleDelete} 
-                onDuplicate={handleDuplicate} 
-                showDelete={views?.actions?.delete !== false} 
-                showDuplicate={views?.actions?.duplicate !== false} 
-                layouts={layouts} 
-                viewMode={viewMode} 
-                onViewModeChange={onViewModeChange} 
+              <ToolbarFormPage
+                isEdit={isEdit}
+                onSave={handleSave}
+                onDelete={handleDelete}
+                onDuplicate={handleDuplicate}
+                showDelete={views?.actions?.delete !== false}
+                showDuplicate={views?.actions?.duplicate !== false}
               />,
               portalTarget
             )
           ) : (
-            <ToolbarFormPage 
-                className="ml-auto" 
-                isEdit={isEdit} 
-                onSave={handleSave} 
-                onDelete={handleDelete} 
-                onDuplicate={handleDuplicate} 
-                showDelete={views?.actions?.delete !== false} 
-                showDuplicate={views?.actions?.duplicate !== false} 
-                layouts={layouts} 
-                viewMode={viewMode} 
-                onViewModeChange={onViewModeChange} 
+            <ToolbarFormPage
+                className="ml-auto"
+                isEdit={isEdit}
+                onSave={handleSave}
+                onDelete={handleDelete}
+                onDuplicate={handleDuplicate}
+                showDelete={views?.actions?.delete !== false}
+                showDuplicate={views?.actions?.duplicate !== false}
             />
           )}
         </div>

@@ -104,6 +104,9 @@ export function DataTable<TData extends Record<string, unknown>, TValue>(props: 
                 onAdvancedFilterClear={handleAdvancedFilterClear}
                 onAdvancedFiltersChange={hookData.setAdvancedFilters}
                 resourceName={hookData.resourceName}
+                viewMode={props.viewMode}
+                layouts={props.layouts}
+                onViewModeChange={props.onViewModeChange}
             />
 
             <div className="rounded-md border overflow-visible">

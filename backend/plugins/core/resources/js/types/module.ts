@@ -38,6 +38,14 @@ export interface ViewsConfig {
     };
     fields?: Array<string | Record<string, unknown>>;
     filters?: Array<Record<string, unknown>>;
+    dashboards?: Array<{
+        title: string;
+        value?: number | string | null;
+        prefix?: string;
+        suffix?: string;
+        color?: string;
+        query?: Record<string, unknown>;
+    }>;
     [key: string]: unknown;
 }
 

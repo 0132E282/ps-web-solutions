@@ -21,7 +21,7 @@ import { Input } from "@core/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@core/components/ui/dialog";
 import { Button } from "@core/components/ui/button";
 import { Label } from "@core/components/ui/label";
-import { Cloud } from "lucide-react";
+import { Cloud, Upload, FolderPlus } from "lucide-react";
 import {
   Empty,
   EmptyContent,
@@ -374,13 +374,30 @@ const Index = () => {
     }
   };
 
+    const headerToolbar = (
+      <div className="flex items-center gap-2">
+        <Button
+          className="gap-2"
+          onClick={handleUpload}
+        >
+          <Upload className="h-4 w-4" />
+          Tải tệp
+        </Button>
+        <Button
+          className="gap-2"
+          onClick={handleCreateFolder}
+        >
+          <FolderPlus className="h-4 w-4" />
+          Tạo thư mục
+        </Button>
+      </div>
+    );
+
   return (
-    <AppLayout breadcrumbs={breadcrumbs}>
+    <AppLayout breadcrumbs={breadcrumbs} toolbar={headerToolbar}>
       <div className="space-y-4">
         <FileHeader
           onBack={handleBack}
-          onUpload={handleUpload}
-          onCreateFolder={handleCreateFolder}
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
         />
