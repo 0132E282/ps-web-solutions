@@ -400,14 +400,14 @@ const Index = () => {
           onBack={handleBack}
           searchValue={searchQuery}
           onSearchChange={setSearchQuery}
-        />
-
-        <FileToolbar
           sortBy={sortBy}
           sortOrder={sortOrder}
           viewMode={viewMode}
           onSortChange={handleSort}
           onViewModeChange={setViewMode}
+        />
+
+        <FileToolbar
           selectedItems={getSelectedItems()}
           onCopy={handleCopy}
           onCut={handleCut}

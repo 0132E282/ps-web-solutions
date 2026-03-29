@@ -14,6 +14,15 @@ interface FileSelectionActionsProps {
   onClearSelection?: () => void;
 }
 
+interface ActionConfig {
+  label: string;
+  icon: any;
+  onClick: (items: FileItem[]) => void;
+  variant?: "outline" | "destructive" | "default" | "ghost";
+  className?: string;
+  show?: boolean;
+}
+
 // Check if file is a compressed archive
 const isArchiveFile = (fileName: string): boolean => {
   const archiveExtensions = ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz'];
@@ -38,6 +47,56 @@ export const FileSelectionActions = ({
 
   const hasArchiveFiles = selectedItems.some(item => item.type === "file" && isArchiveFile(item.name));
 
+  const actions: ActionConfig[] = [
+    {
+      label: "Sao chép",
+      icon: Copy,
+      onClick: onCopy!,
+      show: !!onCopy,
+    },
+    {
+      label: "Cắt",
+      icon: Scissors,
+      onClick: onCut!,
+      show: !!onCut,
+    },
+    {
+      label: "Tải xuống",
+      icon: Download,
+      onClick: onDownload!,
+      show: !!onDownload,
+    },
+    {
+      label: "Di chuyển",
+      icon: Folder,
+      onClick: onMove!,
+      show: !!onMove,
+    },
+    {
+      label: "Nén",
+      icon: Archive,
+      onClick: onCompress!,
+      show: !!onCompress,
+    },
+    {
+      label: "Giải nén",
+      icon: FileArchive,
+      onClick: (items) => {
+        const archiveFiles = items.filter(item => item.type === "file" && isArchiveFile(item.name));
+        onExtract?.(archiveFiles);
+      },
+      show: !!onExtract && hasArchiveFiles,
+    },
+    {
+      label: "Xóa",
+      icon: Trash2,
+      onClick: onDelete!,
+      variant: "destructive",
+      className: "text-white",
+      show: !!onDelete,
+    },
+  ];
+
   return (
     <div className="flex items-center gap-4">
       <span className="text-sm font-medium">
@@ -45,83 +104,31 @@ export const FileSelectionActions = ({
       </span>
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onCopy?.(selectedItems)}
-            className="gap-2"
-          >
-            <Copy className="h-4 w-4" />
-            Sao chép
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onCut?.(selectedItems)}
-            className="gap-2"
-          >
-            <Scissors className="h-4 w-4" />
-            Cắt
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onDownload?.(selectedItems)}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Tải xuống
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onMove?.(selectedItems)}
-            className="gap-2"
-          >
-            <Folder className="h-4 w-4" />
-            Di chuyển
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onCompress?.(selectedItems)}
-            className="gap-2"
-          >
-            <Archive className="h-4 w-4" />
-            Nén
-          </Button>
-          {hasArchiveFiles && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const archiveFiles = selectedItems.filter(item => item.type === "file" && isArchiveFile(item.name));
-                onExtract?.(archiveFiles);
-              }}
-              className="gap-2"
-            >
-              <FileArchive className="h-4 w-4" />
-              Giải nén
-            </Button>
-          )}
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => onDelete?.(selectedItems)}
-            className="gap-2 text-white"
-          >
-            <Trash2 className="h-4 w-4" />
-            Xóa
-          </Button>
+          {actions
+            .filter((action) => action.show !== false)
+            .map((action, index) => (
+              <Button
+                key={index}
+                variant={action.variant || "outline"}
+                size="sm"
+                onClick={() => action.onClick(selectedItems)}
+                className={`gap-2 ${action.className || ""}`}
+              >
+                <action.icon className="h-4 w-4" />
+                {action.label}
+              </Button>
+            ))}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClearSelection}
-          className="h-8 w-8"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        {onClearSelection && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClearSelection}
+            className="h-8 w-8"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );

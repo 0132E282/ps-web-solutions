@@ -26,12 +26,16 @@ interface FileHeaderProps {
 
 const BUTTON_CLASS = "gap-2";
 
-const sortLabels: Record<string, string> = {
-  name: "Tên",
-  date: "Ngày",
-  size: "Kích thước",
-  last_modified: "Ngày sửa đổi",
-};
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+  { value: "name", label: "Tên" },
+  { value: "last_modified", label: "Ngày sửa đổi" },
+  { value: "size", label: "Kích thước" },
+];
+
+const VIEW_OPTIONS: { value: ViewMode; icon: any }[] = [
+  { value: "grid", icon: Grid3x3 },
+  { value: "list", icon: List },
+];
 
 export const FileHeader = memo(({
   onUpload,
@@ -61,7 +65,7 @@ export const FileHeader = memo(({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="gap-2">
-                {sortLabels[sortBy] || sortBy}
+                {SORT_OPTIONS.find((opt) => opt.value === sortBy)?.label || sortBy}
                 {sortOrder === "asc" ? (
                   <ChevronUp className="h-4 w-4" />
                 ) : (
@@ -70,35 +74,30 @@ export const FileHeader = memo(({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => onSortChange("name")}>
-                Tên
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onSortChange("last_modified")}>
-                Ngày sửa đổi
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onSortChange("size")}>
-                Kích thước
-              </DropdownMenuItem>
+              {SORT_OPTIONS.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() => onSortChange(option.value)}
+                >
+                  {option.label}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
         
         {onViewModeChange && (
           <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === "grid" ? "default" : "outline"}
-              size="icon"
-              onClick={() => onViewModeChange("grid")}
-            >
-              <Grid3x3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "outline"}
-              size="icon"
-              onClick={() => onViewModeChange("list")}
-            >
-              <List className="h-4 w-4" />
-            </Button>
+            {VIEW_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                variant={viewMode === option.value ? "default" : "outline"}
+                size="icon"
+                onClick={() => onViewModeChange(option.value)}
+              >
+                <option.icon className="h-4 w-4" />
+              </Button>
+            ))}
           </div>
         )}
 

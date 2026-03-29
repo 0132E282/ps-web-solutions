@@ -10,11 +10,11 @@ import type { SortBy, SortOrder, ViewMode, FileItem } from "@core/types";
 import { FileSelectionActions } from "./FileSelectionActions";
 
 interface FileToolbarProps {
-  sortBy: SortBy;
-  sortOrder: SortOrder;
-  viewMode: ViewMode;
-  onSortChange: (sortBy: SortBy) => void;
-  onViewModeChange: (viewMode: ViewMode) => void;
+  sortBy?: SortBy;
+  sortOrder?: SortOrder;
+  viewMode?: ViewMode;
+  onSortChange?: (sortBy: SortBy) => void;
+  onViewModeChange?: (viewMode: ViewMode) => void;
   selectedItems?: FileItem[];
   onCopy?: (items: FileItem[]) => void;
   onCut?: (items: FileItem[]) => void;
@@ -26,16 +26,22 @@ interface FileToolbarProps {
   onClearSelection?: () => void;
 }
 
-const sortLabels: Record<SortBy, string> = {
-  name: "Tên",
-  date: "Ngày",
-  size: "Kích thước",
-};
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+  { value: "name", label: "Tên" },
+  { value: "last_modified", label: "Ngày" },
+  { value: "size", label: "Kích thước" },
+  { value: "type", label: "Loại" },
+];
+
+const VIEW_OPTIONS = [
+  { value: "grid", icon: Grid3x3 },
+  { value: "list", icon: List },
+];
 
 export const FileToolbar = ({
-  sortBy,
-  sortOrder,
-  viewMode,
+  sortBy = "name",
+  sortOrder = "asc",
+  viewMode = "grid",
   onSortChange,
   onViewModeChange,
   selectedItems = [],
@@ -62,45 +68,48 @@ export const FileToolbar = ({
         onClearSelection={onClearSelection}
       />
 
-      <div className="flex items-center gap-2 ml-auto">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              {sortLabels[sortBy]}
-              {sortOrder === "asc" ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => onSortChange("name")}>
-              Tên
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSortChange("date")}>
-              Ngày
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onSortChange("size")}>
-              Kích thước
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button
-          variant={viewMode === "grid" ? "default" : "outline"}
-          size="icon"
-          onClick={() => onViewModeChange("grid")}
-        >
-          <Grid3x3 className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={viewMode === "list" ? "default" : "outline"}
-          size="icon"
-          onClick={() => onViewModeChange("list")}
-        >
-          <List className="h-4 w-4" />
-        </Button>
-      </div>
+      {(onSortChange || onViewModeChange) && (
+        <div className="flex items-center gap-2 ml-auto">
+          {onSortChange && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  {SORT_OPTIONS.find((opt) => opt.value === sortBy)?.label || sortBy}
+                  {sortOrder === "asc" ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {SORT_OPTIONS.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => onSortChange(option.value)}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          {onViewModeChange && (
+            <div className="flex items-center gap-2">
+              {VIEW_OPTIONS.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={viewMode === option.value ? "default" : "outline"}
+                  size="icon"
+                  onClick={() => onViewModeChange(option.value as ViewMode)}
+                >
+                  <option.icon className="h-4 w-4" />
+                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
