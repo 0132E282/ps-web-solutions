@@ -1,3 +1,8 @@
+export interface BaseResourceItem {
+    id: string | number;
+    [key: string]: unknown;
+}
+
 export interface PaginationMeta {
     current_page: number;
     from: number;

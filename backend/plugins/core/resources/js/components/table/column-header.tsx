@@ -1,5 +1,5 @@
 import { Column } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ChevronsUpDown, EyeOff } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, EyeOff, LucideIcon } from "lucide-react";
 
 import { cn } from "@core/lib/utils";
 import { Button } from "@core/components/ui/button";
@@ -17,6 +17,14 @@ interface DataTableColumnHeaderProps<TData, TValue>
     title: string;
 }
 
+interface MenuItem {
+    label?: string;
+    icon?: LucideIcon;
+    onClick?: () => void;
+    separator?: boolean;
+    show?: boolean;
+}
+
 export function DataTableColumnHeader<TData, TValue>({
     column,
     title,
@@ -25,6 +33,29 @@ export function DataTableColumnHeader<TData, TValue>({
     if (!column.getCanSort()) {
         return <div className={cn(className)}>{title}</div>;
     }
+
+    const menuItems: MenuItem[] = [
+        {
+            label: "Tăng dần",
+            icon: ArrowUp,
+            onClick: () => column.toggleSorting(false),
+        },
+        {
+            label: "Giảm dần",
+            icon: ArrowDown,
+            onClick: () => column.toggleSorting(true),
+        },
+        {
+            separator: true,
+            show: column.getCanHide(),
+        },
+        {
+            label: "Ẩn cột",
+            icon: EyeOff,
+            onClick: () => column.toggleVisibility(false),
+            show: column.getCanHide(),
+        },
+    ];
 
     return (
         <div className={cn("flex items-center gap-2", className)}>
@@ -46,19 +77,22 @@ export function DataTableColumnHeader<TData, TValue>({
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
-                    <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
-                        <ArrowUp className="mr-2 h-4 w-4" />
-                        Tăng dần
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => column.toggleSorting(true)}>
-                        <ArrowDown className="mr-2 h-4 w-4" />
-                        Giảm dần
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
-                        <EyeOff className="mr-2 h-4 w-4" />
-                        Ẩn cột
-                    </DropdownMenuItem>
+                    {menuItems.map((item, index) => {
+                        if (item.show === false) return null;
+
+                        if (item.separator) {
+                            return <DropdownMenuSeparator key={index} />;
+                        }
+
+                        const Icon = item.icon;
+
+                        return (
+                            <DropdownMenuItem key={index} onClick={item.onClick}>
+                                {Icon && <Icon className="mr-2 h-4 w-4" />}
+                                {item.label}
+                            </DropdownMenuItem>
+                        );
+                    })}
                 </DropdownMenuContent>
             </DropdownMenu>
         </div>

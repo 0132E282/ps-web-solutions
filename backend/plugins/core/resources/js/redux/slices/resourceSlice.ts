@@ -1,12 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import type { Resource, ResourcePagination } from '../../types/resource';
-
-// Define a generic type for resource items that MUST have an ID
-interface BaseResourceItem {
-    id: string | number;
-    [key: string]: unknown;
-}
+import type { Resource, ResourcePagination, BaseResourceItem } from '../../types/resource';
 
 interface ResourcesState {
     [key: string]: Resource<BaseResourceItem>;

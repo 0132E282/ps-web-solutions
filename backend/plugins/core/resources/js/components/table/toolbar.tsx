@@ -1,15 +1,12 @@
 import { Input } from "@core/components/ui/input";
-import { getColumnKey } from "@core/hooks/use-datatable";
-import { useModule } from "@core/hooks/use-module";
+import { ToggleGroup, ToggleGroupItem } from "@core/components/ui/toggle-group";
 import { tt } from "@core/lib/i18n";
 import type { DataTableFilter } from "@core/types/filter";
 import { type ColumnDef, type Table } from "@tanstack/react-table";
-import { Search, X } from "lucide-react";
-import { useCallback, useMemo } from "react";
-import { default as AdvancedFilter, type AdvancedFilterCondition, type AdvancedFilterField } from "../advanced-filter";
+import { List, Network, Search, X } from "lucide-react";
+import { default as AdvancedFilter, type AdvancedFilterCondition } from "../advanced-filter";
 import { ColumnVisibilityDropdown } from "./column-visibility-dropdown";
-import { ToggleGroup, ToggleGroupItem } from "@core/components/ui/toggle-group";
-import { List, Network } from "lucide-react";
+import { useAdvancedFilterFields } from "@core/hooks/use-advanced-filter-fields";
 
 interface DataTableToolbarProps<TData, TValue> {
     table: Table<TData>;
@@ -32,6 +29,12 @@ interface DataTableToolbarProps<TData, TValue> {
     onViewModeChange?: (mode: string) => void;
 }
 
+/**
+ * DataTableToolbar Component
+ * 
+ * Provides search, advanced filtering, column visibility, 
+ * and view mode switching functionalities.
+ */
 export function DataTableToolbar<TData, TValue>({
     table,
     searchValue,
@@ -51,97 +54,13 @@ export function DataTableToolbar<TData, TValue>({
     onViewModeChange,
 }: DataTableToolbarProps<TData, TValue>) {
     const hasSearchValue = Boolean(searchValue);
-    const { views: viewsData, configs } = useModule();
 
-    // Logic moved from use-advanced-filters.ts
-    const normalizeOptions = useCallback((options: unknown): { label: string; value: string }[] | undefined => {
-        if (!options) return undefined;
-        if (Array.isArray(options)) return options as { label: string; value: string }[];
-        if (typeof options === 'object') {
-            return Object.entries(options as Record<string, string>).map(([value, label]) => ({
-                value,
-                label: String(label)
-            }));
-        }
-        return undefined;
-    }, []);
-
-    const viewFiltersMap = useMemo(() => {
-        const map = new Map<string, Record<string, unknown>>();
-        if (viewsData?.filters && Array.isArray(viewsData.filters)) {
-            viewsData.filters.forEach((vf: unknown) => {
-                const filter = vf as Record<string, unknown>;
-                const key = (filter.name || filter.key) as string | undefined;
-                if (key) map.set(key, filter);
-            });
-        }
-        return map;
-    }, [viewsData?.filters]);
-
-    const filterFields: AdvancedFilterField[] = useMemo(() => {
-        const NON_FILTERABLE_TYPES = ['attachment', 'attachments', 'image', 'media', 'file'];
-
-        const buildFilterField = (
-            id: string,
-            initialLabel: string,
-            initialType: string | undefined,
-            initialOptions: any[] | undefined
-        ): AdvancedFilterField | null => {
-            const fieldConfig = configs?.[id]?.config as Record<string, unknown> | undefined;
-            const viewFilter = viewFiltersMap.get(id) as Record<string, any> | undefined;
-
-            const effectiveType = (viewFilter?.ui || viewFilter?.type || fieldConfig?.ui || fieldConfig?.type || initialType) as string;
-
-            if (NON_FILTERABLE_TYPES.includes(effectiveType) || NON_FILTERABLE_TYPES.includes(id)) {
-                return null;
-            }
-
-            const rawOptions = initialOptions || fieldConfig?.options || viewFilter?.config?.options || viewFilter?.options;
-            const options = normalizeOptions(rawOptions);
-            const collection = (fieldConfig?.collection || viewFilter?.config?.collection || viewFilter?.collection) as AdvancedFilterField['collection'];
-
-            let type = initialType || effectiveType || 'text';
-
-            if (['string', 'text', 'varchar'].includes(type) && collection) {
-                type = 'select';
-            } else if (['string', 'text', 'varchar'].includes(type) && options && options.length > 0) {
-                type = 'select';
-            } else if (!['text', 'select', 'date', 'boolean', 'number'].includes(type)) {
-                type = 'text';
-            }
-
-            return {
-                key: id,
-                label: initialLabel,
-                type: type as AdvancedFilterField['type'],
-                options,
-                collection
-            };
-        };
-
-        if (apiFilters.length > 0) {
-            return apiFilters
-                .map(f => buildFilterField(f.key, f.label || f.key, f.type, f.options))
-                .filter((f): f is AdvancedFilterField => f !== null);
-        }
-
-        return mergedColumns
-            .map(col => {
-                const colId = getColumnKey(col);
-                if (!colId || colId === 'select' || colId === 'actions') return null;
-
-                const colProps = col as unknown as Record<string, unknown>;
-                if (colProps.filterable === false) return null;
-
-                const header = typeof col.header === 'string' ? col.header : String(colId);
-                return buildFilterField(colId, header, colProps.type as string | undefined, colProps.options as any[] | undefined);
-            })
-            .filter((f): f is AdvancedFilterField => f !== null);
-    }, [apiFilters, mergedColumns, configs, viewFiltersMap, normalizeOptions]);
+    // Extract filter field building logic into a custom hook
+    const filterFields = useAdvancedFilterFields({ apiFilters, mergedColumns });
 
     return (
         <div className="flex items-center gap-4 flex-wrap">
-
+            {/* Global Search Input */}
             <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 pointer-events-none" />
                 <Input
@@ -163,6 +82,7 @@ export function DataTableToolbar<TData, TValue>({
             </div>
 
             <div className="flex items-center gap-4 ml-auto">
+                {/* Advanced Filter UI */}
                 {filterFields.length > 0 && effectiveUseApi && (
                     <AdvancedFilter
                         fields={filterFields}
@@ -172,8 +92,11 @@ export function DataTableToolbar<TData, TValue>({
                         onClear={onAdvancedFilterClear}
                     />
                 )}
+
+                {/* Column Visibility Control */}
                 <ColumnVisibilityDropdown table={table} resourceName={resourceName} />
                 
+                {/* View Mode Togglers (Table vs Tree) */}
                 {viewMode && layouts.length > 1 && (
                     <ToggleGroup 
                         type="single" 
@@ -182,12 +105,22 @@ export function DataTableToolbar<TData, TValue>({
                         className="border bg-background/50 rounded-lg p-1 shadow-sm h-9 ml-2"
                     >
                         {layouts.includes('table') && (
-                            <ToggleGroupItem value="table" aria-label="Table View" size="sm" className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all">
+                            <ToggleGroupItem 
+                                value="table" 
+                                aria-label="Table View" 
+                                size="sm" 
+                                className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all"
+                            >
                                 <List className="h-4 w-4" />
                             </ToggleGroupItem>
                         )}
                         {layouts.includes('tree') && (
-                            <ToggleGroupItem value="tree" aria-label="Tree View" size="sm" className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all">
+                            <ToggleGroupItem 
+                                value="tree" 
+                                aria-label="Tree View" 
+                                size="sm" 
+                                className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all"
+                            >
                                 <Network className="h-4 w-4" />
                             </ToggleGroupItem>
                         )}
