@@ -117,6 +117,10 @@ trait HasViewConfigs
      */
     protected function validateRequest(\Illuminate\Http\Request $request, string $action, $id = null): void
     {
+        if ($action === 'delete') {
+            return;
+        }
+
         $rules = $this->getValidationRules($action, $id);
 
         if (! empty($rules)) {

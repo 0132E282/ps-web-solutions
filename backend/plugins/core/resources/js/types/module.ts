@@ -11,6 +11,8 @@ export interface ViewsConfig {
     title?: string;
     description?: string;
     icon?: string;
+    index?: ViewsConfig;
+    form?: ViewsConfig;
     actions?: {
         create?: boolean | string;
         edit?: boolean | string;
@@ -46,7 +48,7 @@ export interface ViewsConfig {
         color?: string;
         query?: Record<string, unknown>;
     }>;
-    [key: string]: unknown;
+    [key: string]: any;
 }
 
 export interface PagePropsWithViews {

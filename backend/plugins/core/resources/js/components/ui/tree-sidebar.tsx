@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { GripVertical, ChevronDown, Plus, ArrowUpToLine, CirclePlus, ListTree, FolderMinus, FolderPlus } from 'lucide-react';
 import { Button } from './button';
 import { cn } from '@core/lib/utils';
@@ -44,7 +44,22 @@ interface TreeSidebarProps {
 
 const buildTree = (items: TreeItemData[]): any[] => {
     if (!items || items.length === 0) return [];
-    if (items.some(item => Array.isArray(item.children))) return items;
+
+    const cloneAndEnrich = (node: any): any => {
+        const newNode = { ...node };
+        if (!newNode.title) {
+            newNode.title = getLocalized(newNode.name || newNode.title || `Item ${newNode.id}`);
+        }
+        if (Array.isArray(newNode.children)) {
+            newNode.children = newNode.children.map(cloneAndEnrich);
+        }
+        return newNode;
+    };
+
+    // If already a tree structure (has children arrays), return immutable clones with enriched titles
+    if (items.some(item => Array.isArray(item.children))) {
+        return items.map(cloneAndEnrich);
+    }
 
     const itemMap = new Map<string | number, any>();
     const roots: any[] = [];
@@ -129,7 +144,7 @@ const TreeNode = React.memo(({
                     "group/item relative flex items-center gap-3 rounded-sm px-3 py-1 cursor-pointer select-none transition-all duration-300 text-sm",
                     isSelected
                         ? "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/25 font-semibold"
-                        : "hover:bg-primary/5 text-foreground/70 hover:text-primary hover:shadow-md hover:shadow-primary/5"
+                        : "hover:bg-primary/5 text-foreground hover:text-primary hover:shadow-md hover:shadow-primary/5"
                 )}
                 style={{ marginLeft: `${level * 20}px` }}
                 onClick={() => onSelect?.(node)}
@@ -223,8 +238,25 @@ export const TreeSidebar = ({
 }: TreeSidebarProps) => {
     const treeData = useMemo(() => buildTree(items), [items]);
     const [expandedKeys, setExpandedKeys] = useState<Set<string | number>>(new Set());
+    const hasAutoExpanded = React.useRef(false);
     const [activeId, setActiveId]   = useState<string | number | null>(null);
     const [overId, setOverId]       = useState<string | number | null>(null);
+
+    // Default expand all on first load
+    useEffect(() => {
+        if (treeData.length > 0 && !hasAutoExpanded.current) {
+            const allIds = new Set<string | number>();
+            const collectIds = (nodes: any[]) => {
+                nodes.forEach(node => {
+                    allIds.add(node.id);
+                    if (node.children?.length > 0) collectIds(node.children);
+                });
+            };
+            collectIds(treeData);
+            setExpandedKeys(allIds);
+            hasAutoExpanded.current = true;
+        }
+    }, [treeData]);
 
     const flatVisible = useMemo(() => {
         const flatten = (nodes: any[], level = 0): Array<{ node: any; level: number }> => {

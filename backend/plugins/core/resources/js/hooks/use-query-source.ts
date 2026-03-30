@@ -1,7 +1,7 @@
 import { route } from '@core/lib/route';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export interface SourceConfig {
   route: string;
@@ -16,358 +16,162 @@ export interface QueryConfig {
   fields?: string | string[];
 }
 
-// Simple pluralize function (matches Laravel Str::plural for common cases)
+type Option = { value: string; label: string };
+type AnyConfig = string | SourceConfig | QueryConfig;
+type Obj = Record<string, unknown>;
+
 export const pluralize = (word: string): string => {
   if (word.includes('-')) {
     const parts = word.split('-');
-    const lastPart = parts[parts.length - 1];
-    if (lastPart) {
-      const pluralLastPart = pluralize(lastPart);
-      return [...parts.slice(0, -1), pluralLastPart].join('-');
-    }
+    const last = parts.at(-1)!;
+    return [...parts.slice(0, -1), pluralize(last)].join('-');
   }
-
-  const lower = word.toLowerCase();
-  if (lower.endsWith('y') && !lower.endsWith('ay') && !lower.endsWith('ey') && !lower.endsWith('oy') && !lower.endsWith('uy')) {
-    return word.slice(0, -1) + 'ies';
-  }
-  if (lower.endsWith('s') || lower.endsWith('x') || lower.endsWith('z') || lower.endsWith('ch') || lower.endsWith('sh')) {
-    return word + 'es';
-  }
+  const w = word.toLowerCase();
+  const SINGULAR_S = ['bus', 'gas', 'glass', 'dress', 'kiss', 'class', 'status'];
+  if (w.endsWith('ies')) return word;
+  if (w.endsWith('s')) return SINGULAR_S.includes(w) ? word + 'es' : word;
+  if (w.endsWith('y') && !/[aeiouy]y$/.test(w)) return word.slice(0, -1) + 'ies';
+  if (/[xz]$|ch$|sh$/.test(w)) return word + 'es';
   return word + 's';
 };
 
-// Serialize nested params to query string
-export const serializeNestedParams = (obj: Record<string, unknown>, prefix = ''): string[] => {
-  const pairs: string[] = [];
+export const serializeNestedParams = (obj: Obj, prefix = ''): string[] =>
+  Object.entries(obj).flatMap(([key, value]) => {
+    const k = prefix ? `${prefix}[${key}]` : key;
+    if (value == null) return [];
+    if (Array.isArray(value)) return value.filter((v) => v != null).map((v) => `${k}[]=${encodeURIComponent(String(v))}`);
+    if (typeof value === 'object') return serializeNestedParams(value as Obj, k);
+    return [`${k}=${encodeURIComponent(String(value))}`];
+  });
 
-  for (const [key, value] of Object.entries(obj)) {
-    const fullKey = prefix ? `${prefix}[${key}]` : key;
-
-    if (value === null || value === undefined) {
-      continue;
-    } else if (typeof value === 'object' && !Array.isArray(value)) {
-      pairs.push(...serializeNestedParams(value as Record<string, unknown>, fullKey));
-    } else if (Array.isArray(value)) {
-      value.forEach((item) => {
-        if (item !== null && item !== undefined) {
-          pairs.push(`${fullKey}[]=${encodeURIComponent(String(item))}`);
-        }
-      });
-    } else {
-      pairs.push(`${fullKey}=${encodeURIComponent(String(value))}`);
-    }
-  }
-
-  return pairs;
+export const buildUrl = (sourceRoute: string, params?: Obj): string => {
+  let url: string;
+  try { url = route(sourceRoute); } catch { url = sourceRoute; }
+  if (!params) return url;
+  const qs = serializeNestedParams(params).join('&');
+  return qs ? `${url}?${qs}` : url;
 };
 
-// Build URL from route and params
-export const buildUrl = (sourceRoute: string, params?: Record<string, unknown>): string => {
-  let resolvedUrl: string;
-  try {
-    resolvedUrl = route(sourceRoute);
-  } catch {
-    resolvedUrl = sourceRoute;
-  }
+export const convertQueryToSource = (config: AnyConfig): SourceConfig => {
+  if (typeof config !== 'string' && 'route' in config) return config as SourceConfig;
 
-  if (!params) return resolvedUrl;
-
-  const queryString = serializeNestedParams(params).join('&');
-  return queryString ? `${resolvedUrl}?${queryString}` : resolvedUrl;
-};
-
-// Convert query config to source config
-export const convertQueryToSource = (config: string | QueryConfig | SourceConfig): SourceConfig => {
-  // If it already has a route, it's a SourceConfig
-  if (typeof config !== 'string' && 'route' in config) {
-    return config as SourceConfig;
-  }
-
-  // Handle string (collection name) or QueryConfig
-  const query = typeof config === 'string' ? { collection: config } : config as QueryConfig;
-  const pluralName = pluralize(query.collection);
-  const routeName = `admin.${pluralName}.index`;
-
-  const params: Record<string, unknown> = {};
-
-  if (query.fields) {
-    params.fields = typeof query.fields === 'string' ? query.fields : query.fields.join(',');
-  }
-
-  if (query.filters && Object.keys(query.filters).length > 0) {
-    params.filters = { _and: query.filters };
-  }
-
-  const detectLabelKey = (fields: string | string[] | undefined): string => {
-    if (!fields) return 'name'; // Default to name
-    const fieldArray = typeof fields === 'string' ? fields.split(',') : fields;
-    if (fieldArray.includes('title')) return 'title';
-    if (fieldArray.includes('name')) return 'name';
-    if (fieldArray.includes('label')) return 'label';
-    return fieldArray[0] || 'name';
-  };
+  const q = typeof config === 'string' ? { collection: config } : (config as QueryConfig);
+  const arr = q.fields ? (Array.isArray(q.fields) ? q.fields : q.fields.split(',')) : [];
+  const labelKey = ['title', 'name', 'label'].find((k) => arr.includes(k)) ?? arr[0] ?? 'name';
+  const params: Obj = {};
+  if (arr.length) params.fields = arr.join(',');
+  if (q.filters && Object.keys(q.filters).length) params.filters = { _and: q.filters };
 
   return {
-    route: routeName,
-    params: Object.keys(params).length > 0 ? params : undefined,
+    route: `admin.${pluralize(q.collection).replace(/_/g, '-')}.index`,
+    params: Object.keys(params).length ? params : undefined,
     valueKey: 'id',
-    labelKey: detectLabelKey(query.fields),
+    labelKey,
   };
 };
 
-// Extract value from a potential localization object or return as string
 const extractLabel = (value: unknown, locale?: string | null): string => {
-  if (value === null || value === undefined) return '';
+  if (value == null) return '';
   if (typeof value === 'object' && !Array.isArray(value)) {
-    const obj = value as Record<string, unknown>;
-    if (locale && obj[locale]) return String(obj[locale]);
-    // Fallback to first available value if locale not found or provided
-    const values = Object.values(obj);
-    return values.length > 0 ? String(values[0]) : '';
+    const obj = value as Obj;
+    const v = locale && obj[locale] ? obj[locale] : Object.values(obj)[0];
+    return v != null ? String(v) : '';
   }
   return String(value);
 };
 
-// Transform API response to options array
-export const transformOptions = (
-  data: unknown,
-  valueKey: string,
-  labelKey: string,
-  locale?: string | null
-): Array<{ value: string; label: string }> => {
-  const processItem = (item: unknown) => {
-    const record = item as Record<string, unknown>;
+export const transformOptions = (data: unknown, valueKey: string, labelKey: string, locale?: string | null): Option[] => {
+  const toOption = (item: unknown): Option => {
+    const r = item as Obj;
     return {
-      value: String(record[valueKey] ?? record.id ?? record.value ?? ''),
-      label: extractLabel(record[labelKey] ?? record.name ?? record.label ?? '', locale),
+      value: String(r[valueKey] ?? r.id ?? r.value ?? ''),
+      label: extractLabel(r[labelKey] ?? r.name ?? r.label ?? '', locale),
     };
   };
-
-  if (Array.isArray(data)) {
-    return data.map(processItem);
-  }
-
+  if (Array.isArray(data)) return data.map(toOption);
   if (data && typeof data === 'object') {
-    const dataObj = data as { data?: unknown[]; items?: unknown[]; results?: unknown[] };
-    const items = dataObj.data || dataObj.items || dataObj.results || [];
-    return items.map(processItem);
+    const d = data as { data?: unknown[]; items?: unknown[]; results?: unknown[] };
+    return (d.data ?? d.items ?? d.results ?? []).map(toOption);
   }
-
   return [];
 };
 
-// Replace placeholders in filters: $params.id, $auth.id, $keyword
-// Returns array of keys that should be removed (have unreplaced placeholders)
-const replacePlaceholders = (
-  obj: Record<string, unknown>,
-  routeParams: Record<string, unknown> | null,
-  authId: string | null,
-  keyword: string | null
-): string[] => {
-  const keysToRemove: string[] = [];
-
-  for (const key in obj) {
-    if (typeof obj[key] === 'string') {
-      const value = obj[key] as string;
-      let hasUnreplaced = false;
-
-      // Replace $params.* (e.g., $params.id, $params.category_id)
-      if (value.includes('$params.')) {
-        const paramMatches = value.match(/\$params\.(\w+)/g);
-        if (paramMatches && routeParams) {
-          let newValue = value;
-          let allReplaced = true;
-          paramMatches.forEach((match) => {
-            const paramKey = match.replace('$params.', '');
-            const paramValue = routeParams[paramKey];
-            if (paramValue !== undefined && paramValue !== null) {
-              const escapedMatch = match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-              newValue = newValue.replace(new RegExp(escapedMatch, 'g'), String(paramValue));
-            } else {
-              allReplaced = false;
-            }
-          });
-          if (allReplaced) {
-            obj[key] = newValue;
-          } else {
-            hasUnreplaced = true;
-          }
-        } else {
-          hasUnreplaced = true;
-        }
+const resolvePlaceholders = (obj: Obj, routeParams: Obj | null, authId: string | null, keyword: string | null): string[] => {
+  const stale: string[] = [];
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (typeof val === 'string') {
+      let s = val, bad = false;
+      for (const m of s.match(/\$params\.(\w+)/g) ?? []) {
+        const p = routeParams?.[m.slice(8)];
+        p != null ? (s = s.replaceAll(m, String(p))) : (bad = true);
       }
-
-      // Replace $auth.id
-      if (value.includes('$auth.id')) {
-        if (authId) {
-          obj[key] = value.replace(/\$auth\.id/g, authId);
-        } else {
-          hasUnreplaced = true;
-        }
-      }
-
-      // Replace $keyword
-      if (value.includes('$keyword')) {
-        if (keyword) {
-          obj[key] = value.replace(/\$keyword/g, keyword);
-        } else {
-          hasUnreplaced = true;
-        }
-      }
-
-      if (hasUnreplaced) {
-        keysToRemove.push(key);
-      }
-    } else if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
-      const nestedKeysToRemove = replacePlaceholders(obj[key] as Record<string, unknown>, routeParams, authId, keyword);
-      // Remove nested keys with unreplaced placeholders
-      nestedKeysToRemove.forEach(nestedKey => {
-        delete (obj[key] as Record<string, unknown>)[nestedKey];
-      });
-      // If object becomes empty, mark parent key for removal
-      if (Object.keys(obj[key] as Record<string, unknown>).length === 0) {
-        keysToRemove.push(key);
-      }
+      if (s.includes('$auth.id')) authId ? (s = s.replace(/\$auth\.id/g, authId)) : (bad = true);
+      if (s.includes('$keyword')) keyword ? (s = s.replace(/\$keyword/g, keyword)) : (bad = true);
+      bad ? stale.push(key) : (obj[key] = s);
+    } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const nested = val as Obj;
+      resolvePlaceholders(nested, routeParams, authId, keyword).forEach((k) => delete nested[k]);
+      if (!Object.keys(nested).length) stale.push(key);
     }
   }
-
-  return keysToRemove;
+  return stale;
 };
 
-// Hook to fetch options from source/query config
-export const useQuerySource = (
-  config: string | SourceConfig | QueryConfig | undefined,
-  keyword?: string | null
-) => {
-  const { props: pageProps } = usePage<{
+const cleanFilters = (raw: Obj, routeParams: Obj | null, authId: string | null, keyword: string | null): Obj | undefined => {
+  const f = JSON.parse(JSON.stringify(raw)) as Obj;
+  resolvePlaceholders(f, routeParams, authId, keyword).forEach((k) => delete f[k]);
+  if (f._and && typeof f._and === 'object') {
+    const and = f._and as Obj;
+    resolvePlaceholders(and, routeParams, authId, keyword).forEach((k) => delete and[k]);
+    if (!Object.keys(and).length) delete f._and;
+  }
+  return Object.keys(f).length ? f : undefined;
+};
+
+export const useQuerySource = (config: AnyConfig | undefined, keyword?: string | null) => {
+  const { props } = usePage<{
     auth?: { user?: { id?: string | number } };
     user?: { id?: string | number };
-    ziggy?: {
-      route?: {
-        params?: Record<string, unknown>;
-      };
-    };
+    ziggy?: { route?: { params?: Obj } };
   }>();
-  const [options, setOptions] = useState<Array<{ value: string; label: string }>>([]);
+
+  const [options, setOptions] = useState<Option[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Get route params from ziggy route params
-  const routeParams = useMemo(() => {
-    return pageProps?.ziggy?.route?.params || null;
-  }, [pageProps]);
+  const routeParams = useMemo(() => props?.ziggy?.route?.params ?? null, [props]);
+  const authId = useMemo(() => { const u = props?.auth?.user ?? props?.user; return u?.id ? String(u.id) : null; }, [props]);
+  const locale = useMemo(() => (props as Obj)?.locale as string ?? 'vi', [props]);
+  const resolvedSource = useMemo(() => (config ? convertQueryToSource(config) : undefined), [config]);
 
-  // Get authenticated user ID from props
-  const authId = useMemo(() => {
-    const user = pageProps?.auth?.user || pageProps?.user;
-    return user?.id ? String(user.id) : null;
-  }, [pageProps]);
-
-  // Get current locale from props
-  const locale = useMemo(() => {
-    return (pageProps as Record<string, unknown>)?.locale as string || 'vi';
-  }, [pageProps]);
-
-  // Convert query to source if needed
-  const resolvedSource = useMemo(() => {
-    if (!config) return undefined;
-    return convertQueryToSource(config);
-  }, [config]);
-
-  // Merge params with placeholders replacement
   const mergedParams = useMemo(() => {
     if (!resolvedSource?.params) return undefined;
-
-    const params = { ...resolvedSource.params };
-
-    if (params.filters) {
-      const filters = JSON.parse(JSON.stringify(params.filters));
-
-      // Replace placeholders and get keys to remove
-      const keysToRemove = replacePlaceholders(filters, routeParams, authId, keyword || null);
-
-      // Remove filters with unreplaced placeholders
-      keysToRemove.forEach(key => {
-        delete filters[key];
-      });
-
-      // If filters._and exists, clean it up
-      if (filters._and && typeof filters._and === 'object') {
-        const andFilters = filters._and as Record<string, unknown>;
-        const andKeysToRemove = replacePlaceholders(andFilters, routeParams, authId, keyword || null);
-        andKeysToRemove.forEach(key => {
-          delete andFilters[key];
-        });
-
-        // Remove _and if empty
-        if (Object.keys(andFilters).length === 0) {
-          delete filters._and;
-        }
-      }
-
-      // Only keep filters if there are any left
-      if (Object.keys(filters).length > 0) {
-        params.filters = filters;
-      } else {
-        delete params.filters;
-      }
+    const p = { ...resolvedSource.params };
+    if (p.filters) {
+      const cleaned = cleanFilters(p.filters as Obj, routeParams, authId, keyword ?? null);
+      cleaned ? (p.filters = cleaned) : delete p.filters;
     }
-
-    return params;
+    return p;
   }, [resolvedSource, routeParams, authId, keyword]);
 
-  // Serialize params for comparison
-  const paramsKey = useMemo(() => {
-    if (!mergedParams) return '';
-    try {
-      return JSON.stringify(mergedParams);
-    } catch {
-      return '';
-    }
-  }, [mergedParams]);
+  const paramsKey = useMemo(() => { try { return mergedParams ? JSON.stringify(mergedParams) : ''; } catch { return ''; } }, [mergedParams]);
 
-  // Fetch options
   useEffect(() => {
-    if (!resolvedSource?.route) {
-      return;
-    }
-
-    const abortController = new AbortController();
-
-    // Use setTimeout to avoid synchronous setState during render/effect initialization
-    const timer = setTimeout(() => {
-      setIsLoading(true);
-    }, 0);
-
+    if (!resolvedSource?.route) return;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => setIsLoading(true), 0);
     const url = buildUrl(resolvedSource.route, mergedParams);
-    const valueKey = resolvedSource.valueKey || 'id';
-    const labelKey = resolvedSource.labelKey || 'name';
+    const valueKey = resolvedSource.valueKey ?? 'id';
+    const labelKey = resolvedSource.labelKey ?? 'name';
 
-    axios.get(url, { signal: abortController.signal })
-      .then((response) => {
-        if (!abortController.signal.aborted) {
-          const transformed = transformOptions(response.data, valueKey, labelKey, locale);
-          setOptions(transformed);
-        }
-      })
-      .catch((error) => {
-        if (!abortController.signal.aborted && error.name !== 'CanceledError') {
-          setOptions([]);
-        }
-      })
-      .finally(() => {
-        if (!abortController.signal.aborted) {
-          setIsLoading(false);
-        }
-      });
+    axios
+      .get(url, { signal: ctrl.signal })
+      .then(({ data }) => { if (!ctrl.signal.aborted) setOptions(transformOptions(data, valueKey, labelKey, locale)); })
+      .catch((err) => { if (!ctrl.signal.aborted && err.name !== 'CanceledError') setOptions([]); })
+      .finally(() => { if (!ctrl.signal.aborted) setIsLoading(false); });
 
-    return () => {
-      clearTimeout(timer);
-      abortController.abort();
-    };
-  }, [resolvedSource?.route, paramsKey, resolvedSource?.valueKey, resolvedSource?.labelKey, mergedParams, locale]);
-
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, [resolvedSource?.route, resolvedSource?.valueKey, resolvedSource?.labelKey, paramsKey, mergedParams, locale]);
 
   return { options, isLoading };
 };
-

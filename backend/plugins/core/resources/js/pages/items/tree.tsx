@@ -23,6 +23,7 @@ const TreePage = () => {
 
     const [selectedId, setSelectedId] = useState<number | string | null>(null);
     const [newChildParentId, setNewChildParentId] = useState<number | string | null>(null);
+    const [createKey, setCreateKey] = useState(0);
 
     const resource  = useSelector((state: RootState) => resourceName ? state.resource[resourceName] : undefined);
     const reduxItem = useSelector((state: RootState) => (resourceName && selectedId) ? state.resource[resourceName]?.item : null);
@@ -60,8 +61,8 @@ const TreePage = () => {
                     items={items}
                     selectedId={selectedId}
                     onSelect={(item) => setSelectedId(item?.id ?? null)}
-                    onCreateClick={() => setSelectedId(null)}
-                    onAddChild={(parentId) => { setNewChildParentId(parentId); setSelectedId(null); }}
+                    onCreateClick={() => { setSelectedId(null); setNewChildParentId(null); setCreateKey(k => k + 1); }}
+                    onAddChild={(parentId) => { setNewChildParentId(parentId); setSelectedId(null); setCreateKey(k => k + 1); }}
                     onMove={(id, parentId) => {
                         if (resourceName)
                             dispatch(updateResourceRequest({ resource: resourceName, id, data: { parent_id: parentId } }));
@@ -72,7 +73,8 @@ const TreePage = () => {
             {/* ── RIGHT: Form ──────────────────────────────── */}
             <div className="flex-1 min-w-0">
                 <FormPages
-                    key={selectedId ?? `new-${newChildParentId ?? ''}`}
+                    title={views?.title || views.index?.title || views.form?.title}
+                    key={selectedId ?? `new-${newChildParentId ?? ''}-${createKey}`}
                     defaultValues={(reduxItem as any) || (newChildParentId && !selectedId ? { parent_id: newChildParentId } : {})}
                     onSubmit={(data) => {
                         if (isEdit && selectedId) {

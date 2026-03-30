@@ -31,8 +31,8 @@ interface DataTableToolbarProps<TData, TValue> {
 
 /**
  * DataTableToolbar Component
- * 
- * Provides search, advanced filtering, column visibility, 
+ *
+ * Provides search, advanced filtering, column visibility,
  * and view mode switching functionalities.
  */
 export function DataTableToolbar<TData, TValue>({
@@ -95,30 +95,30 @@ export function DataTableToolbar<TData, TValue>({
 
                 {/* Column Visibility Control */}
                 <ColumnVisibilityDropdown table={table} resourceName={resourceName} />
-                
+
                 {/* View Mode Togglers (Table vs Tree) */}
                 {viewMode && layouts.length > 1 && (
-                    <ToggleGroup 
-                        type="single" 
-                        value={viewMode} 
-                        onValueChange={(val) => val && onViewModeChange?.(val)} 
+                    <ToggleGroup
+                        type="single"
+                        value={viewMode}
+                        onValueChange={(val) => val && onViewModeChange?.(val)}
                         className="border bg-background/50 rounded-lg p-1 shadow-sm h-9 ml-2"
                     >
                         {layouts.includes('table') && (
-                            <ToggleGroupItem 
-                                value="table" 
-                                aria-label="Table View" 
-                                size="sm" 
+                            <ToggleGroupItem
+                                value="table"
+                                aria-label="Table View"
+                                size="sm"
                                 className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all"
                             >
                                 <List className="h-4 w-4" />
                             </ToggleGroupItem>
                         )}
                         {layouts.includes('tree') && (
-                            <ToggleGroupItem 
-                                value="tree" 
-                                aria-label="Tree View" 
-                                size="sm" 
+                            <ToggleGroupItem
+                                value="tree"
+                                aria-label="Tree View"
+                                size="sm"
                                 className="h-7 w-8 px-0 data-[state=on]:bg-primary! data-[state=on]:text-primary-foreground! data-[state=on]:shadow-sm rounded-md transition-all"
                             >
                                 <Network className="h-4 w-4" />
