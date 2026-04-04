@@ -25,6 +25,9 @@
         "phpunit/phpunit": "^11.5.3"
     },
     "autoload": {
+        "files": [
+            "src/Helper.php"
+        ],
         "psr-4": {
             "PS0132E282\\Core\\": "src/",
             "PS0132E282\\Core\\Database\\": "database/"

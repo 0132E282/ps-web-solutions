@@ -52,7 +52,8 @@ const resolveUrl = (resource: string, action?: string, id?: ResourceId, params?:
     const isNamed = resource.includes('.');
     if (isNamed) {
         const base = resource.replace(/\.index$/, '').replace(/\.?$/, '');
-        const routeName = action ? `${base}.${action}` : resource;
+        const routeAction = action ? action.replace(/\//g, '-') : undefined;
+        const routeName = routeAction ? `${base}.${routeAction}` : resource;
         return route(routeName, { id, ...getLocaleParams(), ...params });
     }
     let url = `/${resource}`;

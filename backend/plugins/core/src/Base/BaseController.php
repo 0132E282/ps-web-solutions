@@ -3,12 +3,7 @@
 namespace PS0132E282\Core\Base;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
-use Inertia\Inertia;
-use Inertia\Response as InertiaResponse;
 use PS0132E282\Core\Base\Resource;
 use PS0132E282\Core\Traits\AutoTransform;
 use PS0132E282\Core\Traits\HasCrudAction;
@@ -41,7 +36,7 @@ class BaseController extends Controller
     public function __construct()
     {
         if ($this->model) {
-            $this->model = model_class(class: $this->model);
+            $this->model = \model_class(class: $this->model);
         }
     }
 
@@ -89,7 +84,6 @@ class BaseController extends Controller
 
     public function edit($id, Request $request)
     {
-        // * GET request: only render the form view
         if ($request->isMethod('get')) {
             return $this->form($id);
         }
