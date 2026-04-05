@@ -19,7 +19,7 @@ class ProjectController extends BaseController
       'title' => 'Projects',
       'description' => 'Manage portfolio projects',
       'fields' => [
-        ['name' => 'image', 'width' => 20],
+        ['name' => 'prototies.image', 'width' => 20],
         ['name' => 'name', 'primary' => true],
         ['name' => 'status'],
         ['name' => 'created_at'],

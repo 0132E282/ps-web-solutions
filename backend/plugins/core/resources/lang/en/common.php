@@ -82,4 +82,5 @@ return [
     'choose_file' => 'choose file',
     'support_format_hint' => 'Support: Excel (.xlsx, .xls), CSV (.csv)',
     'download_template_here' => 'Download template here',
+    'import_type' => 'Import type',
 ];

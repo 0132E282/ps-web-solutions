@@ -43,8 +43,10 @@ class Slider extends BaseModel
 
     protected $casts = [
         'title' => Localization::class,
-        'image' => FileMedia::class,
-        'image_mobile' => FileMedia::class,
-        'property' => Property::class,
+        'image' => Localization::class, // Handle localized images (meta/alt)
+        'image_mobile' => Localization::class,
+        'link' => Localization::class,
+        'location' => Localization::class . ':100', // Auto-limit to 100 for plain text
+        'position' => 'integer',
     ];
 }

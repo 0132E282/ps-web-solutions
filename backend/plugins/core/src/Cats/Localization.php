@@ -24,7 +24,7 @@ class Localization implements CastsAttributes
         $langPath = base_path('lang');
         if (is_dir($langPath)) {
             $locales = array_filter(scandir($langPath), function ($item) use ($langPath) {
-                return is_dir($langPath.'/'.$item) && ! in_array($item, ['.', '..']);
+                return is_dir($langPath . '/' . $item) && ! in_array($item, ['.', '..']);
             });
 
             if (! empty($locales)) {

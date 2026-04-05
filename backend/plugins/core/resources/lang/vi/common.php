@@ -82,4 +82,5 @@ return [
     'choose_file' => 'chọn file',
     'support_format_hint' => 'Hỗ trợ: Excel (.xlsx, .xls), CSV (.csv)',
     'download_template_here' => 'Tải file mẫu tại đây',
+    'import_type' => 'Loại dữ liệu',
 ];

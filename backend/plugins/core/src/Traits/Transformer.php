@@ -23,7 +23,7 @@ trait Transformer
     protected function parseFieldTransforms(): array
     {
         $fields = request()->query('fields', []);
-        
+
         if (is_string($fields)) {
             $fields = array_filter(array_map('trim', explode(',', $fields)));
         }
@@ -45,7 +45,7 @@ trait Transformer
     /**
      * Core transformation logic
      */
-    protected function transformFields(array $transforms): array
+    public function transformFields(array $transforms): array
     {
         $attributes = parent::toArray();
         $casts = $this->getCasts();
@@ -87,7 +87,7 @@ trait Transformer
     protected function applyLocalizationTransform(string $key, array $fieldTransforms, array &$attributes): void
     {
         $rawData = $this->getRawLocalizationData($key);
-        
+
         // * Determine if the base field (default locale) was explicitly requested or is the fallback
         $hasBaseField = in_array(true, $fieldTransforms, true);
         $options = array_filter($fieldTransforms, 'is_string');
@@ -115,7 +115,7 @@ trait Transformer
             $locale = current_locale();
             $attributes[$key] = $rawData[$locale] ?? reset($rawData) ?: '';
         } elseif (!$useBaseKeyAsOnlyOutput) {
-            // * Remove the casted default if specific transformations were requested 
+            // * Remove the casted default if specific transformations were requested
             // * and they didn't overwrite the base key
             unset($attributes[$key]);
         }
