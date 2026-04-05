@@ -1,31 +1,22 @@
 import * as React from "react";
-import { Download } from "lucide-react";
 import { Button } from "@core/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@core/components/ui/dialog";
 import { Checkbox } from "@core/components/ui/checkbox";
 import { Label } from "@core/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@core/components/ui/radio-group";
 import { tt } from "@core/lib/i18n";
 import { exportResourceRequest } from "@core/redux/slices/resourceSlice";
 import type { Table } from "@tanstack/react-table";
 
 export type FileFormat = 'xlsx' | 'csv';
 type ExportFilter = 'all' | 'current_filters' | 'today';
+type ExportLanguage = 'vi' | 'en' | 'all';
 interface ColumnInfo { key: string; label: string; }
-
-const FileFormatButtons = ({ value, onChange }: { value: FileFormat; onChange: (v: FileFormat) => void }) => (
-    <div className="flex gap-2">
-        {(['xlsx', 'csv'] as const).map((format) => (
-            <Button key={format} type="button" variant={value === format ? 'default' : 'outline'} onClick={() => onChange(format)} className="min-w-[80px]">
-                {format.toUpperCase()}
-            </Button>
-        ))}
-    </div>
-);
 
 interface ExportDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onExport?: (columns?: string[], format?: FileFormat, filter?: string, exportRelated?: boolean) => void | Promise<void>;
+    onExport?: (columns?: string[], format?: FileFormat, filter?: string, exportRelated?: boolean, locale?: string) => void | Promise<void>;
     isLoading: boolean;
     resourceName: string | null;
     tableInstance: Table<Record<string, unknown>> | null;
@@ -34,8 +25,8 @@ interface ExportDialogProps {
 
 export const ExportDialog = ({ open, onOpenChange, onExport, isLoading, resourceName, tableInstance, dispatch }: ExportDialogProps) => {
     const [exportFormat, setExportFormat] = React.useState<FileFormat>('xlsx');
-    const [exportFilter, setExportFilter] = React.useState<ExportFilter>('current_filters');
-    const [exportRelated, setExportRelated] = React.useState(false);
+    const [exportFilter, setExportFilter] = React.useState<ExportFilter>('all');
+    const [exportLanguage, setExportLanguage] = React.useState<ExportLanguage>('vi');
     const [selectedColumns, setSelectedColumns] = React.useState<Set<string>>(new Set());
 
     const availableColumns = React.useMemo((): ColumnInfo[] => {
@@ -65,9 +56,13 @@ export const ExportDialog = ({ open, onOpenChange, onExport, isLoading, resource
     const handleExport = () => {
         if (selectedColumns.size === 0 || !resourceName) return;
         const columnsArray = Array.from(selectedColumns);
-        if (onExport) onExport(columnsArray, exportFormat, exportFilter, exportRelated);
+        if (onExport) onExport(columnsArray, exportFormat, exportFilter, false, exportLanguage);
         else {
-            const params: Record<string, unknown> = { columns: columnsArray.join(','), format: exportFormat, export_related: exportRelated ? '1' : '0' };
+            const params: Record<string, unknown> = {
+                columns: columnsArray.join(','),
+                format: exportFormat,
+                locale: exportLanguage === 'all' ? '' : exportLanguage
+            };
             if (exportFilter === 'all' || exportFilter === 'today') params.filter = exportFilter;
             else if (exportFilter === 'current_filters' && tableInstance) {
                 const state = tableInstance.getState();
@@ -83,50 +78,108 @@ export const ExportDialog = ({ open, onOpenChange, onExport, isLoading, resource
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[1200px] max-h-[90vh] overflow-hidden flex flex-col">
-                <DialogHeader className="pb-3">
-                    <DialogTitle className="text-lg">{tt("common.export")}</DialogTitle>
-                    <DialogDescription className="text-sm">{tt("common.select_columns_and_format")}</DialogDescription>
+            <DialogContent className="max-w-[800px] max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-2xl">
+                <DialogHeader className="p-8 pb-4">
+                    <DialogTitle className="text-2xl font-bold text-slate-800">{tt("common.export_data_config") || "Cấu hình xuất dữ liệu"}</DialogTitle>
+                    <DialogDescription className="text-slate-500 mt-1">
+                        {tt("common.select_export_columns_hint") || (exportFormat === 'xlsx' ? "Chọn các cột dữ liệu bạn muốn xuất ra file Excel." : "Chọn các cột dữ liệu bạn muốn xuất ra file CSV.")}
+                    </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-3 flex-1 overflow-y-auto">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">{tt("common.file_format")}</Label>
-                            <FileFormatButtons value={exportFormat} onChange={setExportFormat} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">{tt("common.export_filter") || "Lọc dữ liệu xuất"}</Label>
-                            <div className="flex flex-wrap gap-2">
-                                {[
-                                    { value: 'all', label: tt("common.export_all") || "Export tất cả" },
-                                    { value: 'current_filters', label: tt("common.use_current_filters") || "Sử dụng bộ lọc hiện tại" },
-                                    { value: 'today', label: tt("common.today") || "Hôm nay" }
-                                ].map(({ value, label }) => (
-                                    <Button key={value} type="button" variant={exportFilter === value ? 'default' : 'outline'} onClick={() => setExportFilter(value as ExportFilter)}>{label}</Button>
-                                ))}
+
+                <div className="px-8 flex-1 overflow-y-auto space-y-8 py-4">
+                    {/* Phạm vi xuất dữ liệu */}
+                    <div className="space-y-3">
+                        <Label className="text-[15px] font-bold text-slate-900">{tt("common.export_scope") || "Phạm vi xuất dữ liệu"}</Label>
+                        <RadioGroup value={exportFilter} onValueChange={(v) => setExportFilter(v as ExportFilter)} className="flex gap-6">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="all" id="scope-all" className="w-4 h-4 border-blue-500 text-blue-500" />
+                                <Label htmlFor="scope-all" className="text-[14px] font-medium text-slate-700 cursor-pointer">{tt("common.export_all_data") || "Tất cả dữ liệu"}</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="current_filters" id="scope-filters" className="w-4 h-4 border-blue-500 text-blue-500" />
+                                <Label htmlFor="scope-filters" className="text-[14px] font-medium text-slate-700 cursor-pointer">{tt("common.use_current_filters") || "Theo bộ lọc hiện tại"}</Label>
+                            </div>
+                        </RadioGroup>
+                        <p className="text-sm text-blue-600 font-medium">
+                            <span className="font-bold">{tt("common.note") || "Lưu ý"}:</span> {tt("common.export_limit_hint") || "Hệ thống giới hạn xuất tối đa 20.000 bản ghi mới nhất."}
+                        </p>
+                    </div>
+
+                    {/* Định dạng file */}
+                    <div className="space-y-3">
+                        <Label className="text-[15px] font-bold text-slate-900">{tt("common.file_format") || "Định dạng file"}</Label>
+                        <RadioGroup value={exportFormat} onValueChange={(v) => setExportFormat(v as FileFormat)} className="flex gap-6">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="xlsx" id="format-xlsx" className="w-4 h-4 border-blue-500 text-blue-500" />
+                                <Label htmlFor="format-xlsx" className="text-[14px] font-medium text-slate-700 cursor-pointer">Excel (.xlsx)</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="csv" id="format-csv" className="w-4 h-4 border-blue-500 text-blue-500" />
+                                <Label htmlFor="format-csv" className="text-[14px] font-medium text-slate-700 cursor-pointer">CSV (.csv)</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
+
+                    {/* Ngôn ngữ */}
+                    <div className="space-y-3">
+                        <Label className="text-[15px] font-bold text-slate-900">{tt("common.language") || "Ngôn ngữ"}</Label>
+                        <RadioGroup value={exportLanguage} onValueChange={(v) => setExportLanguage(v as ExportLanguage)} className="flex gap-6">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="vi" id="lang-vi" className="w-4 h-4 border-blue-500 text-blue-500" />
+                                <Label htmlFor="lang-vi" className="text-[14px] font-medium text-slate-700 cursor-pointer">{tt("common.vietnamese") || "Tiếng Việt"}</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="en" id="lang-en" className="w-4 h-4 border-blue-500 text-blue-500" />
+                                <Label htmlFor="lang-en" className="text-[14px] font-medium text-slate-700 cursor-pointer">{tt("common.english") || "Tiếng Anh"}</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="all" id="lang-all" className="w-4 h-4 border-blue-500 text-blue-500" />
+                                <Label htmlFor="lang-all" className="text-[14px] font-medium text-slate-700 cursor-pointer">{tt("common.all_languages") || "Tất cả ngôn ngữ"}</Label>
+                            </div>
+                        </RadioGroup>
+                    </div>
+
+                    {/* Cấu hình cột dữ liệu */}
+                    <div className="space-y-4 pt-4 border-t border-slate-100">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-[15px] font-bold text-slate-900">{tt("common.column_config") || "Cấu hình cột dữ liệu"}</Label>
+                            <div className="flex items-center gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedColumns(new Set(availableColumns.map(c => c.key)))}
+                                    className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                                >
+                                    {tt("common.select_all") || "Chọn tất cả"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedColumns(new Set())}
+                                    className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                                >
+                                    {tt("common.deselect") || "Bỏ chọn"}
+                                </button>
                             </div>
                         </div>
-                    </div>
-                    <div className="flex items-center space-x-2 p-3 border rounded-md">
-                        <Checkbox id="export-related" checked={exportRelated} onCheckedChange={(c) => setExportRelated(!!c)} className="h-4 w-4" />
-                        <Label htmlFor="export-related" className="text-sm font-medium cursor-pointer flex-1">{tt("common.export_related") || "Xuất các bản liên kết với nhau"}</Label>
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium">{tt("common.select_columns")}</Label>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedColumns(selectedColumns.size === availableColumns.length ? new Set() : new Set(availableColumns.map((c) => c.key)))}>
-                                {selectedColumns.size === availableColumns.length ? tt("common.deselect_all") : tt("common.select_all")}
-                            </Button>
-                        </div>
-                        <div className="border rounded-md p-4 max-h-[400px] overflow-y-auto">
+
+                        <div className="bg-slate-50/50 rounded-xl p-6 border border-slate-100">
                             {availableColumns.length === 0 ? (
-                                <p className="text-sm text-muted-foreground text-center py-4">{tt("common.no_columns_available")}</p>
+                                <p className="text-sm text-slate-500 text-center py-4">{tt("common.no_columns_available")}</p>
                             ) : (
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="grid grid-cols-4 gap-y-4 gap-x-6">
                                     {availableColumns.map((column) => (
-                                        <div key={column.key} className="flex items-center space-x-2 py-1">
-                                            <Checkbox id={column.key} checked={selectedColumns.has(column.key)} onCheckedChange={() => setSelectedColumns(prev => { const n = new Set(prev); if (n.has(column.key)) n.delete(column.key); else n.add(column.key); return n; })} className="h-4 w-4" />
-                                            <Label htmlFor={column.key} className="text-sm font-normal cursor-pointer flex-1 leading-relaxed">{column.label}</Label>
+                                        <div key={column.key} className="flex items-center space-x-3">
+                                            <Checkbox
+                                                id={column.key}
+                                                checked={selectedColumns.has(column.key)}
+                                                onCheckedChange={() => setSelectedColumns(prev => {
+                                                    const n = new Set(prev);
+                                                    if (n.has(column.key)) n.delete(column.key);
+                                                    else n.add(column.key);
+                                                    return n;
+                                                })}
+                                                className="h-4 w-4 border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 rounded"
+                                            />
+                                            <Label htmlFor={column.key} className="text-sm font-medium text-slate-600 cursor-pointer flex-1 leading-tight">{column.label}</Label>
                                         </div>
                                     ))}
                                 </div>
@@ -134,13 +187,33 @@ export const ExportDialog = ({ open, onOpenChange, onExport, isLoading, resource
                         </div>
                     </div>
                 </div>
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>{tt("common.cancel")}</Button>
-                    <Button variant="default" onClick={handleExport} disabled={isLoading || selectedColumns.size === 0}>
-                        {isLoading ? tt("common.loading") : tt("common.export")}
+
+                <DialogFooter className="p-8 pt-6 border-t border-slate-100 gap-4 flex sm:justify-end">
+                    <Button
+                        variant="ghost"
+                        onClick={() => onOpenChange(false)}
+                        className="px-8 min-w-[100px] text-slate-600 hover:bg-slate-100 font-semibold"
+                    >
+                        {tt("common.cancel") || "Hủy"}
+                    </Button>
+                    <Button
+                        variant="default"
+                        onClick={handleExport}
+                        disabled={isLoading || selectedColumns.size === 0}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-8 min-w-[140px] font-semibold"
+                    >
+                        {isLoading ? (
+                            <span className="flex items-center gap-2">
+                                <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                {tt("common.loading") || "Đang xử lý..."}
+                            </span>
+                        ) : (
+                            `${tt("common.export") || "Xuất"} ${exportFormat.toUpperCase()}`
+                        )}
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 };
+

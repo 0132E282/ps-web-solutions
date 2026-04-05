@@ -7,9 +7,12 @@ use Illuminate\Support\Str;
 use PS0132E282\Core\Cats\Localization;
 use PS0132E282\Core\Cats\Property;
 use PS0132E282\Core\Cats\SlugField;
+use PS0132E282\Core\Traits\Transformer;
 
 abstract class BaseTerm extends Taxonomy
 {
+    use Transformer;
+
     protected $table = 'taxonomies';
 
 

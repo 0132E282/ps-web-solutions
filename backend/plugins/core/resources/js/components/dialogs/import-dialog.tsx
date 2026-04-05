@@ -1,18 +1,15 @@
 import * as React from "react";
-import { Download, FileUp, Upload, X } from "lucide-react";
+import { FileUp, Upload, X } from "lucide-react";
 import { Button } from "@core/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@core/components/ui/dialog";
 import { Label } from "@core/components/ui/label";
-import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@core/components/ui/select";
-import {
-    Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle,
-} from "@core/components/ui/empty";
+import { RadioGroup, RadioGroupItem } from "@core/components/ui/radio-group";
 import { tt } from "@core/lib/i18n";
 import { importResourceRequest, exportResourceRequest } from "@core/redux/slices/resourceSlice";
+import { cn } from "@core/lib/utils";
 
 export type FileFormat = 'xlsx' | 'csv';
+export type ImportLanguage = 'vi' | 'en' | 'all';
 
 const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
@@ -20,22 +17,12 @@ const formatFileSize = (bytes: number): string => {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
-const FileFormatButtons = ({ value, onChange }: { value: FileFormat; onChange: (v: FileFormat) => void }) => (
-    <div className="flex gap-2">
-        {(['xlsx', 'csv'] as const).map((format) => (
-            <Button key={format} type="button" variant={value === format ? 'default' : 'outline'} onClick={() => onChange(format)} className="min-w-[80px]">
-                {format.toUpperCase()}
-            </Button>
-        ))}
-    </div>
-);
-
 interface ImportType { value: string; label: string; }
 
 interface ImportDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onImport?: (file: File, fileType?: FileFormat, importType?: string) => void | Promise<void>;
+    onImport?: (file: File, fileType?: FileFormat, importType?: string, locale?: string) => void | Promise<void>;
     isLoading: boolean;
     resourceName: string | null;
     importTypes?: ImportType[];
@@ -44,22 +31,31 @@ interface ImportDialogProps {
 }
 
 export const ImportDialog = ({ open, onOpenChange, onImport, isLoading, resourceName, importTypes, importTemplate, dispatch }: ImportDialogProps) => {
-    const [importFileType, setImportFileType] = React.useState<FileFormat>('xlsx');
-    const [selectedImportType, setSelectedImportType] = React.useState<string>(importTypes?.[0]?.value || '');
+    const [importFileType] = React.useState<FileFormat>('xlsx');
+    const [selectedImportType] = React.useState<string>(importTypes?.[0]?.value || '');
+    const [exportLanguage, setExportLanguage] = React.useState<ImportLanguage>('vi');
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+    const [isDragging, setIsDragging] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     React.useEffect(() => {
-        if (!open) { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }
+        if (!open) { 
+            setSelectedFile(null); 
+            if (fileInputRef.current) fileInputRef.current.value = ''; 
+        }
     }, [open]);
 
     const handleImportFile = () => {
         if (!selectedFile || !resourceName) return;
-        if (onImport) onImport(selectedFile, importFileType, selectedImportType);
+        
+        const locale = exportLanguage === 'all' ? '' : exportLanguage;
+        
+        if (onImport) onImport(selectedFile, importFileType, selectedImportType, locale);
         else {
             const formData = new FormData();
             formData.append('file', selectedFile);
             formData.append('file_type', importFileType);
+            formData.append('locale', locale);
             if (selectedImportType) formData.append('import_type', selectedImportType);
             dispatch(importResourceRequest({ resource: resourceName, formData }));
         }
@@ -73,82 +69,154 @@ export const ImportDialog = ({ open, onOpenChange, onImport, isLoading, resource
         dispatch(exportResourceRequest({ resource: resourceName, params: { ...params, template: 1 } }));
     };
 
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            const ext = file.name.split('.').pop()?.toLowerCase();
+            if (['xlsx', 'xls', 'csv'].includes(ext || '')) {
+                setSelectedFile(file);
+            }
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[1200px] max-h-[90vh] overflow-hidden flex flex-col">
-                <DialogHeader className="pb-3">
-                    <DialogTitle className="text-lg">{tt("common.import")}</DialogTitle>
-                    <DialogDescription className="text-sm">{tt("common.select_file_type_and_upload") || "Chọn loại file và tải lên"}</DialogDescription>
+            <DialogContent className="max-w-[650px] max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 border-none shadow-2xl rounded-2xl">
+                <DialogHeader className="p-8 pb-4">
+                    <DialogTitle className="text-2xl font-bold text-slate-800">
+                        {tt("common.import_resource_from_excel", { resource: resourceName }) || `Nhập ${resourceName || ""} từ Excel`}
+                    </DialogTitle>
+                    <DialogDescription className="text-slate-500 mt-1">
+                        {tt("common.select_file_import_description", { resource: resourceName }) || `Chọn file Excel hoặc CSV để import dữ liệu ${resourceName || ""}.`}
+                    </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-3 flex-1 overflow-y-auto">
-                    <div className="grid grid-cols-2 gap-4">
-                        {importTypes && importTypes.length > 0 && (
-                            <div className="space-y-2">
-                                <Label className="text-sm font-medium">{tt("common.import_type") || "Kiểu import"}</Label>
-                                <Select value={selectedImportType} onValueChange={setSelectedImportType}>
-                                    <SelectTrigger className="w-full"><SelectValue placeholder={tt("common.select_import_type") || "Chọn kiểu import"} /></SelectTrigger>
-                                    <SelectContent>
-                                        {importTypes.map((type) => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+
+                <div className="flex-1 overflow-y-auto px-8 pb-8 space-y-8">
+                    {/* Ngôn ngữ dữ liệu */}
+                    <div className="space-y-4">
+                        <Label className="text-[15px] font-bold text-slate-900">{tt("common.data_language") || "Ngôn ngữ dữ liệu"}</Label>
+                        <RadioGroup value={exportLanguage} onValueChange={(v) => setExportLanguage(v as ImportLanguage)} className="flex gap-8">
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="vi" id="lang-vi" className="w-4 h-4 border-blue-500 text-blue-500" />
+                                <Label htmlFor="lang-vi" className="text-[14px] font-medium text-slate-700 cursor-pointer">{tt("common.vietnamese") || "Tiếng Việt"}</Label>
                             </div>
-                        )}
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">{tt("common.file_type") || "Loại file"}</Label>
-                            <FileFormatButtons value={importFileType} onChange={setImportFileType} />
-                        </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="en" id="lang-en" className="w-4 h-4 border-blue-500 text-blue-500" />
+                                <Label htmlFor="lang-en" className="text-[14px] font-medium text-slate-700 cursor-pointer">{tt("common.english") || "Tiếng Anh"}</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="all" id="lang-all" className="w-4 h-4 border-blue-500 text-blue-500" />
+                                <Label htmlFor="lang-all" className="text-[14px] font-medium text-slate-700 cursor-pointer">{tt("common.all_languages") || "Tất cả ngôn ngữ"}</Label>
+                            </div>
+                        </RadioGroup>
                     </div>
-                    {importTemplate && (
-                        <div className="space-y-2">
-                            <Label className="text-sm font-medium">{tt("common.download_template") || "Tải file mẫu"}</Label>
-                            <Button type="button" variant="outline" onClick={handleDownloadTemplate} disabled={isLoading} className="gap-2">
-                                <Download className="h-4 w-4" />{isLoading ? tt("common.loading") : tt("common.download_template") || "Tải file mẫu"}
-                            </Button>
+
+                    {/* File dữ liệu */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-[15px] font-bold text-slate-900">{tt("common.file_data") || "File dữ liệu"}</Label>
+                            {importTemplate && (
+                                <button type="button" onClick={handleDownloadTemplate} className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors">
+                                    {tt("common.download_template_here") || "Tải file mẫu tại đây"}
+                                </button>
+                            )}
                         </div>
-                    )}
-                    <div className="space-y-2">
-                        <Label className="text-sm font-medium">{tt("common.select_file") || "Chọn file"}</Label>
+
                         {!selectedFile ? (
-                            <Empty className="border border-dashed">
-                                <EmptyHeader>
-                                    <EmptyMedia variant="icon"><FileUp className="h-6 w-6" /></EmptyMedia>
-                                    <EmptyTitle>{tt("common.no_file_selected") || "Chưa chọn file"}</EmptyTitle>
-                                    <EmptyDescription>{tt("common.select_file_to_import") || "Chọn file để import dữ liệu"}</EmptyDescription>
-                                </EmptyHeader>
-                                <EmptyContent>
-                                    <div className="flex flex-col gap-2 w-full">
-                                        <input ref={fileInputRef} type="file" accept={importFileType === 'xlsx' ? '.xlsx,.xls' : '.csv'} className="hidden" onChange={(e) => e.target.files?.[0] && setSelectedFile(e.target.files[0])} />
-                                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isLoading} className="gap-2">
-                                            <Upload className="h-4 w-4" />{tt("common.browse") || "Chọn file"}
-                                        </Button>
-                                    </div>
-                                </EmptyContent>
-                            </Empty>
-                        ) : (
-                            <div className="border rounded-md p-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <FileUp className="h-5 w-5 text-muted-foreground" />
-                                        <div>
-                                            <div className="text-sm font-medium">{selectedFile.name}</div>
-                                            <div className="text-xs text-muted-foreground">{formatFileSize(selectedFile.size)}</div>
-                                        </div>
-                                    </div>
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} disabled={isLoading} className="h-8 w-8">
-                                        <X className="h-4 w-4" />
-                                    </Button>
+                            <div
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
+                                className={cn(
+                                    "relative border-2 border-dashed rounded-xl p-12 transition-all cursor-pointer flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-50 hover:border-blue-400 group",
+                                    isDragging ? "border-blue-500 bg-blue-50/50 text-blue-600" : "border-slate-200 text-slate-400"
+                                )}
+                            >
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".xlsx,.xls,.csv"
+                                    className="hidden"
+                                    onChange={(e) => e.target.files?.[0] && setSelectedFile(e.target.files[0])}
+                                />
+                                <div className={cn(
+                                    "p-4 rounded-full transition-colors",
+                                    isDragging ? "bg-blue-100/50" : "bg-slate-100 group-hover:bg-blue-100/50"
+                                )}>
+                                    <Upload className={cn(
+                                        "h-10 w-10 transition-colors",
+                                        isDragging ? "text-blue-500" : "text-slate-400 group-hover:text-blue-500"
+                                    )} />
                                 </div>
+                                <div className="text-center space-y-1">
+                                    <p className="text-slate-600 font-medium">
+                                        {tt("common.drag_drop_file_hint") || "Kéo thả file vào đây hoặc"} <span className="text-blue-600">{tt("common.choose_file") || "chọn file"}</span>
+                                    </p>
+                                    <p className="text-[13px] text-slate-400">
+                                        {tt("common.support_format_hint") || "Hỗ trợ: Excel (.xlsx, .xls), CSV (.csv)"}
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="border border-slate-200 rounded-xl p-6 bg-slate-50/50 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-blue-100/50 rounded-lg">
+                                        <FileUp className="h-6 w-6 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-bold text-slate-800">{selectedFile.name}</div>
+                                        <div className="text-xs text-slate-500 font-medium">{formatFileSize(selectedFile.size)}</div>
+                                    </div>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => { setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                                    disabled={isLoading}
+                                    className="h-9 w-9 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                                >
+                                    <X className="h-5 w-5" />
+                                </Button>
                             </div>
                         )}
                     </div>
                 </div>
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>{tt("common.cancel")}</Button>
-                    {selectedFile && (
-                        <Button variant="default" onClick={handleImportFile} disabled={isLoading} className="gap-2">
-                            {isLoading ? tt("common.loading") : tt("common.import")}
-                        </Button>
-                    )}
+
+                <DialogFooter className="p-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-end gap-3 flex-row rounded-b-2xl">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => onOpenChange(false)}
+                        className="px-6 font-semibold text-slate-600 hover:bg-slate-200/50 transition-all h-11"
+                    >
+                        {tt("common.cancel") || "Hủy"}
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleImportFile}
+                        disabled={isLoading || !selectedFile}
+                        className="px-10 bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-200 h-11 rounded-xl"
+                    >
+                        {isLoading ? (
+                            <span className="flex items-center gap-2">
+                                <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                {tt("common.loading") || "Đang xử lý..."}
+                            </span>
+                        ) : tt("common.import") || "Import"}
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

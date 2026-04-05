@@ -11,7 +11,7 @@ class PostCategory extends BaseTerm
 
     protected function getTaxonomyName(): string
     {
-        return 'post_category';
+        return 'post_categories';
     }
 
     public function configs(): array
@@ -34,6 +34,6 @@ class PostCategory extends BaseTerm
 
     public function getUrlFrontendAttribute(): string
     {
-        return config('app.url').'/'.$this->slug;
+        return config('app.url') . '/' . $this->slug;
     }
 }

@@ -91,9 +91,15 @@ class ItemController extends Controller
             // # Support dynamic field selection and relationship loading
             $this->applyFieldsFromRequest($query);
 
-            $item = $query->where('id', $identifier)
-                ->orWhere('slug', $identifier)
-                ->firstOrFail();
+            $model = $modelClass::make();
+            $hasSlug = $model->getConnection()->getSchemaBuilder()->hasColumn($model->getTable(), 'slug');
+
+            $item = $query->where(function ($q) use ($identifier, $hasSlug) {
+                $q->where('id', $identifier);
+                if ($hasSlug) {
+                    $q->orWhere('slug', $identifier);
+                }
+            })->firstOrFail();
 
             if ($item->getConnection()->getSchemaBuilder()->hasColumn($item->getTable(), 'view_counts')) {
                 $item->increment('view_counts');
