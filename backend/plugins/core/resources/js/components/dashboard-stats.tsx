@@ -35,7 +35,7 @@ const COLORS = [
 
 const DEFAULT_PALETTE = COLORS[0]!;
 
-function StatCard({ item, index, onClick, isActive }: { item: DashboardStatItem; index: number; onClick?: (item: DashboardStatItem) => void; isActive?: boolean }) {
+function StatCard({ item, index, onClick }: { item: DashboardStatItem; index: number; onClick?: (item: DashboardStatItem) => void }) {
     const palette = COLORS[index % COLORS.length] ?? DEFAULT_PALETTE;
     const displayValue = item.value === null || item.value === undefined ? "—" : item.value;
 
@@ -50,30 +50,21 @@ function StatCard({ item, index, onClick, isActive }: { item: DashboardStatItem;
             onClick={() => onClick?.(item)}
             className={cn(
                 "flex flex-col gap-3 rounded-2xl border border-transparent px-6 py-4 w-full transition-all duration-300 group relative overflow-hidden",
-                onClick ? "cursor-pointer active:scale-[0.98]" : "",
+                onClick ? "cursor-pointer" : "",
                 !customClass && palette.bg,
                 customClass,
-                isActive && [
-                    "ring-2 ring-primary ring-offset-2 ring-offset-background shadow-xl scale-105 z-20",
-                    !customClass ? palette.border : (customClass.includes('border-') ? "" : "border-white/40")
-                ]
             )}
         >
             {/* Ambient Background Glow for custom colors */}
             {customClass && (
                 <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl transition-transform group-hover:scale-150" />
             )}
-            
-            {/* Active Indicator Dot */}
-            {isActive && (
-                <div className="absolute top-3 right-3 h-2 w-2 rounded-full bg-primary animate-pulse z-20" />
-            )}
 
             <div className="flex items-start justify-between gap-3 relative z-10">
                 <p className={cn(
                     "text-[11px] uppercase tracking-wider font-bold transition-colors",
-                    !customClass 
-                        ? "text-muted-foreground" 
+                    !customClass
+                        ? "text-muted-foreground"
                         : (customClass.includes('text-') ? "" : "text-white/70")
                 )}>
                     {item.title}
@@ -81,8 +72,8 @@ function StatCard({ item, index, onClick, isActive }: { item: DashboardStatItem;
                 {IconComponent && (
                     <div className={cn(
                         "transition-all duration-300",
-                        !customClass 
-                            ? "text-muted-foreground" 
+                        !customClass
+                            ? "text-muted-foreground"
                             : "text-white/80"
                     )}>
                         <IconComponent className="h-4 w-4" />
@@ -93,8 +84,8 @@ function StatCard({ item, index, onClick, isActive }: { item: DashboardStatItem;
             <div className="mt-auto relative z-10">
                 <p className={cn(
                     "text-3xl font-bold tracking-tight tabular-nums flex items-baseline gap-1",
-                    !customClass 
-                        ? palette.value 
+                    !customClass
+                        ? palette.value
                         : (customClass.includes('text-') ? "" : "text-white")
                 )}>
                     {item.prefix && <span className="text-lg font-medium opacity-70">{item.prefix}</span>}
@@ -106,7 +97,7 @@ function StatCard({ item, index, onClick, isActive }: { item: DashboardStatItem;
     );
 }
 
-export function DashboardStats({ items, className, onItemClick, activeItem }: DashboardStatsProps) {
+export function DashboardStats({ items, className, onItemClick }: DashboardStatsProps) {
     const [target, setTarget] = React.useState<HTMLElement | null>(null);
 
     React.useEffect(() => {
@@ -131,7 +122,6 @@ export function DashboardStats({ items, className, onItemClick, activeItem }: Da
                         item={item}
                         index={i}
                         onClick={onItemClick}
-                        isActive={activeItem === item}
                     />
                 ))}
             </div>

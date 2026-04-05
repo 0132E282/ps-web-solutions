@@ -4,42 +4,36 @@ namespace PS0132E282\Core\Traits;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use PS0132E282\Core\Cats\Localization;
+use PS0132E282\Core\Cats\SlugField;
 
 trait Transformer
 {
-    /**
-     * Transform the model instance to an array.
-     */
     public function toArray()
     {
         $transformFields = $this->parseFieldTransforms();
         return $this->transformFields($transformFields);
     }
 
-    /**
-     * Transform the model instance to JSON.
-     */
     public function toJson($options = 0)
     {
         return json_encode($this->toArray(), $options);
     }
 
-    /**
-     * Parse field transformations from the request.
-     */
     protected function parseFieldTransforms(): array
     {
         $fields = request()->query('fields', []);
+        
         if (is_string($fields)) {
-            $fields = array_map('trim', explode(',', $fields));
+            $fields = array_filter(array_map('trim', explode(',', $fields)));
         }
 
         $transforms = [];
         foreach ($fields as $field) {
-            $decodedField = urldecode($field);
-            if (Str::contains($decodedField, '->')) {
-                [$fieldName, $option] = explode('->', $decodedField, 2);
-                $transforms[$fieldName][] = $option;
+            $decoded = urldecode($field);
+            if (Str::contains($decoded, '->')) {
+                [$name, $option] = explode('->', $decoded, 2);
+                $transforms[$name][] = $option;
             } else {
                 $transforms[$field][] = true;
             }
@@ -54,67 +48,109 @@ trait Transformer
     protected function transformFields(array $transforms): array
     {
         $attributes = parent::toArray();
-        $relations = $this->getRelations();
-
-        // Support for multilingual fields through Localization cast
         $casts = $this->getCasts();
-        
+
+        // 1. Process localized attributes
         foreach ($attributes as $key => $value) {
-            // Check if field is localized
-            $isLocalized = isset($casts[$key]) && 
-                ($casts[$key] === \PS0132E282\Core\Cats\Localization::class || 
-                 is_subclass_of($casts[$key], \PS0132E282\Core\Cats\Localization::class));
-
-            if ($isLocalized) {
-                $rawData = $this->getRawOriginal($key);
-                if (is_string($rawData)) {
-                    $rawData = json_decode($rawData, true) ?: [];
-                }
-
-                $fieldTransforms = $transforms[$key] ?? [];
-
-                // 1. If ->toRaw requested
-                if (in_array('toRaw', $fieldTransforms)) {
-                    $attributes[$key] = $rawData;
-                    continue;
-                }
-
-                // 2. If specific locales requested (e.g., name->en, name->vi)
-                $hasLocaleRequest = false;
-                foreach ($fieldTransforms as $option) {
-                    if (is_string($option) && $option !== 'toRaw') {
-                        $attributes["{$key}->{$option}"] = $rawData[$option] ?? null;
-                        $hasLocaleRequest = true;
-                    }
-                }
-
-                if ($hasLocaleRequest) {
-                    unset($attributes[$key]);
-                }
-                // 3. Default behavior: Localization cast already translated it in parent::toArray()
-                // So we don't need to do anything if no special transform requested.
+            if ($this->shouldTransformLocalization($key, $casts)) {
+                $this->applyLocalizationTransform($key, $transforms[$key] ?? [], $attributes);
             }
         }
 
-        // Recursive transformation for relations
-        foreach ($relations as $key => $relation) {
+        // 2. Process relations
+        $this->transformRelations($transforms, $attributes);
+
+        return $attributes;
+    }
+
+    /**
+     * Check if a field should be localized
+     */
+    protected function shouldTransformLocalization(string $key, array $casts): bool
+    {
+        $cast = $casts[$key] ?? null;
+        if (!$cast) return false;
+
+        $targetClasses = [Localization::class, SlugField::class];
+        foreach ($targetClasses as $class) {
+            if ($cast === $class || is_subclass_of($cast, $class)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Apply localization logic for a specific field
+     */
+    protected function applyLocalizationTransform(string $key, array $fieldTransforms, array &$attributes): void
+    {
+        $rawData = $this->getRawLocalizationData($key);
+        
+        // * Determine if the base field (default locale) was explicitly requested or is the fallback
+        $hasBaseField = in_array(true, $fieldTransforms, true);
+        $options = array_filter($fieldTransforms, 'is_string');
+        $hasTransformations = !empty($options);
+
+        // * Strategy: If only ONE thing is requested, use the base key name
+        $useBaseKeyAsOnlyOutput = !$hasBaseField && count($fieldTransforms) === 1;
+
+        // 1. Process ->toRaw
+        if (in_array('toRaw', $options)) {
+            $keyName = ($useBaseKeyAsOnlyOutput) ? $key : "{$key}_raw";
+            $attributes[$keyName] = $rawData;
+        }
+
+        // 2. Process locales (e.g. ->en)
+        foreach ($options as $locale) {
+            if ($locale === 'toRaw') continue;
+
+            $keyName = ($useBaseKeyAsOnlyOutput) ? $key : "{$key}_{$locale}";
+            $attributes[$keyName] = $rawData[$locale] ?? null;
+        }
+
+        // 3. Process base field (default locale)
+        if ($hasBaseField || !$hasTransformations) {
+            $locale = current_locale();
+            $attributes[$key] = $rawData[$locale] ?? reset($rawData) ?: '';
+        } elseif (!$useBaseKeyAsOnlyOutput) {
+            // * Remove the casted default if specific transformations were requested 
+            // * and they didn't overwrite the base key
+            unset($attributes[$key]);
+        }
+    }
+
+    /**
+     * Get and decode raw data for localization
+     */
+    protected function getRawLocalizationData(string $key): array
+    {
+        $rawData = $this->getRawOriginal($key);
+        if (is_string($rawData)) {
+            return json_decode($rawData, true) ?: [];
+        }
+        return is_array($rawData) ? $rawData : [];
+    }
+
+    /**
+     * Process relations recursively
+     */
+    protected function transformRelations(array $transforms, array &$attributes): void
+    {
+        foreach ($this->getRelations() as $key => $relation) {
             $relationTransforms = $this->extractRelationTransforms($transforms, $key);
-            
-            if ($relation instanceof Model) {
-                if (method_exists($relation, 'transformFields')) {
-                    $attributes[$key] = $relation->transformFields($relationTransforms);
-                }
+
+            if ($relation instanceof Model && method_exists($relation, 'transformFields')) {
+                $attributes[$key] = $relation->transformFields($relationTransforms);
             } elseif ($relation instanceof \Illuminate\Support\Collection) {
                 $attributes[$key] = $relation->map(function ($item) use ($relationTransforms) {
-                    if ($item instanceof Model && method_exists($item, 'transformFields')) {
-                        return $item->transformFields($relationTransforms);
-                    }
-                    return $item;
+                    return ($item instanceof Model && method_exists($item, 'transformFields'))
+                        ? $item->transformFields($relationTransforms)
+                        : $item;
                 })->toArray();
             }
         }
-
-        return $attributes;
     }
 
     /**

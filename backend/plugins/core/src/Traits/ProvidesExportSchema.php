@@ -5,7 +5,7 @@ namespace PS0132E282\Core\Traits;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
-trait ProvidesImportExportSchema
+trait ProvidesExportSchema
 {
     /**
      * Get columns for export, optionally filtered by requested field keys.
@@ -53,32 +53,7 @@ trait ProvidesImportExportSchema
         return $this->filterColumns($map, $requestedFields);
     }
 
-    /**
-     * Get allowed column keys for import from views config.
-     *
-     * @return array<string>
-     */
-    protected function getImportColumns(): array
-    {
-        $viewsConfig = defined(static::class.'::views') ? static::views : [];
-        $importFields = $viewsConfig['index']['actions']['import']['fields'] ?? null;
-
-        if (! $importFields) {
-            return array_keys($this->getExportColumns());
-        }
-
-        $cols = [];
-        foreach ($importFields as $field) {
-            $col = is_array($field) ? ($field['name'] ?? '') : (string) $field;
-            if ($col && ! str_contains($col, '.')) {
-                $cols[] = $col;
-            }
-        }
-
-        return $cols;
-    }
-
-    private function filterColumns(array $map, ?array $requestedFields): array
+    protected function filterColumns(array $map, ?array $requestedFields): array
     {
         if (! $requestedFields) {
             return $map;

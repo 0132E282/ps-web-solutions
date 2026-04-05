@@ -7,10 +7,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use PS0132E282\Core\Base\Resource;
+use PS0132E282\Core\Traits\FieldTrait;
+use PS0132E282\Core\Traits\FilterTrait;
+use PS0132E282\Core\Traits\SortTrait;
 use Throwable;
 
 class ItemController extends Controller
 {
+    use FieldTrait, FilterTrait, SortTrait;
     /**
      * List items.
      */
@@ -24,8 +28,9 @@ class ItemController extends Controller
 
             $query = $modelClass::query();
 
-            // # Basic filtering based on request
-            // * This can be expanded to use a dedicated Filter service/trait later if needed.
+            $this->applyFieldsFromRequest($query);
+            $this->applyFilters($query, $request);
+            $this->applySort($query, $request);
 
             $items = $query->paginate($request->input('per_page', 15));
 
@@ -60,7 +65,7 @@ class ItemController extends Controller
             $item = $modelClass::create($request->all());
 
             // 4. Handle Specific Relationships
-            // # NOTE: Automatic relationship syncing based on model inspection or conventions
+            // # NOTE: Automatic relationship syncing based on model inspection or conventionsx
             $this->syncRelationships($item, $request->all());
 
             return Resource::item($item);
@@ -72,29 +77,27 @@ class ItemController extends Controller
     /**
      * Show a specific item.
      */
-    public function show(string $resource, string $id): JsonResponse
+    public function show(string $resource, string $identifier): JsonResponse
     {
         try {
             $modelClass = $this->getModelForType($resource);
+
             if (! $modelClass) {
                 return Resource::error("Resource '{$resource}' not found.", [], 404);
             }
 
             $query = $modelClass::query();
 
-            // # Auto-eager load common relationships if they exist on the model
-            $modelInstance = new $modelClass;
-            if (method_exists($modelInstance, 'related_posts')) {
-                $query->with('related_posts');
-            }
-            if (method_exists($modelInstance, 'categories')) {
-                $query->with('categories');
-            }
-            if (method_exists($modelInstance, 'tags')) {
-                $query->with('tags');
-            }
+            // # Support dynamic field selection and relationship loading
+            $this->applyFieldsFromRequest($query);
 
-            $item = $query->findOrFail($id);
+            $item = $query->where('id', $identifier)
+                ->orWhere('slug', $identifier)
+                ->firstOrFail();
+
+            if ($item->getConnection()->getSchemaBuilder()->hasColumn($item->getTable(), 'view_counts')) {
+                $item->increment('view_counts');
+            }
 
             return Resource::item($item);
         } catch (Throwable $e) {

@@ -9,7 +9,7 @@ use PS0132E282\Core\Support\XlsxWriter;
 
 trait CanImport
 {
-    use ProvidesImportExportSchema;
+    use ProvidesImportSchema;
 
     /**
      * Import resources from CSV or XLSX/XLS.

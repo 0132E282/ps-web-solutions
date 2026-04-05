@@ -47,7 +47,7 @@ class PostController extends BaseController
           ],
         ],
         [
-          'title' => 'Bài viết mới',
+          'title' => 'Bài viết Xuất bản',
           'ui' => [
             'icon' => 'Zap',
             'class' => 'bg-emerald-600'
@@ -56,6 +56,21 @@ class PostController extends BaseController
             'collection' => 'post',
             'filters' => [
               'status' => ['_eq' => 'published'],
+            ],
+            'fields' => 'id',
+            'loaditems' => 'count',
+          ],
+        ],
+        [
+          'title' => 'Bài viết Nháp',
+          'ui' => [
+            'icon' => 'Zap',
+            'class' => 'bg-emerald-600'
+          ],
+          'query' => [
+            'collection' => 'post',
+            'filters' => [
+              'status' => ['_eq' => 'draft'],
             ],
             'fields' => 'id',
             'loaditems' => 'count',

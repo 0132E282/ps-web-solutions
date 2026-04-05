@@ -15,7 +15,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 trait CanExport
 {
-    use ProvidesImportExportSchema;
+    use ProvidesExportSchema;
 
     /**
      * Export resources to XLSX or CSV.
